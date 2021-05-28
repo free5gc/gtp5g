@@ -114,11 +114,11 @@ struct sdf_filter {
 };
 
 struct gtp5g_pdi {
-//    u8      src_iface;                // 0: Access, 1: Core, 2: SGi-LAN/N6-LAN, 3: CP-function
-    struct in_addr *ue_addr_ipv4;
-//  char *network_instance
+    //u8                src_iface;                // 0: Access, 1: Core, 2: SGi-LAN/N6-LAN, 3: CP-function
+    struct in_addr      *ue_addr_ipv4;
+    //char              *network_instance
     struct local_f_teid *f_teid;
-    struct sdf_filter *sdf;
+    struct sdf_filter   *sdf;
 };
 
 struct outer_header_creation {
@@ -248,6 +248,14 @@ struct gtp5g_net {
 struct list_head proc_gtp5g_dev;
 struct proc_gtp5g_pdr {
     u16     id;
+    u32     precedence;
+    u8      ohr;
+    u32     role_addr4;
+
+    u32     pdi_ue_addr4;
+    u32     pdi_fteid;
+    u32     pdi_gtpu_addr4;
+    
     u32     far_id;
     u32     qer_id;
 };
@@ -3662,7 +3670,13 @@ static int gtp5g_pdr_read(struct seq_file *s, void *v)
     }
     
     seq_printf(s, "PDR: \n");
-    seq_printf(s, "\t ID    : %u\n", proc_pdr.id);
+    seq_printf(s, "\t ID : %u\n", proc_pdr.id);
+    seq_printf(s, "\t Precedence: %u\n", proc_pdr.precedence);
+    seq_printf(s, "\t OHR: %u\n", proc_pdr.ohr);
+    seq_printf(s, "\t Role Addr4: %#08x\n", ntohl(proc_pdr.role_addr4));
+    seq_printf(s, "\t PDI UE Addr4: %#08x\n", ntohl(proc_pdr.pdi_ue_addr4));
+    seq_printf(s, "\t PDI TEID: %#08x\n", ntohl(proc_pdr.pdi_fteid));
+    seq_printf(s, "\t PDU GTPU Addr4: %#08x\n", ntohl(proc_pdr.pdi_gtpu_addr4));
     seq_printf(s, "\t FAR ID: %u\n", proc_pdr.far_id);
     seq_printf(s, "\t QER ID: %u\n", proc_pdr.qer_id);
     return 0;
@@ -3707,11 +3721,29 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
     
     memset(&proc_pdr, 0, sizeof(proc_pdr));
     proc_pdr.id = pdr->id;
+    proc_pdr.precedence = pdr->precedence;
+    
+    if (pdr->outer_header_removal) 
+        proc_pdr.ohr = *pdr->outer_header_removal;
+    
+    if (pdr->role_addr_ipv4.s_addr)
+        proc_pdr.role_addr4 = pdr->role_addr_ipv4.s_addr;
+    
+    if (pdr->pdi) {
+        if (pdr->pdi->ue_addr_ipv4) 
+            proc_pdr.pdi_ue_addr4 = pdr->pdi->ue_addr_ipv4->s_addr;
+        if (pdr->pdi->f_teid) {
+            proc_pdr.pdi_fteid = pdr->pdi->f_teid->teid;
+            proc_pdr.pdi_gtpu_addr4 = pdr->pdi->f_teid->gtpu_addr_ipv4.s_addr;
+        }
+    }
+
     if (pdr->far_id)
         proc_pdr.far_id = *pdr->far_id;
+    
     if (pdr->qer_id)
         proc_pdr.qer_id = *pdr->qer_id;
-    
+
 	return strnlen(buf, buf_len);
 err:
     proc_pdr_id = 0;
@@ -3744,9 +3776,9 @@ static const struct file_operations proc_gtp5g_dbg_ops = {
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
 static const struct proc_ops proc_gtp5g_pdr_ops = {
-	.proc_open	= proc_dbg_read,
+	.proc_open	= proc_pdr_read,
 	.proc_read	= seq_read,
-	.proc_write	= proc_dbg_write,
+	.proc_write	= proc_pdr_write,
 	.proc_lseek	= seq_lseek,
 	.proc_release = single_release,
 };
