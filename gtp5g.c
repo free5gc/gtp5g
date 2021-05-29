@@ -186,6 +186,10 @@ struct gtp5g_pdr {
     struct sock            	*sk;
     struct net_device   	*dev;
     struct rcu_head        	rcu_head;
+
+    /* Drop Count */
+    u64                     ul_drop_cnt;
+    u64                     dl_drop_cnt;
 };
 
 /* One instance of the GTP device. */
@@ -258,6 +262,9 @@ struct proc_gtp5g_pdr {
     
     u32     far_id;
     u32     qer_id;
+
+    u64     ul_drop_cnt;
+    u64     dl_drop_cnt;
 };
 
 static struct gtp5g_qer *gtp5g_find_qer(struct net *net, struct nlattr *nla[]);
@@ -1246,9 +1253,10 @@ static int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_
     return 0;
 }
 
-static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev)
+static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev, 
+    struct gtp5g_pdr *pdr)
 {
-    dev->stats.tx_dropped++;
+    ++pdr->dl_drop_cnt;
     dev_kfree_skb(skb);
     return FAR_ACTION_DROP;
 }
@@ -1272,32 +1280,33 @@ static void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
     gtp1->tid = epkt_info->teid;
 
     rt = ip4_find_route_simple(skb, epkt_info->sk, dev, 
-                        epkt_info->role_addr /* Src Addr */ ,
-						epkt_info->peer_addr /* Dst Addr*/, 
-						&fl4);
+        epkt_info->role_addr /* Src Addr */ ,
+        epkt_info->peer_addr /* Dst Addr*/, 
+        &fl4);
 	if (IS_ERR(rt)) {
         GTP5G_ERR(dev, "Failed to send GTP-U end-marker due to routing\n");
+        dev_kfree_skb(skb);
 		return;
 	}
 
 	udp_tunnel_xmit_skb(rt, 
-					epkt_info->sk, 
-					skb,
-					fl4.saddr, 
-					fl4.daddr,
-					0,
-					ip4_dst_hoplimit(&rt->dst),
-					0,
-					epkt_info->gtph_port, 
-					epkt_info->gtph_port,
-					true, 
-					true);
+        epkt_info->sk, 
+        skb,
+        fl4.saddr, 
+        fl4.daddr,
+        0,
+        ip4_dst_hoplimit(&rt->dst),
+        0,
+        epkt_info->gtph_port, 
+        epkt_info->gtph_port,
+        true, 
+        true);
 }
 
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb, 
-		struct net_device *dev,
-		struct gtp5g_pktinfo *pktinfo, 
-		struct gtp5g_pdr *pdr)
+    struct net_device *dev,
+    struct gtp5g_pktinfo *pktinfo, 
+    struct gtp5g_pdr *pdr)
 {
     struct rtable *rt;
     struct flowi4 fl4;
@@ -1306,15 +1315,14 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
 
     if (!(pdr->far && pdr->far->fwd_param && pdr->far->fwd_param->hdr_creation)) {
         GTP5G_ERR(dev, "Unknown RAN address\n");
-        dev->stats.tx_carrier_errors++;
         goto err;
     }
 
     hdr_creation = pdr->far->fwd_param->hdr_creation;
     rt = ip4_find_route(skb, iph, pdr->sk, dev, 
-                        pdr->role_addr_ipv4.s_addr, 
-						hdr_creation->peer_addr_ipv4.s_addr, 
-						&fl4);
+        pdr->role_addr_ipv4.s_addr, 
+        hdr_creation->peer_addr_ipv4.s_addr, 
+        &fl4);
 	if (IS_ERR(rt))
         goto err;
 
@@ -1327,24 +1335,25 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     gtp5g_push_header(skb, pktinfo);
 
     return FAR_ACTION_FORW;
-
 err:
     return -EBADMSG;
 }
 
 static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
-                                struct gtp5g_pdr *pdr)
+    struct gtp5g_pdr *pdr)
 {
     // TODO: handle nonlinear part
-    if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0)
+    if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0) {
         GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
+        ++pdr->dl_drop_cnt;
+    }
 
     dev_kfree_skb(skb);
     return FAR_ACTION_BUFF;
 }
 
 static int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
-                                struct gtp5g_pktinfo *pktinfo)
+    struct gtp5g_pktinfo *pktinfo)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
     struct gtp5g_pdr *pdr;
@@ -1362,8 +1371,7 @@ static int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
 
     if (!pdr) {
-        GTP5G_ERR(dev, "no PDR found for %pI4, skip\n",
-                   &iph->daddr);
+        GTP5G_ERR(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
         return -ENOENT;
     }
     //GTP5G_ERR(dev, "found PDR %p\n", pdr);
@@ -1383,7 +1391,7 @@ static int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         // The DUPL flag may be set with any of the DROP, FORW, BUFF and NOCP flags.
         switch (far->action & FAR_ACTION_MASK) {
         case FAR_ACTION_DROP:
-            return gtp5g_drop_skb_ipv4(skb, dev);
+            return gtp5g_drop_skb_ipv4(skb, dev, pdr);
         case FAR_ACTION_FORW:
             return gtp5g_fwd_skb_ipv4(skb, dev, pktinfo, pdr);
         case FAR_ACTION_BUFF:
@@ -1402,12 +1410,12 @@ static void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktin
     //GTP5G_ERR(pktinfo->dev, "gtp -> IP src: %pI4 dst: %pI4\n",
     //           &pktinfo->iph->saddr, &pktinfo->iph->daddr);
     udp_tunnel_xmit_skb(pktinfo->rt, pktinfo->sk, skb,
-                        pktinfo->fl4.saddr, pktinfo->fl4.daddr,
-                        pktinfo->iph->tos,
-                        ip4_dst_hoplimit(&pktinfo->rt->dst),
-                        0,
-                        pktinfo->gtph_port, pktinfo->gtph_port,
-                        true, true);
+        pktinfo->fl4.saddr, pktinfo->fl4.daddr,
+        pktinfo->iph->tos,
+        ip4_dst_hoplimit(&pktinfo->rt->dst),
+        0,
+        pktinfo->gtph_port, pktinfo->gtph_port,
+        true, true);
 }
 
 /**
@@ -1417,11 +1425,12 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 {
     unsigned int proto = ntohs(skb->protocol);
     struct gtp5g_pktinfo pktinfo;
-    int ret;
+    int ret = 0;
 
-    /* Ensure there is sufficient headroom. */
-    if (skb_cow_head(skb, dev->needed_headroom))
+    /* Ensure there is sufficient headroom */
+    if (skb_cow_head(skb, dev->needed_headroom)) {
         goto tx_err;
+    }
 
     skb_reset_inner_headers(skb);
 
@@ -1472,7 +1481,8 @@ static void pdr_context_free(struct rcu_head *head)
 
     sock_put(pdr->sk);
 
-    if (pdr->outer_header_removal) kfree(pdr->outer_header_removal);
+    if (pdr->outer_header_removal) 
+        kfree(pdr->outer_header_removal);
 
     pdi = pdr->pdi;
     if (pdi) {
@@ -1584,37 +1594,37 @@ static int gtp5g_hashtable_new(struct gtp5g_dev *gtp, int hsize)
     int i;
 
     gtp->addr_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
-                       GFP_KERNEL);
+        GFP_KERNEL);
     if (gtp->addr_hash == NULL)
         return -ENOMEM;
 
     gtp->i_teid_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
-                      GFP_KERNEL);
+        GFP_KERNEL);
     if (gtp->i_teid_hash == NULL)
         goto err1;
 
     gtp->pdr_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
-                       GFP_KERNEL);
+        GFP_KERNEL);
     if (gtp->pdr_id_hash == NULL)
         goto err2;
 
     gtp->far_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
-                       GFP_KERNEL);
+        GFP_KERNEL);
 	if (gtp->far_id_hash == NULL)
         goto err3;
 
 	gtp->qer_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
-                       GFP_KERNEL);
+        GFP_KERNEL);
     if (gtp->qer_id_hash == NULL)
         goto err4;
 
     gtp->related_far_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
-                        GFP_KERNEL);
+        GFP_KERNEL);
     if (gtp->related_far_hash == NULL)
         goto err5;
 
     gtp->related_qer_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
-                        GFP_KERNEL);
+        GFP_KERNEL);
     if (gtp->related_qer_hash == NULL)
         goto err6;
 
@@ -1698,15 +1708,15 @@ static void gtp5g_link_setup(struct net_device *dev)
 	 * what are the extension header going to supports.
 	 * */
     dev->needed_headroom = LL_MAX_HEADER +
-    			sizeof(struct iphdr) +
-                  	sizeof(struct udphdr) +
-                  	sizeof(struct gtpv1_hdr) + 
-					sizeof(struct gtp1_hdr_opt) +
-					sizeof(struct gtp1_hdr_ext_pdu_sess_ctr);
+        sizeof(struct iphdr) +
+        sizeof(struct udphdr) +
+        sizeof(struct gtpv1_hdr) + 
+        sizeof(struct gtp1_hdr_opt) +
+        sizeof(struct gtp1_hdr_ext_pdu_sess_ctr);
 }
 
 static int gtp5g_validate(struct nlattr *tb[], struct nlattr *data[],
-            struct netlink_ext_ack *extack)
+    struct netlink_ext_ack *extack)
 {
     if (!data)
         return -EINVAL;
@@ -1860,15 +1870,16 @@ static struct gtp5g_pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff
     return NULL;
 }
 
-static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev)
+static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev, 
+    struct gtp5g_pdr *pdr)
 {
-    dev->stats.tx_dropped++;
+    pdr->ul_drop_cnt++;
     dev_kfree_skb(skb);
     return 0;
 }
 
 static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
-                                unsigned int hdrlen, struct gtp5g_pdr *pdr)
+    unsigned int hdrlen, struct gtp5g_pdr *pdr)
 {
     struct gtp5g_far *far = pdr->far;
     struct forwarding_parameter *fwd_param = far->fwd_param;
@@ -1917,13 +1928,13 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 	
     // Get rid of the GTP + UDP headers.
     if (iptunnel_pull_header(skb, hdrlen, skb->protocol,
-                            !net_eq(sock_net(pdr->sk), dev_net(dev))))
+            !net_eq(sock_net(pdr->sk), dev_net(dev))))
         return -1;
 
     /* Now that the UDP and the GTP header have been removed, set up the
-        * new network header. This is required by the upper layer to
-        * calculate the transport header.
-        */
+     * new network header. This is required by the upper layer to
+     * calculate the transport header.
+     * */
     skb_reset_network_header(skb);
 
     skb->dev = dev;
@@ -1939,17 +1950,20 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     return 0;
 }
 
-static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev, struct gtp5g_pdr *pdr)
+static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev, 
+    struct gtp5g_pdr *pdr)
 {
-    if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0)
+    if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0) {
         GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
+        ++pdr->ul_drop_cnt;
+    }
 
     dev_kfree_skb(skb);
     return 0;
 }
 
 static int gtp5g_rx(struct gtp5g_pdr *pdr, struct sk_buff *skb,
-                  unsigned int hdrlen, unsigned int role)
+    unsigned int hdrlen, unsigned int role)
 {
     int rt;
     struct gtp5g_far *far = pdr->far;
@@ -1974,7 +1988,7 @@ static int gtp5g_rx(struct gtp5g_pdr *pdr, struct sk_buff *skb,
         // The DUPL flag may be set with any of the DROP, FORW, BUFF and NOCP flags.
         switch(far->action & FAR_ACTION_MASK) {
         case FAR_ACTION_DROP: 
-            rt = gtp5g_drop_skb_encap(skb, pdr->dev);
+            rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
         case FAR_ACTION_FORW:
             rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr);
@@ -1983,7 +1997,7 @@ static int gtp5g_rx(struct gtp5g_pdr *pdr, struct sk_buff *skb,
             rt = gtp5g_buf_skb_encap(skb, pdr->dev, pdr);
             break;
         default:
-            pr_err("Unspec apply action[%u] in FAR[%u] and related to PDR[%u]",
+            pr_err("Unspec apply action(%u) in FAR(%u) and related to PDR(%u)",
                 far->action, far->id, pdr->id);
             rt = -1;
         }
@@ -1991,7 +2005,7 @@ static int gtp5g_rx(struct gtp5g_pdr *pdr, struct sk_buff *skb,
         // TODO: this action is not supported
         pr_err("Unsupported action: not removing outer hdr of a non-gtp packet "
                "(which routed to the gtp interface and matches a PDR)");
-        return -1;
+        rt = -1;
     }
     
     return rt;
@@ -2025,8 +2039,7 @@ static int get_gtpu_header_len(struct gtpv1_hdr *gtpv1, u16 prefix_hdrlen)
 		next_ehdr_type = gtpv1_opt->next_ehdr_type;
 		while (next_ehdr_type) {
 			switch (next_ehdr_type) {
-			case GTPV1_NEXT_EXT_HDR_TYPE_85: 
-			{
+			case GTPV1_NEXT_EXT_HDR_TYPE_85: {
 				ext_pdu_sess_ctr_t *etype85 = (ext_pdu_sess_ctr_t *) ((u8 *) gtpv1_opt + sizeof(*gtpv1_opt)); 
 				pdu_sess_ctr_t *pdu_sess_info = &etype85->pdu_sess_ctr;
 
@@ -2101,7 +2114,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
  *       was discarded by it
  *  >0 : if skb should be passed on to UDP
  *  <0 : if skb should be resubmitted as proto -N
- */
+ * */
 static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
 {
     struct gtp5g_dev *gtp;
@@ -2207,8 +2220,8 @@ static int gtp5g_encap_enable(struct gtp5g_dev *gtp, struct nlattr *data[]) {
 }
 
 static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
-               struct nlattr *tb[], struct nlattr *data[],
-               struct netlink_ext_ack *extack)
+    struct nlattr *tb[], struct nlattr *data[],
+    struct netlink_ext_ack *extack)
 {
     struct gtp5g_dev *gtp;
     struct gtp5g_net *gn;
@@ -2439,7 +2452,7 @@ unlock:
 }
 
 static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
-                               u32 type, struct gtp5g_pdr *pdr)
+    u32 type, struct gtp5g_pdr *pdr)
 {
     void *genlh;
     struct nlattr *nest_pdi, *nest_f_teid, *nest_sdf, *nest_rule;
@@ -2610,10 +2623,10 @@ static int gtp5g_genl_get_pdr(struct sk_buff *skb, struct genl_info *info)
     }
 
     err = gtp5g_genl_fill_pdr(skb_ack, 
-								NETLINK_CB(skb).portid,
-                              	info->snd_seq, 
-								info->nlhdr->nlmsg_type, 
-								pdr);
+        NETLINK_CB(skb).portid,
+        info->snd_seq, 
+        info->nlhdr->nlmsg_type, 
+        pdr);
     if (err < 0) {
 		GTP5G_ERR(NULL, "Failed to fill PDR err(%d)\n", err);
         goto freebuf;
@@ -2662,10 +2675,10 @@ static int gtp5g_genl_dump_pdr(struct sk_buff *skb, struct netlink_callback *cb)
                     pdr_id = 0;
 
                 ret = gtp5g_genl_fill_pdr(skb, 
-									NETLINK_CB(cb->skb).portid,
-                                    cb->nlh->nlmsg_seq, 
-									cb->nlh->nlmsg_type, 
-									pdr);
+                    NETLINK_CB(cb->skb).portid,
+                    cb->nlh->nlmsg_seq, 
+                    cb->nlh->nlmsg_type, 
+                    pdr);
                 if (ret < 0) {
                     cb->args[0] = (unsigned long) gtp;
                     cb->args[1] = i;
@@ -2718,7 +2731,7 @@ static int gtp5g_gnl_add_far(struct gtp5g_dev *gtp, struct genl_info *info)
              * */
             struct sk_buff *skb = __netdev_alloc_skb(dev, 52, GFP_KERNEL);
             if (!skb) {
-                GTP5G_ERR(dev, "FAR-Add: Failled to allocate skb with a size 52\n");
+                GTP5G_ERR(dev, "FAR-Add: Failled to allocate EndMarker SKB with a size 52B\n");
                 err = 0;
 				goto out;
             }
@@ -2833,7 +2846,7 @@ unlock:
 }
 
 static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
-                               u32 type, struct gtp5g_far *far)
+    u32 type, struct gtp5g_far *far)
 {
     void *genlh;
     struct nlattr *nest_fwd_param, *nest_hdr_creation;
@@ -2939,10 +2952,10 @@ static int gtp5g_genl_get_far(struct sk_buff *skb, struct genl_info *info)
     }
 
     err = gtp5g_genl_fill_far(skb_ack, 
-					NETLINK_CB(skb).portid,
-                    info->snd_seq, 
-					info->nlhdr->nlmsg_type, 
-					far);
+        NETLINK_CB(skb).portid,
+        info->snd_seq, 
+        info->nlhdr->nlmsg_type, 
+        far);
     if (err < 0) {
 		GTP5G_ERR(NULL, "Failed to fill far\n");
         goto freebuf;
@@ -2993,10 +3006,10 @@ static int gtp5g_genl_dump_far(struct sk_buff *skb, struct netlink_callback *cb)
                     far_id = 0;
 
                 ret = gtp5g_genl_fill_far(skb, 
-								NETLINK_CB(cb->skb).portid,
-                                cb->nlh->nlmsg_seq, 
-								cb->nlh->nlmsg_type, 
-								far);
+                    NETLINK_CB(cb->skb).portid,
+                    cb->nlh->nlmsg_seq, 
+                    cb->nlh->nlmsg_type, 
+                    far);
                 if (ret < 0) {
                     cb->args[0] = (unsigned long) gtp;
                     cb->args[1] = i;
@@ -3253,7 +3266,7 @@ unlock:
 }
 
 static int gtp5g_genl_fill_qer(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
-                               u32 type, struct gtp5g_qer *qer)
+    u32 type, struct gtp5g_qer *qer)
 {
     void *genlh;
     int cnt;
@@ -3269,11 +3282,10 @@ static int gtp5g_genl_fill_qer(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
 	}
 
     genlh = genlmsg_put(skb, snd_portid, snd_seq, 
-						&gtp5g_genl_family, 0, type);
+        &gtp5g_genl_family, 0, type);
     if (!genlh) {
 		GTP5G_ERR(NULL, "Failed to get genlh snd_port_id(%#x)"
-				" \t snd_seq(%#x) type(%#x)\n", 
-				snd_portid, snd_seq, type);
+            " \t snd_seq(%#x) type(%#x)\n", snd_portid, snd_seq, type);
         goto genlmsg_fail;
 	}
 
@@ -3326,9 +3338,9 @@ static int gtp5g_genl_fill_qer(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
 
     if (cnt) {
         if (nla_put(skb, 
-					GTP5G_QER_RELATED_TO_PDR,
-            		(cnt * sizeof(u16) / sizeof(char)), 
-					u16_buf))
+            GTP5G_QER_RELATED_TO_PDR,
+            (cnt * sizeof(u16) / sizeof(char)), 
+            u16_buf))
             goto genlmsg_fail;
     }
 
@@ -3400,10 +3412,10 @@ static int gtp5g_genl_get_qer(struct sk_buff *skb, struct genl_info *info)
     }
 
     err = gtp5g_genl_fill_qer(skb_ack, 
-								NETLINK_CB(skb).portid,
-                              	info->snd_seq, 
-								info->nlhdr->nlmsg_type, 
-								qer);
+        NETLINK_CB(skb).portid,
+        info->snd_seq, 
+        info->nlhdr->nlmsg_type, 
+        qer);
     if (err < 0) {
 		GTP5G_ERR(NULL, "Failed to fil the qer\n");
         goto freebuf;
@@ -3453,10 +3465,10 @@ static int gtp5g_genl_dump_qer(struct sk_buff *skb, struct netlink_callback *cb)
                     qer_id = 0;
 
                 ret = gtp5g_genl_fill_qer(skb, 
-											NETLINK_CB(cb->skb).portid,
-                                        	cb->nlh->nlmsg_seq, 
-											cb->nlh->nlmsg_type, 
-											qer);
+                    NETLINK_CB(cb->skb).portid,
+                    cb->nlh->nlmsg_seq, 
+                    cb->nlh->nlmsg_type, 
+                    qer);
                 if (ret < 0) {
                     cb->args[0] = (unsigned long) gtp;
                     cb->args[1] = i;
@@ -3679,6 +3691,8 @@ static int gtp5g_pdr_read(struct seq_file *s, void *v)
     seq_printf(s, "\t PDU GTPU Addr4: %#08x\n", ntohl(proc_pdr.pdi_gtpu_addr4));
     seq_printf(s, "\t FAR ID: %u\n", proc_pdr.far_id);
     seq_printf(s, "\t QER ID: %u\n", proc_pdr.qer_id);
+    seq_printf(s, "\t UL Drop Count: %#llx\n", proc_pdr.ul_drop_cnt);
+    seq_printf(s, "\t DL Drop Count: %#llx\n", proc_pdr.dl_drop_cnt);
     return 0;
 }
 
@@ -3743,6 +3757,9 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
     
     if (pdr->qer_id)
         proc_pdr.qer_id = *pdr->qer_id;
+
+    proc_pdr.ul_drop_cnt = pdr->ul_drop_cnt;
+    proc_pdr.dl_drop_cnt = pdr->dl_drop_cnt;
 
 	return strnlen(buf, buf_len);
 err:
@@ -3864,7 +3881,7 @@ static void __exit gtp5g_fini(void)
     genl_unregister_family(&gtp5g_genl_family);
     rtnl_link_unregister(&gtp5g_link_ops);
     unregister_pernet_subsys(&gtp5g_net_ops);
-    
+
     remove_proc_entry("pdr", proc_gtp5g);
     remove_proc_entry("dbg", proc_gtp5g);
 	remove_proc_entry("gtp5g", NULL);
