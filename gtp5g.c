@@ -114,7 +114,7 @@ struct sdf_filter {
 };
 
 struct gtp5g_pdi {
-    //u8                src_iface;                // 0: Access, 1: Core, 2: SGi-LAN/N6-LAN, 3: CP-function
+    //u8                src_iface;          // 0: Access, 1: Core, 2: SGi-LAN/N6-LAN, 3: CP-function
     struct in_addr      *ue_addr_ipv4;
     //char              *network_instance
     struct local_f_teid *f_teid;
@@ -267,6 +267,21 @@ struct proc_gtp5g_pdr {
     u64     dl_drop_cnt;
 };
 
+struct proc_gtp5g_far {
+    u32     id;
+    u8      action;
+
+    //OHC
+    u16     description;
+    u32     teid; 
+    u32     peer_addr4;
+};
+
+struct proc_gtp5g_qer {
+    u32     id;
+    u8      qfi;
+};
+
 static struct gtp5g_qer *gtp5g_find_qer(struct net *net, struct nlattr *nla[]);
 static struct gtp5g_qer *qer_find_by_id(struct gtp5g_dev *gtp, u32 id);
 static void qer_context_delete(struct gtp5g_qer *qer);
@@ -349,7 +364,7 @@ static int unix_sock_client_new(struct gtp5g_pdr *pdr)
 
     rt = sock_create(AF_UNIX, SOCK_DGRAM, 0, psock);
     if (rt) {
-        GTP5G_ERR(NULL, "Failed to create dgram socket\n");
+        GTP5G_ERR(NULL, "Failed to create dgram socket: %s\n", addr->sun_path);
         return rt;
     }
 
@@ -357,7 +372,7 @@ static int unix_sock_client_new(struct gtp5g_pdr *pdr)
             sizeof(addr->sun_family) + strlen(addr->sun_path), 0);
     if (rt) {
         unix_sock_client_delete(pdr);
-        GTP5G_ERR(NULL, "Failed to connect the socket\n");
+        GTP5G_ERR(NULL, "Failed to connect the socket: %s\n", addr->sun_path);
         return rt;
     }
 
@@ -436,18 +451,17 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
         if (!far->fwd_param) {
             far->fwd_param = kzalloc(sizeof(*far->fwd_param), GFP_ATOMIC);
             if (!far->fwd_param) {
-				GTP5G_ERR(NULL, "Failed to allocate FAR fwd param\n");
+				GTP5G_ERR(NULL, "Failed to allocate memory for FAR fwd param\n");
                 return -ENOMEM;
 			}
         }
 
         if (fwd_param_attrs[GTP5G_FORWARDING_PARAMETER_OUTER_HEADER_CREATION] &&
             !nla_parse_nested(hdr_creation_attrs, 
-								GTP5G_OUTER_HEADER_CREATION_ATTR_MAX, 
-								fwd_param_attrs[GTP5G_FORWARDING_PARAMETER_OUTER_HEADER_CREATION], 
-								NULL, 
-								NULL)) {
-
+                GTP5G_OUTER_HEADER_CREATION_ATTR_MAX, 
+                fwd_param_attrs[GTP5G_FORWARDING_PARAMETER_OUTER_HEADER_CREATION], 
+                NULL, 
+                NULL)) {
             if (!hdr_creation_attrs[GTP5G_OUTER_HEADER_CREATION_DESCRIPTION] ||
                 !hdr_creation_attrs[GTP5G_OUTER_HEADER_CREATION_O_TEID] ||
                 !hdr_creation_attrs[GTP5G_OUTER_HEADER_CREATION_PEER_ADDR_IPV4] ||
@@ -458,7 +472,7 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
 
             if (!far->fwd_param->hdr_creation) {
                 far->fwd_param->hdr_creation = kzalloc(sizeof(*far->fwd_param->hdr_creation), 
-													GFP_ATOMIC);
+					GFP_ATOMIC);
                 if (!far->fwd_param->hdr_creation) {
                     GTP5G_ERR(NULL, "Failed to allocate FAR fwd Hdr creation\n");
                     return -ENOMEM;
@@ -491,8 +505,10 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
                  *      3.b) SHOULD set the flag as 1 and send GTP-U Marker for old gNB
                  * */
                 if ((flag != NULL && epkt_info != NULL)) {
-                    if (((old_teid & hdr_creation->teid) != 0 && ((old_peer_addr & hdr_creation->peer_addr_ipv4.s_addr) != 0)) &&
-                        ((old_teid != hdr_creation->teid ) || (old_peer_addr != hdr_creation->peer_addr_ipv4.s_addr))) {
+                    if (((old_teid & hdr_creation->teid) != 0 && 
+                        ((old_peer_addr & hdr_creation->peer_addr_ipv4.s_addr) != 0)) &&
+                        ((old_teid != hdr_creation->teid ) ||
+                         (old_peer_addr != hdr_creation->peer_addr_ipv4.s_addr))) {
 						*flag = 1;
 						epkt_info->teid = old_teid;
 						epkt_info->peer_addr = old_peer_addr;
@@ -580,7 +596,8 @@ static int ports_match(struct range *match_list, int list_len, __be16 port) {
     return 0;
 }
 
-static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb, unsigned int hdrlen, u8 direction)
+static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb, 
+    unsigned int hdrlen, u8 direction)
 {
     struct iphdr *iph;
     struct ip_filter_rule *rule;
@@ -594,7 +611,7 @@ static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb, unsigne
     }
 
     if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr))) {
-        GTP5G_ERR(NULL, "skb pull fail\n");
+        GTP5G_ERR(NULL, "skb pull fail in sdf filter match\n");
         goto mismatch;
     }
  
@@ -615,7 +632,8 @@ static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb, unsigne
             goto mismatch;
         
         if (rule->sport_num + rule->dport_num > 0) {
-            if (!(pptr = skb_header_pointer(skb, hdrlen + sizeof(struct iphdr), sizeof(_ports), _ports)))
+            if (!(pptr = skb_header_pointer(skb, hdrlen + sizeof(struct iphdr), 
+                sizeof(_ports), _ports)))
                 goto mismatch;
 
             if (!ports_match(rule->sport, rule->sport_num, ntohs(pptr[0])))
@@ -627,25 +645,24 @@ static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb, unsigne
     }
 
     if (sdf->tos_traffic_class)
-        GTP5G_ERR(NULL, "ToS traffic class check does not implement yet\n");
+        GTP5G_ERR(NULL, "TODO: SDF's ToS traffic class\n");
     
     if (sdf->security_param_idx)
-        GTP5G_ERR(NULL, "Security parameter index check does not implement yet\n");
+        GTP5G_ERR(NULL, "TODO: SDF's Security parameter index\n");
 
     if (sdf->flow_label)
-        GTP5G_ERR(NULL, "Flow label check does not implement yet\n");
+        GTP5G_ERR(NULL, "TODO: SDF's Flow label\n");
 
     if (sdf->bi_id)
-        GTP5G_ERR(NULL, "SDF filter ID check does not implement yet\n");
+        GTP5G_ERR(NULL, "TODO: SDF's SDF filter id\n");
 
     return 1;
-
 mismatch:
     return 0;
 }
 
 static struct gtp5g_pdr *pdr_find_by_ipv4(struct gtp5g_dev *gtp, struct sk_buff *skb,
-                                  unsigned int hdrlen, __be32 addr)
+    unsigned int hdrlen, __be32 addr)
 {
     struct hlist_head *head;
     struct gtp5g_pdr *pdr;
@@ -734,7 +751,7 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
             hlist_del_rcu(&pdr->hlist_related_far);
 
         hlist_add_head_rcu(&pdr->hlist_related_far, 
-							&gtp->related_far_hash[u32_hashfn(*pdr->far_id) % gtp->hash_size]);
+			&gtp->related_far_hash[u32_hashfn(*pdr->far_id) % gtp->hash_size]);
         pdr->far = far_find_by_id(gtp, *pdr->far_id);
     } else {
 		GTP5G_ERR(NULL, "FAR ID not exist\n");
@@ -755,7 +772,7 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
             hlist_del_rcu(&pdr->hlist_related_qer);
 
         hlist_add_head_rcu(&pdr->hlist_related_qer, 
-							&gtp->related_qer_hash[u32_hashfn(*pdr->qer_id) % gtp->hash_size]);
+			&gtp->related_qer_hash[u32_hashfn(*pdr->qer_id) % gtp->hash_size]);
 
         pdr->qer = qer_find_by_id(gtp, *pdr->qer_id);
 		if (!pdr->qer)
@@ -1116,12 +1133,9 @@ static void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo
 }
 
 static inline void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *pktinfo,
-                                        struct sock *sk, struct iphdr *iph,
-                                        struct outer_header_creation *hdr_creation,
-										struct gtp5g_qer *qer,
-                                        struct rtable *rt,
-                                        struct flowi4 *fl4,
-                                        struct net_device *dev)
+    struct sock *sk, struct iphdr *iph, struct outer_header_creation *hdr_creation,
+    struct gtp5g_qer *qer, struct rtable *rt, struct flowi4 *fl4,
+    struct net_device *dev)
 {
 	pktinfo->sk            = sk;
 	pktinfo->iph           = iph;
@@ -1133,8 +1147,8 @@ static inline void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *pktinfo,
 }
 
 static struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
-						struct sock *sk, struct net_device *gtp_dev, 
-						__be32 saddr, __be32 daddr, struct flowi4 *fl4)
+    struct sock *sk, struct net_device *gtp_dev, 
+    __be32 saddr, __be32 daddr, struct flowi4 *fl4)
 {
 	struct rtable *rt;
 	__be16 df;
@@ -1196,8 +1210,8 @@ err:
 }
 
 static struct rtable *ip4_find_route_simple(struct sk_buff *skb,
-						struct sock *sk, struct net_device *gtp_dev, 
-						__be32 saddr, __be32 daddr, struct flowi4 *fl4)
+    struct sock *sk, struct net_device *gtp_dev, 
+    __be32 saddr, __be32 daddr, struct flowi4 *fl4)
 {
 	struct rtable *rt;
 
@@ -1262,8 +1276,8 @@ static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
 }
 
 static void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
-		struct net_device *dev,
-		struct gtp5g_emark_pktinfo *epkt_info) {
+    struct net_device *dev,
+    struct gtp5g_emark_pktinfo *epkt_info) {
     struct rtable *rt;
     struct flowi4 fl4;
     struct gtpv1_hdr *gtp1;
@@ -1304,8 +1318,7 @@ static void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
 }
 
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb, 
-    struct net_device *dev,
-    struct gtp5g_pktinfo *pktinfo, 
+    struct net_device *dev, struct gtp5g_pktinfo *pktinfo, 
     struct gtp5g_pdr *pdr)
 {
     struct rtable *rt;
@@ -1313,13 +1326,17 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct iphdr *iph = ip_hdr(skb);
     struct outer_header_creation *hdr_creation;
 
-    if (!(pdr->far && pdr->far->fwd_param && pdr->far->fwd_param->hdr_creation)) {
+    if (!(pdr->far && pdr->far->fwd_param &&
+        pdr->far->fwd_param->hdr_creation)) {
         GTP5G_ERR(dev, "Unknown RAN address\n");
         goto err;
     }
 
     hdr_creation = pdr->far->fwd_param->hdr_creation;
-    rt = ip4_find_route(skb, iph, pdr->sk, dev, 
+    rt = ip4_find_route(skb, 
+        iph, 
+        pdr->sk,
+        dev, 
         pdr->role_addr_ipv4.s_addr, 
         hdr_creation->peer_addr_ipv4.s_addr, 
         &fl4);
@@ -1327,9 +1344,23 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
         goto err;
 
 	if (!pdr->qer) {
-		gtp5g_set_pktinfo_ipv4(pktinfo, pdr->sk, iph, hdr_creation, NULL, rt, &fl4, dev);
+		gtp5g_set_pktinfo_ipv4(pktinfo, 
+            pdr->sk, 
+            iph, 
+            hdr_creation,
+            NULL, 
+            rt, 
+            &fl4, 
+            dev);
 	} else {
-		gtp5g_set_pktinfo_ipv4(pktinfo, pdr->sk, iph, hdr_creation, pdr->qer, rt, &fl4, dev);
+		gtp5g_set_pktinfo_ipv4(pktinfo, 
+            pdr->sk, 
+            iph, 
+            hdr_creation, 
+            pdr->qer, 
+            rt, 
+            &fl4, 
+            dev);
 	}
 
     gtp5g_push_header(skb, pktinfo);
@@ -1374,7 +1405,6 @@ static int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         GTP5G_ERR(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
         return -ENOENT;
     }
-    //GTP5G_ERR(dev, "found PDR %p\n", pdr);
 
 	/* TODO: QoS rule have to apply before apply FAR 
 	 * */
@@ -1397,7 +1427,7 @@ static int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         case FAR_ACTION_BUFF:
             return gtp5g_buf_skb_ipv4(skb, dev, pdr);
         default:
-            GTP5G_ERR(dev, "Unspec apply action[%u] in FAR[%u] and related to PDR[%u]",
+            GTP5G_ERR(dev, "Unspec apply action(%u) in FAR(%u) and related to PDR(%u)",
                 far->action, far->id, pdr->id);
         }
     }
@@ -1409,13 +1439,18 @@ static void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktin
 {
     //GTP5G_ERR(pktinfo->dev, "gtp -> IP src: %pI4 dst: %pI4\n",
     //           &pktinfo->iph->saddr, &pktinfo->iph->daddr);
-    udp_tunnel_xmit_skb(pktinfo->rt, pktinfo->sk, skb,
-        pktinfo->fl4.saddr, pktinfo->fl4.daddr,
+    udp_tunnel_xmit_skb(pktinfo->rt, 
+        pktinfo->sk,
+        skb,
+        pktinfo->fl4.saddr,
+        pktinfo->fl4.daddr,
         pktinfo->iph->tos,
         ip4_dst_hoplimit(&pktinfo->rt->dst),
         0,
-        pktinfo->gtph_port, pktinfo->gtph_port,
-        true, true);
+        pktinfo->gtph_port, 
+        pktinfo->gtph_port,
+        true, 
+        true);
 }
 
 /**
@@ -1434,15 +1469,12 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 
     skb_reset_inner_headers(skb);
 
-    /* PDR lookups in gtp5g_build_skb_*() need rcu read-side lock. */
+    /* PDR lookups in gtp5g_build_skb_*() need rcu read-side lock. 
+     * */
     rcu_read_lock();
     switch (proto) {
     case ETH_P_IP:
-        //printk_ratelimited("%s:%d Dowlink Packet received, skb.len(%u)\n", 
-		//	__func__, __LINE__, skb->len);
         ret = gtp5g_handle_skb_ipv4(skb, dev, &pktinfo);
-        //printk_ratelimited("%s:%d Dowlink Packet processed ret(%u) skb.len(%u)\n", 
-		//	__func__, __LINE__, ret, skb->len);
         break;
     default:
         ret = -EOPNOTSUPP;
@@ -1705,7 +1737,7 @@ static void gtp5g_link_setup(struct net_device *dev)
     netif_keep_dst(dev);
 
     /* TODO: Modify the headroom size based on
-	 * what are the extension header going to supports.
+	 * what are the extension header going to support
 	 * */
     dev->needed_headroom = LL_MAX_HEADER +
         sizeof(struct iphdr) +
@@ -2043,8 +2075,6 @@ static int get_gtpu_header_len(struct gtpv1_hdr *gtpv1, u16 prefix_hdrlen)
 				ext_pdu_sess_ctr_t *etype85 = (ext_pdu_sess_ctr_t *) ((u8 *) gtpv1_opt + sizeof(*gtpv1_opt)); 
 				pdu_sess_ctr_t *pdu_sess_info = &etype85->pdu_sess_ctr;
 
-				//printk_ratelimited("%s: GTPV1_NEXT_EXT_HDR_TYPE_85\n", __func__);
-
 				if (pdu_sess_info->type_spare == PDU_SESSION_INFO_TYPE0)
 					return -1;
 			
@@ -2055,10 +2085,10 @@ static int get_gtpu_header_len(struct gtpv1_hdr *gtpv1, u16 prefix_hdrlen)
 				next_ehdr_type = etype85->next_ehdr_type;
 				break;
 			}
-				
 			default:
 				/* Unknown/Unhandled Extension Header Type */
-				printk_ratelimited("%s: Invalid header type(%#x)\n", __func__, next_ehdr_type);
+				 GTP5G_ERR(NULL, "%s: Invalid header type(%#x)\n", 
+                    __func__, next_ehdr_type);
 				return -1;
 			}
 		}
@@ -2126,7 +2156,6 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
 
     switch (udp_sk(sk)->encap_type) {
     case UDP_ENCAP_GTP1U:
-        //GTP5G_ERR(gtp->dev, "Receive GTP-U v1 packet\n");
         ret = gtp1u_udp_encap_recv(gtp, skb);
         break;
     default:
@@ -2149,7 +2178,8 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
     return ret;
 }
 
-static struct sock *gtp5g_encap_enable_socket(int fd, int type, struct gtp5g_dev *gtp)
+static struct sock *gtp5g_encap_enable_socket(int fd, int type, 
+    struct gtp5g_dev *gtp)
 {
     struct udp_tunnel_sock_cfg tuncfg = {NULL};
     struct socket *sock;
@@ -2255,16 +2285,14 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     list_add_rcu(&gtp->list, &gn->gtp5g_dev_list);
     list_add_rcu(&gtp->proc_list, &proc_gtp5g_dev);
 
-    GTP5G_ERR(dev, "registered new 5G GTP interface\n");
+    GTP5G_ERR(dev, "Registered a new 5G GTP interface\n");
 
     return 0;
-
 out_hashtable:
     gtp5g_hashtable_free(gtp);
 out_encap:
     gtp5g_encap_disable(gtp);
     return err;
-
 }
 
 static void gtp5g_dellink(struct net_device *dev, struct list_head *head)
@@ -2292,7 +2320,6 @@ static int gtp5g_fill_info(struct sk_buff *skb, const struct net_device *dev)
         goto nla_put_failure;
 
     return 0;
-
 nla_put_failure:
     return -EMSGSIZE;
 }
@@ -2588,7 +2615,6 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     genlmsg_end(skb, genlh);
 
     return 0;
-
 genlmsg_fail:
     kfree(u32_buf);
     genlmsg_cancel(skb, genlh);
@@ -2632,8 +2658,8 @@ static int gtp5g_genl_get_pdr(struct sk_buff *skb, struct genl_info *info)
         goto freebuf;
 	}
     rcu_read_unlock();
-    return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 
+    return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 freebuf:
     kfree_skb(skb_ack);
 unlock:
@@ -2916,7 +2942,6 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     kfree(u16_buf);
     genlmsg_end(skb, genlh);
     return 0;
-
 genlmsg_fail:
     kfree(u16_buf);
     genlmsg_cancel(skb, genlh);
@@ -2964,7 +2989,6 @@ static int gtp5g_genl_get_far(struct sk_buff *skb, struct genl_info *info)
     rcu_read_unlock();
 
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
-
 freebuf:
     kfree_skb(skb_ack);
 unlock:
@@ -3206,7 +3230,6 @@ out:
     return err;
 }
 
-
 static int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
 {
     struct gtp5g_dev *gtp;
@@ -3397,7 +3420,6 @@ static int gtp5g_genl_get_qer(struct sk_buff *skb, struct genl_info *info)
 	}
 
     rcu_read_lock();
-
     qer = gtp5g_find_qer(sock_net(skb->sk), info->attrs);
     if (IS_ERR(qer)) {
 		GTP5G_ERR(NULL, "Failed to find QER\n");
@@ -3420,10 +3442,9 @@ static int gtp5g_genl_get_qer(struct sk_buff *skb, struct genl_info *info)
 		GTP5G_ERR(NULL, "Failed to fil the qer\n");
         goto freebuf;
 	}
-
     rcu_read_unlock();
-    return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 
+    return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 freebuf:
     kfree_skb(skb_ack);
 unlock:
@@ -3461,9 +3482,7 @@ static int gtp5g_genl_dump_qer(struct sk_buff *skb, struct netlink_callback *cb)
             hlist_for_each_entry_rcu(qer, &gtp->qer_id_hash[i], hlist_id) {
                 if (qer_id && qer_id != qer->id)
                     continue;
-                else
-                    qer_id = 0;
-
+                qer_id = 0;
                 ret = gtp5g_genl_fill_qer(skb, 
                     NETLINK_CB(cb->skb).portid,
                     cb->nlh->nlmsg_seq, 
@@ -3625,8 +3644,14 @@ static struct pernet_operations gtp5g_net_ops = {
 struct proc_dir_entry *proc_gtp5g = NULL;
 struct proc_dir_entry *proc_gtp5g_dbg = NULL;
 struct proc_dir_entry *proc_gtp5g_pdr = NULL;
+struct proc_dir_entry *proc_gtp5g_far = NULL;
+struct proc_dir_entry *proc_gtp5g_qer = NULL;
 struct proc_gtp5g_pdr proc_pdr;
+struct proc_gtp5g_far proc_far;
+struct proc_gtp5g_qer proc_qer;
 u16 proc_pdr_id = 0;
+u32 proc_far_id = 0;
+u32 proc_qer_id = 0;
 
 static int gtp5g_dbg_read(struct seq_file *s, void *v) 
 {
@@ -3693,6 +3718,35 @@ static int gtp5g_pdr_read(struct seq_file *s, void *v)
     seq_printf(s, "\t QER ID: %u\n", proc_pdr.qer_id);
     seq_printf(s, "\t UL Drop Count: %#llx\n", proc_pdr.ul_drop_cnt);
     seq_printf(s, "\t DL Drop Count: %#llx\n", proc_pdr.dl_drop_cnt);
+    return 0;
+}
+
+static int gtp5g_far_read(struct seq_file *s, void *v) 
+{
+    if (!proc_far_id) {
+        seq_printf(s, "Given FAR ID does not exists\n");
+        return -1;
+    }
+    
+    seq_printf(s, "FAR: \n");
+    seq_printf(s, "\t ID : %u\n", proc_far.id);
+    seq_printf(s, "\t Apply Action: %#x\n", proc_far.action);
+    seq_printf(s, "\t OHC Description: %#x\n", proc_far.description);
+    seq_printf(s, "\t OHC TEID : %#08x\n", ntohl(proc_far.teid));
+    seq_printf(s, "\t OHC Peer Addr4: %#08x\n", ntohl(proc_far.peer_addr4));
+    return 0;
+}
+
+static int gtp5g_qer_read(struct seq_file *s, void *v) 
+{
+    if (!proc_qer_id) {
+        seq_printf(s, "Given QER ID does not exists\n");
+        return -1;
+    }
+    
+    seq_printf(s, "QER: \n");
+    seq_printf(s, "\t ID : %u\n", proc_qer.id);
+    seq_printf(s, "\t QFI: %u\n", proc_qer.qfi);
     return 0;
 }
 
@@ -3767,9 +3821,121 @@ err:
     return -1;
 }
 
+static ssize_t proc_far_write(struct file *filp, const char __user *buffer,
+    size_t len, loff_t *dptr) 
+{
+    char buf[128], dev_name[32];
+    u8 found = 0;
+    unsigned long buf_len = min(sizeof(buf) - 1, len);
+    struct gtp5g_far *far;
+    struct gtp5g_dev *gtp;
+    
+    if (copy_from_user(buf, buffer, buf_len)) {
+        GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);
+        goto err;
+    }
+    
+    buf[buf_len] = 0;
+    if (sscanf(buf, "%s %u", dev_name, &proc_far_id) != 2) {
+        GTP5G_ERR(NULL, "proc write of FAR Dev & ID: %s is not valid\n", buf);
+        goto err;
+    }
+    
+    list_for_each_entry_rcu(gtp, &proc_gtp5g_dev, proc_list) {
+        if (strcmp(dev_name, netdev_name(gtp->dev)) == 0) {
+            found = 1;
+            break;
+        }
+    }
+    if (!found) {
+        GTP5G_ERR(NULL, "Given dev: %s not exists\n", dev_name);
+        goto err;
+    }
+
+    far = far_find_by_id(gtp, proc_far_id);
+    if (!far) {
+        GTP5G_ERR(NULL, "Given FAR ID : %u not exists\n", proc_far_id);
+        goto err;
+    }
+    
+    memset(&proc_far, 0, sizeof(proc_far));
+    proc_far.id = far->id;
+    proc_far.action = far->action;
+   
+    if (far->fwd_param) {
+        if (far->fwd_param->hdr_creation) {
+            proc_far.description = far->fwd_param->hdr_creation->description;
+            proc_far.teid = far->fwd_param->hdr_creation->teid;
+            proc_far.peer_addr4 = far->fwd_param->hdr_creation->peer_addr_ipv4.s_addr;
+        }
+    }
+
+	return strnlen(buf, buf_len);
+err:
+    proc_far_id = 0;
+    return -1;
+}
+
+static ssize_t proc_qer_write(struct file *filp, const char __user *buffer,
+    size_t len, loff_t *dptr) 
+{
+    char buf[128], dev_name[32];
+    u8 found = 0;
+    unsigned long buf_len = min(sizeof(buf) - 1, len);
+    struct gtp5g_qer *qer;
+    struct gtp5g_dev *gtp;
+    
+    if (copy_from_user(buf, buffer, buf_len)) {
+        GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);
+        goto err;
+    }
+    
+    buf[buf_len] = 0;
+    if (sscanf(buf, "%s %u", dev_name, &proc_qer_id) != 2) {
+        GTP5G_ERR(NULL, "proc write of QER Dev & ID: %s is not valid\n", buf);
+        goto err;
+    }
+    
+    list_for_each_entry_rcu(gtp, &proc_gtp5g_dev, proc_list) {
+        if (strcmp(dev_name, netdev_name(gtp->dev)) == 0) {
+            found = 1;
+            break;
+        }
+    }
+    if (!found) {
+        GTP5G_ERR(NULL, "Given dev: %s not exists\n", dev_name);
+        goto err;
+    }
+
+    qer = qer_find_by_id(gtp, proc_far_id);
+    if (!qer) {
+        GTP5G_ERR(NULL, "Given QER ID : %u not exists\n", proc_qer_id);
+        goto err;
+    }
+    
+    memset(&proc_qer, 0, sizeof(proc_qer));
+    proc_qer.id = qer->id;
+    proc_qer.qfi = qer->qfi;
+
+	return strnlen(buf, buf_len);
+err:
+    proc_qer_id = 0;
+    return -1;
+}
+
 static int proc_pdr_read(struct inode *inode, struct file *file)
 {
     return single_open(file, gtp5g_pdr_read, NULL);
+}
+
+static int proc_far_read(struct inode *inode, struct file *file)
+{
+    return single_open(file, gtp5g_far_read, NULL);
+}
+
+static int proc_qer_read(struct inode *inode, struct file *file)
+{
+    return single_open(file, gtp5g_qer_read, NULL);
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
@@ -3810,6 +3976,44 @@ static const struct file_operations proc_gtp5g_pdr_ops = {
 };
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+static const struct proc_ops proc_gtp5g_far_ops = {
+	.proc_open	= proc_far_read,
+	.proc_read	= seq_read,
+	.proc_write	= proc_far_write,
+	.proc_lseek	= seq_lseek,
+	.proc_release = single_release,
+};
+#else
+static const struct file_operations proc_gtp5g_far_ops = {
+    .owner      = THIS_MODULE,
+    .open       = proc_far_read,
+    .read       = seq_read,
+    .write      = proc_far_write,
+    .llseek     = seq_lseek,
+    .release    = single_release,
+};
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+static const struct proc_ops proc_gtp5g_qer_ops = {
+	.proc_open	= proc_qer_read,
+	.proc_read	= seq_read,
+	.proc_write	= proc_qer_write,
+	.proc_lseek	= seq_lseek,
+	.proc_release = single_release,
+};
+#else
+static const struct file_operations proc_gtp5g_qer_ops = {
+    .owner      = THIS_MODULE,
+    .open       = proc_qer_read,
+    .read       = seq_read,
+    .write      = proc_qer_write,
+    .llseek     = seq_lseek,
+    .release    = single_release,
+};
+#endif
+
 static int __init gtp5g_init(void)
 {
     int err;
@@ -3844,23 +4048,41 @@ static int __init gtp5g_init(void)
         goto unreg_pernet;
 	}
 
-    proc_gtp5g_dbg = proc_create("dbg", (S_IFREG | S_IRUGO | S_IWUGO), proc_gtp5g, &proc_gtp5g_dbg_ops);
+    proc_gtp5g_dbg = proc_create("dbg", (S_IFREG | S_IRUGO | S_IWUGO),
+        proc_gtp5g, &proc_gtp5g_dbg_ops);
     if (!proc_gtp5g_dbg) {
         GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/dbg\n");
         goto remove_gtp5g_proc;
 	}
 
-    proc_gtp5g_pdr = proc_create("pdr", (S_IFREG | S_IRUGO | S_IWUGO), proc_gtp5g, &proc_gtp5g_pdr_ops);
+    proc_gtp5g_pdr = proc_create("pdr", (S_IFREG | S_IRUGO | S_IWUGO),
+        proc_gtp5g, &proc_gtp5g_pdr_ops);
     if (!proc_gtp5g_pdr) {
         GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/pdr\n");
         goto remove_dbg_proc;
 	}
 
-    GTP5G_LOG(NULL, "5G GTP module loaded (pdr ctx size %zd bytes)\n",
-        sizeof(struct gtp5g_pdr));
+    proc_gtp5g_far = proc_create("far", (S_IFREG | S_IRUGO | S_IWUGO),
+        proc_gtp5g, &proc_gtp5g_far_ops);
+    if (!proc_gtp5g_far) {
+        GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/far\n");
+        goto remove_pdr_proc;
+	}
+
+    proc_gtp5g_qer = proc_create("qer", (S_IFREG | S_IRUGO | S_IWUGO), 
+        proc_gtp5g, &proc_gtp5g_qer_ops);
+    if (!proc_gtp5g_qer) {
+        GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/qer\n");
+        goto remove_far_proc;
+	}
+
+    GTP5G_LOG(NULL, "5G GTP module loaded\n");
 
     return 0;
-
+remove_far_proc:
+    remove_proc_entry("far", proc_gtp5g);
+remove_pdr_proc:
+    remove_proc_entry("pdr", proc_gtp5g);
 remove_dbg_proc:
     remove_proc_entry("dbg", proc_gtp5g);
 remove_gtp5g_proc:
@@ -3882,6 +4104,8 @@ static void __exit gtp5g_fini(void)
     rtnl_link_unregister(&gtp5g_link_ops);
     unregister_pernet_subsys(&gtp5g_net_ops);
 
+    remove_proc_entry("qer", proc_gtp5g);
+    remove_proc_entry("far", proc_gtp5g);
     remove_proc_entry("pdr", proc_gtp5g);
     remove_proc_entry("dbg", proc_gtp5g);
 	remove_proc_entry("gtp5g", NULL);
