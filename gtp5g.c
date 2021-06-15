@@ -2080,10 +2080,11 @@ static int get_gtpu_header_len(struct gtpv1_hdr *gtpv1, u16 prefix_hdrlen)
 			switch (next_ehdr_type) {
 			case GTPV1_NEXT_EXT_HDR_TYPE_85: {
 				ext_pdu_sess_ctr_t *etype85 = (ext_pdu_sess_ctr_t *) ((u8 *) gtpv1_opt + sizeof(*gtpv1_opt)); 
-				pdu_sess_ctr_t *pdu_sess_info = &etype85->pdu_sess_ctr;
+				// pdu_sess_ctr_t *pdu_sess_info = &etype85->pdu_sess_ctr;
 
-				if (pdu_sess_info->type_spare == PDU_SESSION_INFO_TYPE0)
-					return -1;
+                // Commented the below code due to support N9 packet downlink
+				// if (pdu_sess_info->type_spare == PDU_SESSION_INFO_TYPE0)
+				// 	return -1;
 			
 				//TODO: validate pdu_sess_ctr
 
@@ -3923,7 +3924,7 @@ static ssize_t proc_qer_write(struct file *filp, const char __user *buffer,
         goto err;
     }
 
-    qer = qer_find_by_id(gtp, proc_far_id);
+    qer = qer_find_by_id(gtp, proc_qer_id);
     if (!qer) {
         GTP5G_ERR(NULL, "Given QER ID : %u not exists\n", proc_qer_id);
         goto err;
