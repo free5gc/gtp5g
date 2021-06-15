@@ -1857,7 +1857,7 @@ static void gtp5g_encap_destroy(struct sock *sk)
 }
 
 static struct gtp5g_pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
-                                  unsigned int hdrlen, u32 teid)
+    unsigned int hdrlen, u32 teid)
 {
     struct iphdr *iph;
     __be32 *target_addr;
@@ -1873,7 +1873,7 @@ static struct gtp5g_pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff
     }
 
     if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr))) {
-        GTP5G_ERR(NULL, "Failed to pull skb\n");
+        GTP5G_ERR(NULL, "Failed to pull skb len: %#x + IP header\n", hdrlen);
         return NULL;
     }
 
@@ -1917,12 +1917,11 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     struct forwarding_parameter *fwd_param = far->fwd_param;
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
-
     struct gtpv1_hdr *gtp1;
     struct iphdr *iph;
 	struct udphdr *uh;
-
     struct pcpu_sw_netstats *stats;
+    int ret;
 
     if (fwd_param) {
         if ((fwd_policy = fwd_param->fwd_policy))
@@ -1937,7 +1936,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             iph = ip_hdr(skb);
 
             if (!pdr->pdi->f_teid) {
-                pr_err("Unable to handle hdr removal + creation "
+                GTP5G_ERR(dev, "Failed to hdr removal + creation "
                     "due to pdr->pdi->f_teid not exist\n");
                 return -1;
             }
@@ -1950,7 +1949,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             uh->check = 0;
 
             if (ip_xmit(skb, pdr->sk, dev) < 0) {
-                pr_err("ip_xmit error\n");
+                GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
                 return -1;
             }
 
@@ -1958,10 +1957,15 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         }
 	}
 	
-    // Get rid of the GTP + UDP headers.
-    if (iptunnel_pull_header(skb, hdrlen, skb->protocol,
-            !net_eq(sock_net(pdr->sk), dev_net(dev))))
+    // Get rid of the GTP-U + UDP headers.
+    if (iptunnel_pull_header(skb,
+            hdrlen, 
+            skb->protocol,
+            !net_eq(sock_net(pdr->sk), 
+            dev_net(dev)))) {
+        GTP5G_ERR(dev, "Failed to pull GTP-U and UDP headers\n");
         return -1;
+    }
 
     /* Now that the UDP and the GTP header have been removed, set up the
      * new network header. This is required by the upper layer to
@@ -1977,7 +1981,10 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     stats->rx_bytes += skb->len;
     u64_stats_update_end(&stats->syncp);
 
-    netif_rx(skb);
+    ret = netif_rx(skb);
+    if (ret != NET_RX_SUCCESS) {
+        GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
+    }
 
     return 0;
 }
@@ -1997,13 +2004,13 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
 static int gtp5g_rx(struct gtp5g_pdr *pdr, struct sk_buff *skb,
     unsigned int hdrlen, unsigned int role)
 {
-    int rt;
+    int rt = -1;
     struct gtp5g_far *far = pdr->far;
     //struct gtp5g_qer *qer = pdr->qer;
 
     if (!far) {
-        pr_err("There is no FAR related to PDR(%u)", pdr->id);
-        return -1;
+        GTP5G_ERR(pdr->dev, "FAR not exists for PDR(%u)\n", pdr->id);
+        goto out;
     }
 
 	//TODO: QER
@@ -2029,17 +2036,17 @@ static int gtp5g_rx(struct gtp5g_pdr *pdr, struct sk_buff *skb,
             rt = gtp5g_buf_skb_encap(skb, pdr->dev, pdr);
             break;
         default:
-            pr_err("Unspec apply action(%u) in FAR(%u) and related to PDR(%u)",
+            GTP5G_ERR(pdr->dev, "Unhandled apply action(%u) in FAR(%u) and related to PDR(%u)\n",
                 far->action, far->id, pdr->id);
-            rt = -1;
         }
-    } else {
-        // TODO: this action is not supported
-        pr_err("Unsupported action: not removing outer hdr of a non-gtp packet "
-               "(which routed to the gtp interface and matches a PDR)");
-        rt = -1;
-    }
-    
+        goto out;
+    } 
+
+    // TODO: this action is not supported
+    GTP5G_ERR(pdr->dev, "Uplink: PDR(%u) didn't has a OHR information "
+        "(which routed to the gtp interface and matches a PDR)\n", pdr->id);
+
+out:
     return rt;
 }
 
@@ -2073,10 +2080,11 @@ static int get_gtpu_header_len(struct gtpv1_hdr *gtpv1, u16 prefix_hdrlen)
 			switch (next_ehdr_type) {
 			case GTPV1_NEXT_EXT_HDR_TYPE_85: {
 				ext_pdu_sess_ctr_t *etype85 = (ext_pdu_sess_ctr_t *) ((u8 *) gtpv1_opt + sizeof(*gtpv1_opt)); 
-				pdu_sess_ctr_t *pdu_sess_info = &etype85->pdu_sess_ctr;
+				// pdu_sess_ctr_t *pdu_sess_info = &etype85->pdu_sess_ctr;
 
-				if (pdu_sess_info->type_spare == PDU_SESSION_INFO_TYPE0)
-					return -1;
+                // Commented the below code due to support N9 packet downlink
+				// if (pdu_sess_info->type_spare == PDU_SESSION_INFO_TYPE0)
+				// 	return -1;
 			
 				//TODO: validate pdu_sess_ctr
 
@@ -2104,15 +2112,21 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     struct gtp5g_pdr *pdr;
     int gtpv1_hdr_len;
 
-    if (!pskb_may_pull(skb, hdrlen))
+    if (!pskb_may_pull(skb, hdrlen)) {
+        GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
         return -1;
+    }
 
     gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
-    if ((gtpv1->flags >> 5) != GTP_V1)
+    if ((gtpv1->flags >> 5) != GTP_V1) {
+        GTP5G_ERR(gtp->dev, "GTP-U version is not ver1\n");
         return 1;
+    }
 
-    if (gtpv1->type != GTP_TPDU)
+    if (gtpv1->type != GTP_TPDU) {
+        GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU\n");
         return 1;
+    }
 
     gtpv1_hdr_len = get_gtpu_header_len(gtpv1, sizeof(struct udphdr));
     if (gtpv1_hdr_len < 0) {
@@ -2121,8 +2135,10 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 	}
 
     hdrlen = sizeof(struct udphdr) + gtpv1_hdr_len;
-    if (!pskb_may_pull(skb, hdrlen))
+    if (!pskb_may_pull(skb, hdrlen)) {
+        GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
         return -1;
+    }
 
 	//GTP5G_ERR(gtp->dev, "Total header len(%#x)\n", hdrlen);
     //gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
@@ -2151,8 +2167,9 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
     int ret = 0;
 
     gtp = rcu_dereference_sk_user_data(sk);
-    if (!gtp)
+    if (!gtp) {
         return 1;
+    }
 
     switch (udp_sk(sk)->encap_type) {
     case UDP_ENCAP_GTP1U:
@@ -3907,7 +3924,7 @@ static ssize_t proc_qer_write(struct file *filp, const char __user *buffer,
         goto err;
     }
 
-    qer = qer_find_by_id(gtp, proc_far_id);
+    qer = qer_find_by_id(gtp, proc_qer_id);
     if (!qer) {
         GTP5G_ERR(NULL, "Given QER ID : %u not exists\n", proc_qer_id);
         goto err;
