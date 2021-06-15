@@ -35,7 +35,7 @@
 
 #include "gtp5g.h"
 
-#define DRV_VERSION "1.0.2"
+#define DRV_VERSION "1.0.3"
 
 int dbg_trace_lvl = 1;
 
