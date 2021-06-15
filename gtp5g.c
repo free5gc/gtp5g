@@ -1917,12 +1917,11 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     struct forwarding_parameter *fwd_param = far->fwd_param;
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
-
     struct gtpv1_hdr *gtp1;
     struct iphdr *iph;
 	struct udphdr *uh;
-
     struct pcpu_sw_netstats *stats;
+    int ret;
 
     if (fwd_param) {
         if ((fwd_policy = fwd_param->fwd_policy))
@@ -1982,7 +1981,11 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     stats->rx_bytes += skb->len;
     u64_stats_update_end(&stats->syncp);
 
-    netif_rx(skb);
+    ret = netif_rx(skb);
+    if (ret != NET_RX_SUCCESS) {
+        GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
+    }
+
     return 0;
 }
 
