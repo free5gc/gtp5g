@@ -40,11 +40,6 @@ The gtp5g interface will be created by using libgtp5gnl scripts
     + sudo ./run.sh Clean
     + Note: It will delete list of rules and interface
 
-# Report gtp5g issues
-Please, open an issue of gtp5g in UPF repository
-
-https://github.com/free5gc/upf
-
 ## Change Log
 ### v0.2.0
 + Changed to host type between gtp5g and libgtp5gnl
