@@ -35,7 +35,7 @@
 
 #include "gtp5g.h"
 
-#define DRV_VERSION "1.0.3"
+#define DRV_VERSION "1.0.3a"
 
 int dbg_trace_lvl = 1;
 
@@ -1865,15 +1865,18 @@ static struct gtp5g_pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff
     struct gtp5g_pdr *pdr;
     struct gtp5g_pdi *pdi;
 
-    switch(ntohs(skb->protocol)) {
-    case ETH_P_IP:
-        break;
-    default:
+     if (!gtp) {
+        GTP5G_ERR(NULL, "gtp5g_dev is null\n");
+        return NULL;
+    }
+
+    if (ntohs(skb->protocol) != ETH_P_IP) {
+        GTP5G_ERR(gtp->dev, "skb protocol is not IP: %#x\n", ntohs(skb->protocol));
         return NULL;
     }
 
     if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr))) {
-        GTP5G_ERR(NULL, "Failed to pull skb len: %#x + IP header\n", hdrlen);
+        GTP5G_ERR(gtp->dev, "Failed to pull skb len: %#x + IP header\n", hdrlen);
         return NULL;
     }
 
@@ -1883,7 +1886,11 @@ static struct gtp5g_pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff
     head = &gtp->i_teid_hash[u32_hashfn(teid) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_i_teid) {
         pdi = pdr->pdi;
-
+        if (!pdi) {
+            GTP5G_ERR(gtp->dev, "PDI is not present\n");
+            continue;
+        }
+        
         // GTP-U packet must check teid
         if (!(pdi->f_teid && pdi->f_teid->teid == teid))
             continue;
@@ -2050,9 +2057,10 @@ out:
     return rt;
 }
 
-static int get_gtpu_header_len(struct gtpv1_hdr *gtpv1, u16 prefix_hdrlen)
+static int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
 {
     u16 len = sizeof(*gtpv1);
+    u16 pull_len = sizeof(struct udphdr);
 
     /** TS 29.281 Chapter 5.1 and Figure 5.1-1
      * GTP-U header at least 8 byte
@@ -2065,7 +2073,8 @@ static int get_gtpu_header_len(struct gtpv1_hdr *gtpv1, u16 prefix_hdrlen)
 	if (gtpv1->flags & GTPV1_HDR_FLG_MASK) 
 		len += 4;
 	else
-		return len;	 
+		return len;
+    pull_len += len;
 
     /** TS 29.281 Chapter 5.2 and Figure 5.2.1-1
      * The length of the Extension header shall be defined in a variable length of 4 octets,
@@ -2073,14 +2082,26 @@ static int get_gtpu_header_len(struct gtpv1_hdr *gtpv1, u16 prefix_hdrlen)
      */
     if (gtpv1->flags & GTPV1_HDR_FLG_EXTHDR) {
 		__u8 next_ehdr_type = 0;
-		gtpv1_hdr_opt_t *gtpv1_opt = (gtpv1_hdr_opt_t *) ((u8 *) gtpv1 + sizeof(*gtpv1)); 	
+		gtpv1_hdr_opt_t *gtpv1_opt;
+        
+        if (!pskb_may_pull(skb, pull_len)) {
+            GTP5G_ERR(NULL, "Failed to pull skb length %#x\n", pull_len);
+            return -1;
+        }
+		gtpv1_opt = (gtpv1_hdr_opt_t *) ((u8 *) gtpv1 + sizeof(*gtpv1));
 
-		next_ehdr_type = gtpv1_opt->next_ehdr_type;
+        next_ehdr_type = gtpv1_opt->next_ehdr_type;
 		while (next_ehdr_type) {
 			switch (next_ehdr_type) {
 			case GTPV1_NEXT_EXT_HDR_TYPE_85: {
-				ext_pdu_sess_ctr_t *etype85 = (ext_pdu_sess_ctr_t *) ((u8 *) gtpv1_opt + sizeof(*gtpv1_opt)); 
+				ext_pdu_sess_ctr_t *etype85; 
 				// pdu_sess_ctr_t *pdu_sess_info = &etype85->pdu_sess_ctr;
+
+                if (!pskb_may_pull(skb, (pull_len + 4))) {
+                    GTP5G_ERR(NULL, "Failed to pull skb length %#x\n", pull_len);
+                    return -1;
+                }
+                etype85 = (ext_pdu_sess_ctr_t *) ((u8 *) gtpv1_opt + sizeof(*gtpv1_opt)); 
 
                 // Commented the below code due to support N9 packet downlink
 				// if (pdu_sess_info->type_spare == PDU_SESSION_INFO_TYPE0)
@@ -2090,6 +2111,7 @@ static int get_gtpu_header_len(struct gtpv1_hdr *gtpv1, u16 prefix_hdrlen)
 
 				//Length should be multiple of 4
 				len += (etype85->length * 4);
+                pull_len += (etype85->length * 4);
 				next_ehdr_type = etype85->next_ehdr_type;
 				break;
 			}
@@ -2119,16 +2141,18 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 
     gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     if ((gtpv1->flags >> 5) != GTP_V1) {
-        GTP5G_ERR(gtp->dev, "GTP-U version is not ver1\n");
+        GTP5G_ERR(gtp->dev, "GTP-U version is not ver1: %#x\n",
+            gtpv1->flags);
         return 1;
     }
 
     if (gtpv1->type != GTP_TPDU) {
-        GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU\n");
+        GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU: %#x\n",
+            gtpv1->type);
         return 1;
     }
 
-    gtpv1_hdr_len = get_gtpu_header_len(gtpv1, sizeof(struct udphdr));
+    gtpv1_hdr_len = get_gtpu_header_len(gtpv1, skb);
     if (gtpv1_hdr_len < 0) {
         GTP5G_ERR(gtp->dev, "Invalid extension header length or else\n");
         return -1;
