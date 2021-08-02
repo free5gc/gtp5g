@@ -1151,7 +1151,6 @@ static struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
     __be32 saddr, __be32 daddr, struct flowi4 *fl4)
 {
 	struct rtable *rt;
-	__be16 df;
 	int mtu;
 
 	memset(fl4, 0, sizeof(*fl4));
@@ -1176,23 +1175,6 @@ static struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
 
 	skb_dst_drop(skb);
 
-	/* This is similar to tnl_update_pmtu(). */
-	df = iph->frag_off;
-	if (df) {
-		mtu = dst_mtu(&rt->dst) - gtp_dev->hard_header_len -
-            sizeof(struct iphdr) - sizeof(struct udphdr);
-        // GTPv1
-        mtu -= sizeof(struct gtpv1_hdr);
-	}
-    else {
-		mtu = dst_mtu(&rt->dst);
-	}
-	
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
-	rt->dst.ops->update_pmtu(&rt->dst, NULL, skb, mtu, false);
-#else
-	rt->dst.ops->update_pmtu(&rt->dst, NULL, skb, mtu);
-#endif
 	if (!skb_is_gso(skb) && (iph->frag_off & htons(IP_DF)) &&
 	    mtu < ntohs(iph->tot_len)) {
 		GTP5G_ERR(gtp_dev, "packet too big, fragmentation needed\n");
