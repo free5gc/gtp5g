@@ -1180,19 +1180,20 @@ static struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
 	df = iph->frag_off;
 	if (df) {
 		mtu = dst_mtu(&rt->dst) - gtp_dev->hard_header_len -
-            sizeof(struct iphdr) - sizeof(struct udphdr);
-        // GTPv1
-        mtu -= sizeof(struct gtpv1_hdr);
+			sizeof(struct iphdr) - sizeof(struct udphdr);
+		// GTPv1
+		mtu -= sizeof(struct gtpv1_hdr);
 	}
-    else {
+	else {
 		mtu = dst_mtu(&rt->dst);
 	}
-	
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
-	rt->dst.ops->update_pmtu(&rt->dst, NULL, skb, mtu, false);
+       rt->dst.ops->update_pmtu(&rt->dst, NULL, skb, mtu, false);
 #else
-	rt->dst.ops->update_pmtu(&rt->dst, NULL, skb, mtu);
+       rt->dst.ops->update_pmtu(&rt->dst, NULL, skb, mtu);
 #endif
+
 	if (!skb_is_gso(skb) && (iph->frag_off & htons(IP_DF)) &&
 	    mtu < ntohs(iph->tot_len)) {
 		GTP5G_ERR(gtp_dev, "packet too big, fragmentation needed\n");
@@ -1252,7 +1253,7 @@ static int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_
 	struct flowi4 fl4;
 	struct rtable *rt;
 
-	rt = ip4_find_route(skb, iph, sk, gtp_dev, 0, iph->daddr, &fl4);
+	rt = ip4_find_route_simple(skb, sk, gtp_dev, 0, iph->daddr, &fl4);
 	if (IS_ERR(rt)) {
 		GTP5G_ERR(gtp_dev, "Failed to find route\n");
 		return -EBADMSG;
