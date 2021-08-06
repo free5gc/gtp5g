@@ -337,7 +337,6 @@ static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
     set_fs(oldfs);
 #endif	
 
-
     return rt;
 }
 
@@ -426,8 +425,6 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
     struct nlattr *hdr_creation_attrs[GTP5G_OUTER_HEADER_CREATION_ATTR_MAX + 1];
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
-
-    // Update related PDR for buffering
     struct gtp5g_pdr *pdr;
     struct hlist_head *head;
 
@@ -601,7 +598,6 @@ static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb,
 {
     struct iphdr *iph;
     struct ip_filter_rule *rule;
-
     const __be16 *pptr;
 	__be16 _ports[2];
 
@@ -1086,7 +1082,7 @@ static void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo
     int ext_flag = 0;
 
     GTP5G_TRC(NULL, "SKBLen(%u) GTP-U V1(%zu) Opt(%zu) DL_PDU(%zu)\n", 
-			payload_len, sizeof(*gtp1), sizeof(*gtp1opt), sizeof(*dl_pdu_sess));
+		payload_len, sizeof(*gtp1), sizeof(*gtp1opt), sizeof(*dl_pdu_sess));
 
     pktinfo->gtph_port = pktinfo->hdr_creation->port;
 
@@ -1276,8 +1272,8 @@ static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
 }
 
 static void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
-    struct net_device *dev,
-    struct gtp5g_emark_pktinfo *epkt_info) {
+    struct net_device *dev, struct gtp5g_emark_pktinfo *epkt_info) 
+{
     struct rtable *rt;
     struct flowi4 fl4;
     struct gtpv1_hdr *gtp1;
@@ -1661,7 +1657,6 @@ static int gtp5g_hashtable_new(struct gtp5g_dev *gtp, int hsize)
     if (gtp->related_qer_hash == NULL)
         goto err6;
 
-
     gtp->hash_size = hsize;
 
     for (i = 0; i < hsize; i++) {
@@ -1675,7 +1670,6 @@ static int gtp5g_hashtable_new(struct gtp5g_dev *gtp, int hsize)
     }
 
     return 0;
-
 err6:
     kfree(gtp->related_far_hash);
 err5:	
@@ -2228,22 +2222,23 @@ static struct sock *gtp5g_encap_enable_socket(int fd, int type,
     struct sock *sk;
     int err;
 
-    pr_debug("enable gtp5g on %d, %d\n", fd, type);
+    GTP5G_LOG(NULL, "enable gtp5g for the fd(%d) type(%d)\n", fd, type);
 
     sock = sockfd_lookup(fd, &err);
     if (!sock) {
-        pr_debug("gtp5g socket fd[%d] not found\n", fd);
+        GTP5G_ERR(NULL, "Failed to find the socket fd(%d)\n", fd);
         return NULL;
     }
 
     if (sock->sk->sk_protocol != IPPROTO_UDP) {
-        pr_debug("socket fd[%d] not UDP\n", fd);
+        GTP5G_ERR(NULL, "socket fd(%d) is not a UDP\n", fd);
         sk = ERR_PTR(-EINVAL);
         goto out_sock;
     }
 
     lock_sock(sock->sk);
     if (sock->sk->sk_user_data) {
+        GTP5G_ERR(NULL, "Failed to set sk_user_datat of socket fd(%d)\n", fd);
         sk = ERR_PTR(-EBUSY);
         goto out_sock;
     }
@@ -2264,7 +2259,8 @@ out_sock:
     return sk;
 }
 
-static int gtp5g_encap_enable(struct gtp5g_dev *gtp, struct nlattr *data[]) {
+static int gtp5g_encap_enable(struct gtp5g_dev *gtp, struct nlattr *data[]) 
+{
     struct sock *sk = NULL;
     unsigned int role = GTP5G_ROLE_UPF;
 
@@ -2299,14 +2295,18 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     struct gtp5g_net *gn;
     int hashsize, err;
 
-    if (!data[IFLA_GTP5G_FD1])
+    if (!data[IFLA_GTP5G_FD1]) {
+        GTP5G_ERR(NULL, "Failed to create a new link\n");
         return -EINVAL;
+    }
 
     gtp = netdev_priv(dev);
 
     err = gtp5g_encap_enable(gtp, data);
-    if (err < 0)
+    if (err < 0) {
+        GTP5G_ERR(dev, "Failed to enable the encap rcv\n");
         return err;
+    }
 
     if (!data[IFLA_GTP5G_PDR_HASHSIZE])
         hashsize = 1024;
@@ -2314,12 +2314,14 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
         hashsize = nla_get_u32(data[IFLA_GTP5G_PDR_HASHSIZE]);
 
     err = gtp5g_hashtable_new(gtp, hashsize);
-    if (err < 0)
+    if (err < 0) {
+        GTP5G_ERR(dev, "Failed to create a hash table\n");
         goto out_encap;
+    }
 
     err = register_netdevice(dev);
     if (err < 0) {
-        GTP5G_ERR(dev, "failed to register new netdev %d\n", err);
+        GTP5G_ERR(dev, "Failed to register new netdev err(%d)\n", err);
         goto out_hashtable;
     }
 
@@ -2329,7 +2331,6 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
 
     GTP5G_LOG(dev, "Registered a new 5G GTP interface\n");
     return 0;
-
 out_hashtable:
     gtp5g_hashtable_free(gtp);
 out_encap:
@@ -2346,7 +2347,7 @@ static void gtp5g_dellink(struct net_device *dev, struct list_head *head)
     list_del_rcu(&gtp->proc_list);
     unregister_netdevice_queue(dev, head);
 
-    GTP5G_LOG(dev, "deregistered 5G GTP interface\n");
+    GTP5G_LOG(dev, "De-registered 5G GTP interface\n");
 }
 
 static size_t gtp5g_get_size(const struct net_device *dev)
@@ -2450,7 +2451,7 @@ static int gtp5g_gnl_add_pdr(struct gtp5g_dev *gtp, struct genl_info *info)
 
     err = pdr_fill(pdr, gtp, info);
     if (err < 0) {
-        GTP5G_ERR(dev, "PDR-Add: failed to fill id(%u) err: %d\n", pdr_id, err);
+        GTP5G_ERR(dev, "PDR-Add: failed to fill id(%u) err(%d)\n", pdr_id, err);
         pdr_context_delete(pdr);
         goto out;
     } 
