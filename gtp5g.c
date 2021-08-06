@@ -2480,7 +2480,7 @@ static int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 
     gtp = gtp5g_find_dev(sock_net(skb->sk), info->attrs);
     if (!gtp) {
-		GTP5G_ERR(NULL, "PDR-Add: Failed to fin the gtp5g_dev\n");
+		GTP5G_ERR(NULL, "PDR-Add: Failed to find the gtp5g dev\n");
         err = -ENODEV;
         goto unlock;
     }
