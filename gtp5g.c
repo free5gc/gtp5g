@@ -1522,8 +1522,6 @@ static void pdr_context_free(struct rcu_head *head)
 			kfree(pdi->ue_addr_ipv4);
         if (pdi->f_teid)
 			kfree(pdi->f_teid);
-        if (pdr->pdi)
-			kfree(pdr->pdi);
         if (pdr->far_id)
 			kfree(pdr->far_id);
 		if (pdr->qer_id)
@@ -1536,8 +1534,7 @@ static void pdr_context_free(struct rcu_head *head)
 					kfree(sdf->rule->sport);
                 if (sdf->rule->dport)
 					kfree(sdf->rule->dport);
-                if (sdf->rule)
-					kfree(sdf->rule);
+				kfree(sdf->rule);
             }
             if (sdf->tos_traffic_class)
 				kfree(sdf->tos_traffic_class);
@@ -1547,7 +1544,10 @@ static void pdr_context_free(struct rcu_head *head)
 				kfree(sdf->flow_label);
             if (sdf->bi_id)
 				kfree(sdf->bi_id);
+
+            kfree(sdf);
         }
+        kfree(pdi);
     }
 
     unix_sock_client_delete(pdr);
