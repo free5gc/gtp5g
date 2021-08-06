@@ -35,7 +35,7 @@
 
 #include "gtp5g.h"
 
-#define DRV_VERSION "1.0.3a"
+#define DRV_VERSION "1.0.3b"
 
 int dbg_trace_lvl = 1;
 
@@ -337,7 +337,6 @@ static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
     set_fs(oldfs);
 #endif	
 
-
     return rt;
 }
 
@@ -426,8 +425,6 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
     struct nlattr *hdr_creation_attrs[GTP5G_OUTER_HEADER_CREATION_ATTR_MAX + 1];
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
-
-    // Update related PDR for buffering
     struct gtp5g_pdr *pdr;
     struct hlist_head *head;
 
@@ -601,7 +598,6 @@ static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb,
 {
     struct iphdr *iph;
     struct ip_filter_rule *rule;
-
     const __be16 *pptr;
 	__be16 _ports[2];
 
@@ -1086,7 +1082,7 @@ static void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo
     int ext_flag = 0;
 
     GTP5G_TRC(NULL, "SKBLen(%u) GTP-U V1(%zu) Opt(%zu) DL_PDU(%zu)\n", 
-			payload_len, sizeof(*gtp1), sizeof(*gtp1opt), sizeof(*dl_pdu_sess));
+		payload_len, sizeof(*gtp1), sizeof(*gtp1opt), sizeof(*dl_pdu_sess));
 
     pktinfo->gtph_port = pktinfo->hdr_creation->port;
 
@@ -1277,8 +1273,8 @@ static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
 }
 
 static void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
-    struct net_device *dev,
-    struct gtp5g_emark_pktinfo *epkt_info) {
+    struct net_device *dev, struct gtp5g_emark_pktinfo *epkt_info) 
+{
     struct rtable *rt;
     struct flowi4 fl4;
     struct gtpv1_hdr *gtp1;
@@ -1523,8 +1519,6 @@ static void pdr_context_free(struct rcu_head *head)
 			kfree(pdi->ue_addr_ipv4);
         if (pdi->f_teid)
 			kfree(pdi->f_teid);
-        if (pdr->pdi)
-			kfree(pdr->pdi);
         if (pdr->far_id)
 			kfree(pdr->far_id);
 		if (pdr->qer_id)
@@ -1537,8 +1531,7 @@ static void pdr_context_free(struct rcu_head *head)
 					kfree(sdf->rule->sport);
                 if (sdf->rule->dport)
 					kfree(sdf->rule->dport);
-                if (sdf->rule)
-					kfree(sdf->rule);
+				kfree(sdf->rule);
             }
             if (sdf->tos_traffic_class)
 				kfree(sdf->tos_traffic_class);
@@ -1548,7 +1541,10 @@ static void pdr_context_free(struct rcu_head *head)
 				kfree(sdf->flow_label);
             if (sdf->bi_id)
 				kfree(sdf->bi_id);
+
+            kfree(sdf);
         }
+        kfree(pdi);
     }
 
     unix_sock_client_delete(pdr);
@@ -1581,32 +1577,33 @@ static void pdr_context_delete(struct gtp5g_pdr *pdr)
 static void far_context_free(struct rcu_head *head)
 {
     struct gtp5g_far *far = container_of(head, struct gtp5g_far, rcu_head);
-    struct forwarding_parameter *fwd_param = far->fwd_param;
+    struct forwarding_parameter *fwd_param;
 
     if (!far)
         return;
-
+    
+    fwd_param = far->fwd_param;
     if (fwd_param) {
         if (fwd_param->hdr_creation) 
 			kfree(fwd_param->hdr_creation);
         if (fwd_param->fwd_policy)
 			kfree(fwd_param->fwd_policy);
+        kfree(fwd_param);
     }
-
-    if (fwd_param)
-		kfree(fwd_param);
 
     kfree(far);
 }
 
 static void far_context_delete(struct gtp5g_far *far)
 {
-    struct gtp5g_dev *gtp = netdev_priv(far->dev);
+    struct gtp5g_dev *gtp;
     struct hlist_head *head;
     struct gtp5g_pdr *pdr;
 
     if (!far)
         return;
+
+    gtp = netdev_priv(far->dev);
 
     if (!hlist_unhashed(&far->hlist_id))
         hlist_del_rcu(&far->hlist_id);
@@ -1661,7 +1658,6 @@ static int gtp5g_hashtable_new(struct gtp5g_dev *gtp, int hsize)
     if (gtp->related_qer_hash == NULL)
         goto err6;
 
-
     gtp->hash_size = hsize;
 
     for (i = 0; i < hsize; i++) {
@@ -1675,7 +1671,6 @@ static int gtp5g_hashtable_new(struct gtp5g_dev *gtp, int hsize)
     }
 
     return 0;
-
 err6:
     kfree(gtp->related_far_hash);
 err5:	
@@ -1699,12 +1694,12 @@ static void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
     int i;
 
     for (i = 0; i < gtp->hash_size; i++) {
-        hlist_for_each_entry_rcu(pdr, &gtp->pdr_id_hash[i], hlist_id)
-            pdr_context_delete(pdr);
         hlist_for_each_entry_rcu(far, &gtp->far_id_hash[i], hlist_id)
             far_context_delete(far);
         hlist_for_each_entry_rcu(qer, &gtp->qer_id_hash[i], hlist_id)
             qer_context_delete(qer);
+        hlist_for_each_entry_rcu(pdr, &gtp->pdr_id_hash[i], hlist_id)
+            pdr_context_delete(pdr);
     }
 
     synchronize_rcu();
@@ -1790,7 +1785,7 @@ static struct gtp5g_pdr *gtp5g_find_pdr_by_link(struct net *net, struct nlattr *
 
     gtp = gtp5g_find_dev(net, nla);
     if (!gtp) {
-        GTP5G_ERR(NULL, "Failed to find gtp device\n");
+        GTP5G_ERR(NULL, "Failed to find gtp device for pdr\n");
         return ERR_PTR(-ENODEV);
     }
 
@@ -1823,7 +1818,7 @@ static struct gtp5g_far *gtp5g_find_far_by_link(struct net *net, struct nlattr *
 
     gtp = gtp5g_find_dev(net, nla);
     if (!gtp) {
-        GTP5G_ERR(NULL, "Failed to find gtp device\n");
+        GTP5G_ERR(NULL, "Failed to find gtp device for far\n");
         return ERR_PTR(-ENODEV);
     }
 
@@ -2228,22 +2223,23 @@ static struct sock *gtp5g_encap_enable_socket(int fd, int type,
     struct sock *sk;
     int err;
 
-    pr_debug("enable gtp5g on %d, %d\n", fd, type);
+    GTP5G_LOG(NULL, "enable gtp5g for the fd(%d) type(%d)\n", fd, type);
 
     sock = sockfd_lookup(fd, &err);
     if (!sock) {
-        pr_debug("gtp5g socket fd[%d] not found\n", fd);
+        GTP5G_ERR(NULL, "Failed to find the socket fd(%d)\n", fd);
         return NULL;
     }
 
     if (sock->sk->sk_protocol != IPPROTO_UDP) {
-        pr_debug("socket fd[%d] not UDP\n", fd);
+        GTP5G_ERR(NULL, "socket fd(%d) is not a UDP\n", fd);
         sk = ERR_PTR(-EINVAL);
         goto out_sock;
     }
 
     lock_sock(sock->sk);
     if (sock->sk->sk_user_data) {
+        GTP5G_ERR(NULL, "Failed to set sk_user_datat of socket fd(%d)\n", fd);
         sk = ERR_PTR(-EBUSY);
         goto out_sock;
     }
@@ -2264,7 +2260,8 @@ out_sock:
     return sk;
 }
 
-static int gtp5g_encap_enable(struct gtp5g_dev *gtp, struct nlattr *data[]) {
+static int gtp5g_encap_enable(struct gtp5g_dev *gtp, struct nlattr *data[]) 
+{
     struct sock *sk = NULL;
     unsigned int role = GTP5G_ROLE_UPF;
 
@@ -2299,14 +2296,18 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     struct gtp5g_net *gn;
     int hashsize, err;
 
-    if (!data[IFLA_GTP5G_FD1])
+    if (!data[IFLA_GTP5G_FD1]) {
+        GTP5G_ERR(NULL, "Failed to create a new link\n");
         return -EINVAL;
+    }
 
     gtp = netdev_priv(dev);
 
     err = gtp5g_encap_enable(gtp, data);
-    if (err < 0)
+    if (err < 0) {
+        GTP5G_ERR(dev, "Failed to enable the encap rcv\n");
         return err;
+    }
 
     if (!data[IFLA_GTP5G_PDR_HASHSIZE])
         hashsize = 1024;
@@ -2314,12 +2315,14 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
         hashsize = nla_get_u32(data[IFLA_GTP5G_PDR_HASHSIZE]);
 
     err = gtp5g_hashtable_new(gtp, hashsize);
-    if (err < 0)
+    if (err < 0) {
+        GTP5G_ERR(dev, "Failed to create a hash table\n");
         goto out_encap;
+    }
 
     err = register_netdevice(dev);
     if (err < 0) {
-        GTP5G_ERR(dev, "failed to register new netdev %d\n", err);
+        GTP5G_ERR(dev, "Failed to register new netdev err(%d)\n", err);
         goto out_hashtable;
     }
 
@@ -2327,8 +2330,7 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     list_add_rcu(&gtp->list, &gn->gtp5g_dev_list);
     list_add_rcu(&gtp->proc_list, &proc_gtp5g_dev);
 
-    GTP5G_ERR(dev, "Registered a new 5G GTP interface\n");
-
+    GTP5G_LOG(dev, "Registered a new 5G GTP interface\n");
     return 0;
 out_hashtable:
     gtp5g_hashtable_free(gtp);
@@ -2346,7 +2348,7 @@ static void gtp5g_dellink(struct net_device *dev, struct list_head *head)
     list_del_rcu(&gtp->proc_list);
     unregister_netdevice_queue(dev, head);
 
-    GTP5G_ERR(dev, "deregistered 5G GTP interface\n");
+    GTP5G_LOG(dev, "De-registered 5G GTP interface\n");
 }
 
 static size_t gtp5g_get_size(const struct net_device *dev)
@@ -2398,31 +2400,34 @@ static int gtp5g_gnl_add_pdr(struct gtp5g_dev *gtp, struct genl_info *info)
     pdr = pdr_find_by_id(gtp, pdr_id);
     if (pdr) {
         if (info->nlhdr->nlmsg_flags & NLM_F_EXCL) {
-            GTP5G_ERR(dev, "PDR-Add: Failed NLM_F_EXCL is set\n");
+            GTP5G_ERR(dev, "PDR-Up: Failed NLM_F_EXCL is set\n");
             err = -EEXIST;
             goto out;
 		} else if (!(info->nlhdr->nlmsg_flags & NLM_F_REPLACE)) {
-            GTP5G_ERR(dev, "PDR-Add: Failed NLM_F_REPLACE is not set\n");
+            GTP5G_ERR(dev, "PDR-Up: Failed NLM_F_REPLACE is not set\n");
             err = -EOPNOTSUPP;
             goto out;
         }
 
         err = pdr_fill(pdr, gtp, info);
         if (err < 0) {
-            GTP5G_ERR(dev, "PDR-Add:  update id(%u) fail\n", pdr_id);
+            GTP5G_ERR(dev, "PDR-Up: update id(%u) fail\n", pdr_id);
             pdr_context_delete(pdr);
-        } 
-        return err;
+            return err;
+        }
+        
+        GTP5G_INF(dev, "PDR-Up: update id(%u) success\n", pdr_id);
+        return 0;
     }
 
     if (info->nlhdr->nlmsg_flags & NLM_F_REPLACE) {
-        GTP5G_ERR(dev, "PDR-Add: (New)Failed NLM_F_REPLACE is set\n");
+        GTP5G_ERR(dev, "PDR-Add: Failed NLM_F_REPLACE is set\n");
         err = -ENOENT;
         goto out;
 	}
 
     if (info->nlhdr->nlmsg_flags & NLM_F_APPEND) {
-        GTP5G_ERR(dev, "PDR-Add: (New)Failed NLM_F_APPEND is set\n");
+        GTP5G_ERR(dev, "PDR-Add: Failed NLM_F_APPEND is set\n");
         err = -EOPNOTSUPP;
         goto out;
 	}
@@ -2447,14 +2452,14 @@ static int gtp5g_gnl_add_pdr(struct gtp5g_dev *gtp, struct genl_info *info)
 
     err = pdr_fill(pdr, gtp, info);
     if (err < 0) {
-        GTP5G_ERR(dev, "PDR-Add: id(%u) fail: %d\n", pdr_id, err);
+        GTP5G_ERR(dev, "PDR-Add: failed to fill id(%u) err(%d)\n", pdr_id, err);
         pdr_context_delete(pdr);
         goto out;
     } 
     
-     hlist_add_head_rcu(&pdr->hlist_id, 
-         &gtp->pdr_id_hash[u32_hashfn(pdr_id) % gtp->hash_size]);
-     GTP5G_ERR(dev, "PDR-Add: id[%d] success\n", pdr_id);
+    hlist_add_head_rcu(&pdr->hlist_id, 
+        &gtp->pdr_id_hash[u32_hashfn(pdr_id) % gtp->hash_size]);
+    GTP5G_INF(dev, "PDR-Add: id(%u) success\n", pdr_id);
 
 out:
     return err;
@@ -2476,7 +2481,7 @@ static int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 
     gtp = gtp5g_find_dev(sock_net(skb->sk), info->attrs);
     if (!gtp) {
-		GTP5G_ERR(NULL, "PDR-Add: Can't find the gtp5g_dev\n");
+		GTP5G_ERR(NULL, "PDR-Add: Failed to find the gtp5g dev\n");
         err = -ENODEV;
         goto unlock;
     }
@@ -2507,12 +2512,12 @@ static int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
 
     pdr = gtp5g_find_pdr(sock_net(skb->sk), info->attrs);
     if (IS_ERR(pdr)) {
-		GTP5G_ERR(NULL, "PDR-Del: failed to find id(%#x)\n", id);
+		GTP5G_ERR(NULL, "PDR-Del: failed to find id(%u)\n", id);
         err = PTR_ERR(pdr);
         goto unlock;
     }
 
-    GTP5G_LOG(pdr->dev, "PDR-Del: id[%d] success\n", id);
+    GTP5G_INF(pdr->dev, "PDR-Del: id(%u) success\n", id);
     pdr_context_delete(pdr);
 
 unlock:
@@ -2775,11 +2780,11 @@ static int gtp5g_gnl_add_far(struct gtp5g_dev *gtp, struct genl_info *info)
     far = far_find_by_id(gtp, far_id);
     if (far) {
     	if (info->nlhdr->nlmsg_flags & NLM_F_EXCL) {
-			GTP5G_ERR(dev, "FAR-Add: Failed NLM_F_EXCL is set\n");
+			GTP5G_ERR(dev, "FAR-Up: Failed NLM_F_EXCL is set\n");
             err = -EEXIST;
             goto out;
   		} else if (!(info->nlhdr->nlmsg_flags & NLM_F_REPLACE)) {
-			GTP5G_ERR(dev, "FAR-Add: Failed NLM_F_REPLACE is not set\n");
+			GTP5G_ERR(dev, "FAR-Up: Failed NLM_F_REPLACE is not set\n");
             err = -EOPNOTSUPP;
             goto out;
 		}
@@ -2788,7 +2793,7 @@ static int gtp5g_gnl_add_far(struct gtp5g_dev *gtp, struct genl_info *info)
 		err = far_fill(far, gtp, info, &flag, &epkt_info);
 		if (err < 0) {
 			far_context_delete(far);
-			GTP5G_ERR(dev,"FAR-Add: update id[%d] fail: %d\n", far_id, err);
+			GTP5G_ERR(dev,"FAR-Up: failed to update id(%u) err: %d\n", far_id, err);
             goto out;
 		} 
 
@@ -2799,7 +2804,7 @@ static int gtp5g_gnl_add_far(struct gtp5g_dev *gtp, struct genl_info *info)
              * */
             struct sk_buff *skb = __netdev_alloc_skb(dev, 52, GFP_KERNEL);
             if (!skb) {
-                GTP5G_ERR(dev, "FAR-Add: Failled to allocate EndMarker SKB with a size 52B\n");
+                GTP5G_ERR(dev, "FAR-Up: Failled to allocate EndMarker SKB with a size 52B\n");
                 err = 0;
 				goto out;
             }
@@ -2807,7 +2812,7 @@ static int gtp5g_gnl_add_far(struct gtp5g_dev *gtp, struct genl_info *info)
             skb->protocol = eth_type_trans(skb, dev);
             gtp5g_fwd_emark_skb_ipv4(skb, dev, &epkt_info);
        }
-	   GTP5G_LOG(dev, "FAR-Add: update id[%d] success\n", far_id);
+	   GTP5G_INF(dev, "FAR-Up: update id(%u) success\n", far_id);
 	   return 0;
     }
 
@@ -2836,18 +2841,18 @@ static int gtp5g_gnl_add_far(struct gtp5g_dev *gtp, struct genl_info *info)
         err = -ENOMEM;
         goto out;
     }
-    far->dev = gtp->dev;
+    far->dev = dev;
 
     err = far_fill(far, gtp, info, NULL, NULL);
     if (err < 0) {
-        GTP5G_ERR(dev, "FAR-Add: id[%d] fail\n", far_id);
+        GTP5G_ERR(dev, "FAR-Add: id(%u) fail\n", far_id);
         far_context_delete(far);
 		goto out;
     } 
 
 	hlist_add_head_rcu(&far->hlist_id, 
         &gtp->far_id_hash[u32_hashfn(far_id) % gtp->hash_size]);
-	GTP5G_LOG(dev, "FAR-Add: id[%d] success\n", far_id);
+	GTP5G_INF(dev, "FAR-Add: id(%u) success\n", far_id);
 
 out:
     return err;
@@ -2890,7 +2895,7 @@ static int gtp5g_genl_del_far(struct sk_buff *skb, struct genl_info *info)
 
     if (!info->attrs[GTP5G_FAR_ID] ||
         !info->attrs[GTP5G_LINK]) {
-		GTP5G_ERR(NULL, "Failed to find FAR_ID or LINK in netlink\n");
+		GTP5G_ERR(NULL, "FAR-Del: Failed to find FAR_ID or LINK in netlink\n");
         return -EINVAL;
 	}
 
@@ -2900,12 +2905,12 @@ static int gtp5g_genl_del_far(struct sk_buff *skb, struct genl_info *info)
 
     far = gtp5g_find_far(sock_net(skb->sk), info->attrs);
     if (IS_ERR(far)) {
-		GTP5G_ERR(NULL, "Failed to find far\n");
+		GTP5G_ERR(NULL, "FAR-Del: Failed to find id (%u)\n", id);
         err = PTR_ERR(far);
         goto unlock;
     }
 
-    GTP5G_ERR(far->dev, "5G GTP-U : delete FAR id(%u)\n", id);
+    GTP5G_INF(far->dev, "FAR-Del: id(%u) success\n", id);
     far_context_delete(far);
 
 unlock:
@@ -3107,12 +3112,14 @@ static void qer_context_free(struct rcu_head *head)
 
 static void qer_context_delete(struct gtp5g_qer *qer)
 {
-    struct gtp5g_dev *gtp = netdev_priv(qer->dev);
+    struct gtp5g_dev *gtp;
     struct hlist_head *head;
     struct gtp5g_pdr *pdr;
 
     if (!qer)
         return;
+
+    gtp = netdev_priv(qer->dev);
 
     if (!hlist_unhashed(&qer->hlist_id))
         hlist_del_rcu(&qer->hlist_id);
@@ -3185,7 +3192,7 @@ static int qer_fill(struct gtp5g_qer *qer, struct gtp5g_dev *gtp, struct genl_in
         if (*pdr->qer_id == qer->id) {
             pdr->qer = qer;
             if (unix_sock_client_update(pdr) < 0)
-                GTP5G_ERR(NULL, "PDR[%u] update fail when QER[%u] apply action is changed\n",
+                GTP5G_ERR(gtp->dev, "PDR(%u) update fail when QER(%u) apply action is changed\n",
                     pdr->id, qer->id);
         }
     }
@@ -3209,14 +3216,13 @@ static struct gtp5g_qer *qer_find_by_id(struct gtp5g_dev *gtp, u32 id)
 
 static int gtp5g_gnl_add_qer(struct gtp5g_dev *gtp, struct genl_info *info)
 {
-
     struct net_device *dev = gtp->dev;
     struct gtp5g_qer *qer;
     int err = 0;
     u32 qer_id;
 
 	if (!dev) {
-		GTP5G_ERR(NULL, "Object net_device not found\n");
+		GTP5G_ERR(NULL, "QER-Add: net_device of gtp is not set\n");
 		return -EEXIST;
 	}
 
@@ -3224,30 +3230,31 @@ static int gtp5g_gnl_add_qer(struct gtp5g_dev *gtp, struct genl_info *info)
     qer = qer_find_by_id(gtp, qer_id);
     if (qer) {
     	if (info->nlhdr->nlmsg_flags & NLM_F_EXCL) {
-            GTP5G_ERR(NULL, "QER-Add: Failed NLM_F_EXCL is set\n");
+            GTP5G_ERR(NULL, "QER-Up: Failed NLM_F_EXCL is set\n");
             return -EEXIST;
         } else if (!(info->nlhdr->nlmsg_flags & NLM_F_REPLACE)) {
-            GTP5G_ERR(NULL, "QER-Add: Failed NLM_F_REPLACE is not set\n");
+            GTP5G_ERR(NULL, "QER-Up: Failed NLM_F_REPLACE is not set\n");
             return -EOPNOTSUPP;
         }
 
         err = qer_fill(qer, gtp, info);
         if (err < 0) {
             qer_context_delete(qer);
-			GTP5G_ERR(dev, "QER-Add: update QER_ID(%u) err(%u)\n", qer_id, err);
+			GTP5G_ERR(dev, "QER-Up: failed to update id(%u) err: %d\n", qer_id, err);
 			return err;
         } 
-		GTP5G_LOG(dev, "QER-Add: updated QER_ID(%u)\n", qer_id);
-        return err;
+
+		GTP5G_INF(dev, "QER-Up: update id(%u) success\n", qer_id);
+        return 0;
     }
 
     if (info->nlhdr->nlmsg_flags & NLM_F_REPLACE) {
-		GTP5G_ERR(dev, "QER-Add: Invalid flage set NLM_F_REPLACE\n");
+		GTP5G_ERR(dev, "QER-Add: Invalid flag set NLM_F_REPLACE\n");
         return -ENOENT;
 	}
 
     if (info->nlhdr->nlmsg_flags & NLM_F_APPEND) {
-		GTP5G_ERR(dev, "QER-Add: Invalid flage set NLM_F_APPEND\n");
+		GTP5G_ERR(dev, "QER-Add: Invalid flag set NLM_F_APPEND\n");
         return -EOPNOTSUPP;
 	}
 
@@ -3257,7 +3264,8 @@ static int gtp5g_gnl_add_qer(struct gtp5g_dev *gtp, struct genl_info *info)
         return -ENOMEM;
     }
 
-    qer->dev = gtp->dev;
+    qer->dev = dev;
+
     err = qer_fill(qer, gtp, info);
     if (err < 0) {
         GTP5G_ERR(dev, "QER-Add: QER_ID(%u) fail\n", qer_id);
@@ -3267,7 +3275,7 @@ static int gtp5g_gnl_add_qer(struct gtp5g_dev *gtp, struct genl_info *info)
 
     hlist_add_head_rcu(&qer->hlist_id, 
 		&gtp->qer_id_hash[u32_hashfn(qer_id) % gtp->hash_size]);
-    GTP5G_ERR(dev, "QER-Add: QER_ID(%u) success\n", qer_id);
+    GTP5G_INF(dev, "QER-Add: QER_ID(%u) success\n", qer_id);
 out:
     return err;
 }
@@ -3279,7 +3287,7 @@ static int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
 
     if (!info->attrs[GTP5G_QER_ID] ||
         !info->attrs[GTP5G_LINK]) {
-    	GTP5G_ERR(NULL, "QER_ID or GTP5g_LINK is not present\n");
+    	GTP5G_ERR(NULL, "QER-Add: QER_ID or GTP5G_LINK is not present\n");
 	   	return -EINVAL;
 	}
 
@@ -3288,7 +3296,7 @@ static int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
 
     gtp = gtp5g_find_dev(sock_net(skb->sk), info->attrs);
     if (!gtp) {
-		GTP5G_ERR(NULL, "Unable to find the gtp device\n");
+		GTP5G_ERR(NULL, "QER-Add: Unable to find the gtp device\n");
         err = -ENODEV;
         goto unlock;
     }
@@ -3309,7 +3317,7 @@ static int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
 
     if (!info->attrs[GTP5G_QER_ID] ||
         !info->attrs[GTP5G_LINK]) {
-    	GTP5G_ERR(NULL, "QER_ID or GTP5g_LINK is not present\n");
+    	GTP5G_ERR(NULL, "QER-Del: QER_ID or GTP5G_LINK is not present\n");
         return -EINVAL;
     }
 
@@ -3319,12 +3327,13 @@ static int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
     qer = gtp5g_find_qer(sock_net(skb->sk), info->attrs);
     if (IS_ERR(qer)) {
         err = PTR_ERR(qer);
-        GTP5G_ERR(qer->dev, "QER-Del: qer(%u) fail\n", id);
+        GTP5G_ERR(qer->dev, "QER-Del: failed to find id(%u)\n", id);
         goto unlock;
     }
 
-    GTP5G_LOG(qer->dev, "QER-Del: QER id(%u) success\n", id);
+    GTP5G_INF(qer->dev, "QER-Del: id(%u) success\n", id);
     qer_context_delete(qer);
+
 unlock:
     rcu_read_unlock();
     return err;
