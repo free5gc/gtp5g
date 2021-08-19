@@ -320,7 +320,7 @@ static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
     iov_iter_init(&msg.msg_iter, WRITE, iov, msg_iovlen, total_iov_len);
     msg.msg_control = NULL;
     msg.msg_controllen = 0;
-    msg.msg_flags = 0;
+    msg.msg_flags = MSG_DONTWAIT;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
     oldfs = force_uaccess_begin();
