@@ -31,20 +31,24 @@ CC += ${MY_CFLAGS}
 
 obj-m := $(MODULE_NAME).o
 
-all:
-	make -C $(KDIR) M=$(PWD) modules
+MOD_KERNEL_PATH := /kernel/drivers/net
+
+default: module
+
+module:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
 clean:
-	make -C $(KDIR) M=$(PWD) clean
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
  
 install:
+	$(MAKE) -C $(KDIR) M=$$PWD INSTALL_MOD_PATH=$(DESTDIR) INSTALL_MOD_DIR=$(MOD_KERNEL_PATH) modules_install	
 	modprobe udp_tunnel
-	cp $(MODULE_NAME).ko /lib/modules/`uname -r`/kernel/drivers/net
 	$(DEPMOD)
 	modprobe $(MODULE_NAME)
 	echo "gtp5g" >> /etc/modules
 
 uninstall:
-	rmmod $(MODULE_NAME)
-	rm -f /lib/modules/`uname -r`/kernel/drivers/net/$(MODULE_NAME).ko
+	rm -f $(DESTDIR)/lib/modules/$(KVER)/$(MOD_KERNEL_PATH)/$(MODULE_NAME).ko
 	$(DEPMOD)
 	sed -zi "s/gtp5g\n//g" /etc/modules
+	rmmod -f  $(MODULE_NAME)
