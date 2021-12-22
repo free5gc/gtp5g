@@ -4,7 +4,7 @@ For detailed information, please reference to 3GPP specification TS 29.281 and T
 
 ## Notice
 Due to the evolution of Linux kernel, this module would not work with every kernel version.
-Please run this module with kernel version `5.0.0-23-generic` or upper than `5.4` (Ubuntu 20.04).
+Please run this module with kernel version `5.0.0-23-generic`, upper than `5.4` (Ubuntu 20.04) or RHEL8.
 
 Please check the [libgtp5gnl](https://github.com/free5gc/libgtp5gnl) version is the same as gtp5g,
 because the type translating between libgtp5gnl and gtp5g had been changed.
@@ -41,6 +41,8 @@ The gtp5g interface will be created by using libgtp5gnl scripts
     + Note: It will delete list of rules and interface
 
 ## Change Log
+### v0.2.1
++ Support for RHEL8
 ### v0.2.0
 + Changed to host type between gtp5g and libgtp5gnl
 + Supported forwarding policy feature, but need to set ip rule and ip route with Linux mark by self
