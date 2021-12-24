@@ -39,15 +39,3 @@ The gtp5g interface will be created by using libgtp5gnl scripts
 5) Delete an interface 
     + sudo ./run.sh Clean
     + Note: It will delete list of rules and interface
-
-## Change Log
-### v0.2.1
-+ Support for RHEL8
-### v0.2.0
-+ Changed to host type between gtp5g and libgtp5gnl
-+ Supported forwarding policy feature, but need to set ip rule and ip route with Linux mark by self
-+ Fixed bugs about "any" and "assigned" in SDF filter
-### v0.1.0
-+ First version
-+ Supported packet matching about UE IP, TEID and SDF filter
-+ Auto process packet by PDR/FAR
