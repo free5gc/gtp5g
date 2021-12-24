@@ -5,7 +5,6 @@ ifneq (,$(findstring 1, $(RHEL8)))
 endif
 
 PWD := $(shell pwd) 
-KVERSION := $(shell uname -r)
 
 ifeq ($(KVER),)
 		KVER := $(shell uname -r)
