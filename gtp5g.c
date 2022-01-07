@@ -501,9 +501,15 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
                  *      3.a) SMF will send modification of PDR, FAR(TEID and GTP-U)
                  *      3.b) SHOULD set the flag as 1 and send GTP-U Marker for old gNB
                  * */
+                /* R15.3 29.281
+                 * 5.1 General format
+                 * When setting up a GTP-U tunnel, the GTP-U entity shall not assign the value 'all zeros' to its own TEID.
+                 * However, for backward compatibility, if a GTP-U entity receives (via respective control plane message) a peer's
+                 * TEID that is set to the value 'all zeros', the GTP-U entity shall accept this value as valid and send the subsequent
+                 * G-PDU with the TEID field in the header set to the value 'all zeros'.
+                 * */
                 if ((flag != NULL && epkt_info != NULL)) {
-                    if (((old_teid & hdr_creation->teid) != 0 && 
-                        ((old_peer_addr & hdr_creation->peer_addr_ipv4.s_addr) != 0)) &&
+                    if (((old_peer_addr & hdr_creation->peer_addr_ipv4.s_addr) != 0) &&
                         ((old_teid != hdr_creation->teid ) ||
                          (old_peer_addr != hdr_creation->peer_addr_ipv4.s_addr))) {
 						*flag = 1;
