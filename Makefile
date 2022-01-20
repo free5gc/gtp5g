@@ -6,23 +6,29 @@ endif
 
 PWD := $(shell pwd) 
 
-ifeq ($(KVER),)
-		KVER := $(shell uname -r)
-	endif
-
-ifneq ($(RUN_DEPMOD),)
-		DEPMOD := /sbin/depmod -a
-	else
-		DEPMOD := true
-	endif
-
-ifeq ($(KDIR),)
-		KDIR := /lib/modules/$(KVER)/build
-	endif
-
-
 CONFIG_MODULE_SIG=n
 MODULE_NAME = gtp5g
+
+ifneq ($(RHEL8FLAG),)
+	INSTALL := $(MAKE) -C $(KDIR) M=$$PWD INSTALL_MOD_PATH=$(DESTDIR) INSTALL_MOD_DIR=$(MOD_KERNEL_PATH) modules_install
+else
+	INSTALL := cp $(MODULE_NAME).ko $(DESTDIR)/lib/modules/$(KVER)/$(MOD_KERNEL_PATH)
+	RUN_DEPMOD := true
+endif
+
+ifeq ($(KVER),)
+	KVER := $(shell uname -r)
+endif
+
+ifneq ($(RUN_DEPMOD),)
+	DEPMOD := /sbin/depmod -a
+else
+	DEPMOD := true
+endif
+
+ifeq ($(KDIR),)
+	KDIR := /lib/modules/$(KVER)/build
+endif
 
 MY_CFLAGS += -g -DDEBUG $(RHEL8FLAG)
 EXTRA_CFLAGS += -Wno-misleading-indentation -Wuninitialized
@@ -40,7 +46,7 @@ clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
  
 install:
-	$(MAKE) -C $(KDIR) M=$$PWD INSTALL_MOD_PATH=$(DESTDIR) INSTALL_MOD_DIR=$(MOD_KERNEL_PATH) modules_install
+	$(INSTALL)
 	modprobe udp_tunnel
 	$(DEPMOD)
 	modprobe $(MODULE_NAME)
