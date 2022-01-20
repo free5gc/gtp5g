@@ -30,7 +30,7 @@ CC += ${MY_CFLAGS}
 
 obj-m := $(MODULE_NAME).o
 
-MOD_KERNEL_PATH := /kernel/drivers/net
+MOD_KERNEL_PATH := kernel/drivers/net
 
 default: module
 
@@ -40,7 +40,7 @@ clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
  
 install:
-	$(MAKE) -C $(KDIR) M=$$PWD INSTALL_MOD_PATH=$(DESTDIR) INSTALL_MOD_DIR=$(MOD_KERNEL_PATH) modules_install	
+	$(MAKE) -C $(KDIR) M=$$PWD INSTALL_MOD_PATH=$(DESTDIR) INSTALL_MOD_DIR=$(MOD_KERNEL_PATH) modules_install
 	modprobe udp_tunnel
 	$(DEPMOD)
 	modprobe $(MODULE_NAME)
