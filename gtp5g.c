@@ -32,10 +32,16 @@
 #include <net/xfrm.h>
 #include <net/genetlink.h>
 #include <net/netns/generic.h>
+#include <stdbool.h>
 
 #include "gtp5g.h"
 
 #define DRV_VERSION "1.0.3b"
+
+/* used to compatible with api with/without seid */
+#define MSG_SEID_IOV_LEN 3
+#define MSG_NO_SEID_IOV_LEN 2
+bool api_with_seid = false;
 
 int dbg_trace_lvl = 1;
 
@@ -300,12 +306,13 @@ static void qer_context_delete(struct gtp5g_qer *qer);
 static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
 {
     struct msghdr msg;
-    struct iovec iov[2];
+    struct iovec *iov;
     mm_segment_t oldfs;
 
-    int msg_iovlen = sizeof(iov) / sizeof(struct iovec);
+    int msg_iovlen;
     int total_iov_len = 0;
     int i, rt;
+    u64 self_seid_hdr[1] = {pdr->seid};
     u16 self_hdr[2] = {pdr->id, pdr->far->action};
 
     if (!pdr->sock_for_buf) {
@@ -314,13 +321,32 @@ static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
     }
 
     memset(&msg, 0, sizeof(msg));
-    memset(iov, 0, sizeof(iov));
-
-    iov[0].iov_base = self_hdr;
-    iov[0].iov_len = sizeof(self_hdr);
-    iov[1].iov_base = buf;
-    iov[1].iov_len = len;
-
+    if (api_with_seid) {
+        msg_iovlen = MSG_SEID_IOV_LEN;
+        iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
+            GFP_KERNEL);
+    
+        memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
+    
+        iov[0].iov_base = self_seid_hdr;
+        iov[0].iov_len = sizeof(self_seid_hdr);
+        iov[1].iov_base = self_hdr;
+        iov[1].iov_len = sizeof(self_hdr);
+        iov[2].iov_base = buf;
+        iov[2].iov_len = len;
+    } else {
+        msg_iovlen = MSG_NO_SEID_IOV_LEN;
+        iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
+            GFP_KERNEL);
+    
+        memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
+    
+        iov[0].iov_base = self_hdr;
+        iov[0].iov_len = sizeof(self_hdr);
+        iov[1].iov_base = buf;
+        iov[1].iov_len = len;
+    }
+    
     for (i = 0; i < msg_iovlen; i++)
         total_iov_len += iov[i].iov_len;
 
@@ -417,7 +443,8 @@ static inline u32 ipv4_hashfn(__be32 ip)
     return jhash_1word((__force u32)ip, gtp5g_h_initval);
 }
 
-static char* seid_and_u32id_to_hex_str(u64 seid_int, u32 id){
+static char* seid_and_u32id_to_hex_str(u64 seid_int, u32 id)
+{
     char seid_c[16];
     char id_c[8];
     
@@ -611,8 +638,8 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
     return 0;
 }
 
-
-static char* seid_pdr_id_to_hex_str(u64 seid_int, u16 pdr_id){
+static char* seid_pdr_id_to_hex_str(u64 seid_int, u16 pdr_id)
+{
     char seid_c[16];
     char pdr_id_c[4];
     static char seid_pdr_id_c[20];
@@ -620,12 +647,11 @@ static char* seid_pdr_id_to_hex_str(u64 seid_int, u16 pdr_id){
     snprintf(seid_c, 16 ,"%llx",seid_int);
     snprintf(pdr_id_c, 4 ,"%x",pdr_id);
 
-    strcpy( seid_pdr_id_c, seid_c );
-    strcat( seid_pdr_id_c, pdr_id_c );
+    strcpy(seid_pdr_id_c, seid_c);
+    strcat(seid_pdr_id_c, pdr_id_c);
 
     return seid_pdr_id_c;
 }
-
 
 static struct gtp5g_pdr *pdr_find_by_seid_pdr_id(struct gtp5g_dev *gtp, u64 seid, u16 pdr_id)
 {
@@ -636,7 +662,7 @@ static struct gtp5g_pdr *pdr_find_by_seid_pdr_id(struct gtp5g_dev *gtp, u64 seid
     seid_pdr_id = seid_pdr_id_to_hex_str(seid, pdr_id);
     head = &gtp->pdr_id_hash[u32_str_hashfn(seid_pdr_id) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_id) {
-        if ( pdr->seid == seid && pdr->id == pdr_id)
+        if (pdr->seid == seid && pdr->id == pdr_id)
             return pdr;
     }
 
@@ -775,10 +801,14 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
 
     pdr->af = AF_INET;
     pdr->id = nla_get_u16(info->attrs[GTP5G_PDR_ID]);
-    if (info->attrs[GTP5G_PDR_SEID])
+    if (info->attrs[GTP5G_PDR_SEID]) {
+        api_with_seid = true;
         pdr->seid = nla_get_u64(info->attrs[GTP5G_PDR_SEID]);
-    else
+    }
+    else {
+        api_with_seid = false;
         pdr->seid = 0;
+    }
 
     if (info->attrs[GTP5G_PDR_PRECEDENCE]) 
         pdr->precedence = nla_get_u32(info->attrs[GTP5G_PDR_PRECEDENCE]);
@@ -825,7 +855,6 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
 			&gtp->related_far_hash[u32_str_hashfn(seid_far_id_c) % gtp->hash_size]);
 
         pdr->far = far_find_by_seid_far_id(gtp, pdr->seid, *pdr->far_id);
-
     } else {
 		GTP5G_ERR(NULL, "FAR ID not exist\n");
 	}
@@ -1865,7 +1894,7 @@ static struct gtp5g_pdr *gtp5g_find_pdr_by_link(struct net *net, struct nlattr *
     struct gtp5g_dev *gtp;
     u64 seid;
 
-    if (nla[GTP5G_PDR_SEID] )
+    if (nla[GTP5G_PDR_SEID])
         seid =  nla_get_u64(nla[GTP5G_PDR_SEID]);
     else
         seid = 0;
@@ -1874,7 +1903,7 @@ static struct gtp5g_pdr *gtp5g_find_pdr_by_link(struct net *net, struct nlattr *
     if (!gtp) {
         GTP5G_ERR(NULL, "Failed to find gtp device for pdr\n");
         return ERR_PTR(-ENODEV);
-    }   
+    }
 
     if (nla[GTP5G_PDR_ID]) {
         u16 id = nla_get_u16(nla[GTP5G_PDR_ID]);
@@ -1904,7 +1933,7 @@ static struct gtp5g_far *gtp5g_find_far_by_link(struct net *net, struct nlattr *
     struct gtp5g_dev *gtp;
     u64 seid;
 
-    if (nla[GTP5G_FAR_SEID] )
+    if (nla[GTP5G_FAR_SEID])
         seid = nla_get_u64(nla[GTP5G_FAR_SEID]);
     else
         seid = 0;
@@ -2896,7 +2925,7 @@ static int gtp5g_gnl_add_far(struct gtp5g_dev *gtp, struct genl_info *info)
     u64 seid_int;
     char *seid_far_id_c;
 
-    if (info->attrs[GTP5G_FAR_SEID] )
+    if (info->attrs[GTP5G_FAR_SEID])
         seid_int = nla_get_u64(info->attrs[GTP5G_FAR_SEID]);
     else
         seid_int = 0;
@@ -3280,11 +3309,11 @@ static int qer_fill(struct gtp5g_qer *qer, struct gtp5g_dev *gtp, struct genl_in
     char *seid_qer_id_c;
 
     qer->id = nla_get_u32(info->attrs[GTP5G_QER_ID]);
-    if (info->attrs[GTP5G_QER_SEID] ){
+    if (info->attrs[GTP5G_QER_SEID])
         qer->seid = nla_get_u64(info->attrs[GTP5G_QER_SEID]);
-    }else{
+    else
         qer->seid = 0;
-    }
+    
 
     if (info->attrs[GTP5G_QER_GATE]) {
         qer->ul_dl_gate = nla_get_u8(info->attrs[GTP5G_QER_GATE]);
@@ -3374,11 +3403,11 @@ static int gtp5g_gnl_add_qer(struct gtp5g_dev *gtp, struct genl_info *info)
 		return -EEXIST;
 	}
 
-    if (info->attrs[GTP5G_QER_SEID] ){
+    if (info->attrs[GTP5G_QER_SEID])
         seid_int = nla_get_u64(info->attrs[GTP5G_QER_SEID]);
-    }else{
+    else
         seid_int = 0;
-    }
+    
     qer_id = nla_get_u32(info->attrs[GTP5G_QER_ID]);
     qer = qer_find_by_seid_qer_id(gtp, seid_int, qer_id);
     if (qer) {
@@ -3428,7 +3457,7 @@ static int gtp5g_gnl_add_qer(struct gtp5g_dev *gtp, struct genl_info *info)
 
     seid_qer_id_c = seid_and_u32id_to_hex_str(seid_int, qer_id);
     hlist_add_head_rcu(&qer->hlist_id, 
-		&gtp->qer_id_hash[u32_str_hashfn(seid_qer_id_c) % gtp->hash_size]);
+        &gtp->qer_id_hash[u32_str_hashfn(seid_qer_id_c) % gtp->hash_size]);
     GTP5G_INF(dev, "QER-Add: QER_ID(%u) success\n", qer_id);
 out:
     return err;
@@ -3568,9 +3597,8 @@ static int gtp5g_genl_fill_qer(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         if (cnt >= 0xff)
             goto genlmsg_fail;
 
-        if (*pdr->qer_id == qer->id){
+        if (*pdr->qer_id == qer->id)
             u16_buf[cnt++] = pdr->id;
-        }
     }
     if (cnt) {
         if (nla_put(skb, 
@@ -3595,11 +3623,11 @@ static struct gtp5g_qer *gtp5g_find_qer_by_link(struct net *net, struct nlattr *
     struct gtp5g_dev *gtp;
     u64 seid;
 
-    if (nla[GTP5G_QER_SEID] ){
+    if (nla[GTP5G_QER_SEID])
         seid =  nla_get_u64(nla[GTP5G_QER_SEID]);
-    }else{
+    else
         seid = 0;
-    }
+    
 
     gtp = gtp5g_find_dev(net, nla);
     if (!gtp)
