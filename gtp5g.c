@@ -457,8 +457,8 @@ static char* seid_and_u32id_to_hex_str(u64 seid_int, u32 id)
 
     snprintf(seid_c, 16 ,"%llx",seid_int);
     snprintf(id_c, 8 ,"%x",id);
-    strcpy( seid_u32id_c, seid_c );
-    strcat( seid_u32id_c, id_c );
+    strcpy(seid_u32id_c, seid_c);
+    strcat(seid_u32id_c, id_c);
 
     return seid_u32id_c;
 }
