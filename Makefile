@@ -8,6 +8,15 @@ PWD := $(shell pwd)
 
 CONFIG_MODULE_SIG=n
 MODULE_NAME = gtp5g
+MOD_KERNEL_PATH := kernel/drivers/net
+
+ifeq ($(KVER),)
+	KVER := $(shell uname -r)
+endif
+
+ifeq ($(KDIR),)
+	KDIR := /lib/modules/$(KVER)/build
+endif
 
 ifneq ($(RHEL8FLAG),)
 	INSTALL := $(MAKE) -C $(KDIR) M=$$PWD INSTALL_MOD_PATH=$(DESTDIR) INSTALL_MOD_DIR=$(MOD_KERNEL_PATH) modules_install
@@ -16,18 +25,10 @@ else
 	RUN_DEPMOD := true
 endif
 
-ifeq ($(KVER),)
-	KVER := $(shell uname -r)
-endif
-
 ifneq ($(RUN_DEPMOD),)
 	DEPMOD := /sbin/depmod -a
 else
 	DEPMOD := true
-endif
-
-ifeq ($(KDIR),)
-	KDIR := /lib/modules/$(KVER)/build
 endif
 
 MY_CFLAGS += -g -DDEBUG $(RHEL8FLAG)
@@ -35,8 +36,6 @@ EXTRA_CFLAGS += -Wno-misleading-indentation -Wuninitialized
 CC += ${MY_CFLAGS}
 
 obj-m := $(MODULE_NAME).o
-
-MOD_KERNEL_PATH := kernel/drivers/net
 
 default: module
 
