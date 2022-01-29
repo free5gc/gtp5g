@@ -258,6 +258,7 @@ enum gtp5g_pdr_attrs {
 
     GTP5G_PDR_QER_ID,
 
+    GTP5G_PDR_SEID,
 	/* Add newly supported feature ON ABOVE
 	 * for compatability with older version of
 	 * free5GC's UPF or libgtp5gnl
@@ -324,6 +325,7 @@ enum gtp5g_far_attrs {
     /* Not IEs in 3GPP Spec, for other purpose */
     GTP5G_FAR_RELATED_TO_PDR,
 
+    GTP5G_FAR_SEID,
     __GTP5G_FAR_ATTR_MAX,
 };
 #define GTP5G_FAR_ATTR_MAX (__GTP5G_FAR_ATTR_MAX - 1)
@@ -397,6 +399,7 @@ enum gtp5g_qer_attrs {
     /* Not IEs in 3GPP Spec, for other purpose */
     GTP5G_QER_RELATED_TO_PDR,
 
+    GTP5G_QER_SEID,
     __GTP5G_QER_ATTR_MAX,
 };
 #define GTP5G_QER_ATTR_MAX (__GTP5G_QER_ATTR_MAX - 1)

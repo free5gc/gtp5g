@@ -2,8 +2,8 @@
 /* GTP5G according to 3GPP TS 29.281 / 3GPP TS 29.244
  *
  * Author: Muthuraman Elangovan <muthuramane.cs03g@g2.nctu.edu.tw>
- *  	Yao-Wen Chang <yaowenowo@gmail.com>
- *	   	Chi Chang <edingroot@gmail.com>
+ *      Yao-Wen Chang <yaowenowo@gmail.com>
+ *      Chi Chang <edingroot@gmail.com>
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -32,19 +32,25 @@
 #include <net/xfrm.h>
 #include <net/genetlink.h>
 #include <net/netns/generic.h>
+#include <stdbool.h>
 
 #include "gtp5g.h"
 
 #define DRV_VERSION "1.0.3b"
 
+/* used to compatible with api with/without seid */
+#define MSG_SEID_IOV_LEN 3
+#define MSG_NO_SEID_IOV_LEN 2
+bool api_with_seid = false;
+
 int dbg_trace_lvl = 1;
 
-#define DBG(level, dev, fmt, args...) do { 		\
-	if (level <= dbg_trace_lvl) { 			    \
+#define DBG(level, dev, fmt, args...) do {      \
+    if (level <= dbg_trace_lvl) {               \
         if (dev)                                \
             printk_ratelimited("%s:[gtp5g] %s: "fmt, netdev_name(dev), __func__, ##args);   \
         else                                    \
-            printk_ratelimited("[gtp5g] %s: " fmt, __func__, ##args);	    \
+            printk_ratelimited("[gtp5g] %s: " fmt, __func__, ##args);       \
     } \
 } while(0)
 
@@ -74,8 +80,10 @@ struct ip_filter_rule {
 struct gtp5g_qer {
     struct hlist_node    hlist_id;
 
-    u32 id;								/* 8.2.75 QER_ID */
-	uint8_t     ul_dl_gate;             /* 8.2.7 Gate Status */
+    u64                     seid;
+
+    u32 id;                             /* 8.2.75 QER_ID */
+    uint8_t     ul_dl_gate;             /* 8.2.7 Gate Status */
     struct {
         uint32_t    ul_high;
         uint8_t     ul_low;
@@ -137,8 +145,8 @@ struct forwarding_policy {
 };
 
 struct forwarding_parameter {
-	//uint8_t dest_int;
-	//char *network_instance;
+    //uint8_t dest_int;
+    //char *network_instance;
 
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
@@ -147,9 +155,11 @@ struct forwarding_parameter {
 struct gtp5g_far {
     struct hlist_node    hlist_id;
 
+    u64                     seid;
+
     u32 id;
 
-	//u8 dest_iface;
+    //u8 dest_iface;
     u8 action;                              // apply action
 
     struct forwarding_parameter *fwd_param;
@@ -159,33 +169,35 @@ struct gtp5g_far {
 };
 
 struct gtp5g_pdr {
-    struct hlist_node    	hlist_id;
-    struct hlist_node    	hlist_i_teid;
-    struct hlist_node    	hlist_addr;
-    struct hlist_node    	hlist_related_far;
-    struct hlist_node    	hlist_related_qer;
+    struct hlist_node       hlist_id;
+    struct hlist_node       hlist_i_teid;
+    struct hlist_node       hlist_addr;
+    struct hlist_node       hlist_related_far;
+    struct hlist_node       hlist_related_qer;
 
-    u16     				id;
-    u32     				precedence;
-    u8      				*outer_header_removal;
+    u64                     seid;
 
-    struct gtp5g_pdi      	*pdi;
+    u16                     id;
+    u32                     precedence;
+    u8                      *outer_header_removal;
 
-    u32     				*far_id;
-    struct gtp5g_far      	*far;
+    struct gtp5g_pdi        *pdi;
 
-    u32     				*qer_id;
-    struct gtp5g_qer      	*qer;
+    u32                     *far_id;
+    struct gtp5g_far        *far;
+
+    u32                     *qer_id;
+    struct gtp5g_qer        *qer;
 
     // AF_UNIX socket for buffer
-    struct sockaddr_un 		addr_unix;
-    struct socket 			*sock_for_buf;
+    struct sockaddr_un      addr_unix;
+    struct socket           *sock_for_buf;
 
     u16     af;
-    struct in_addr 			role_addr_ipv4;
-    struct sock            	*sk;
-    struct net_device   	*dev;
-    struct rcu_head        	rcu_head;
+    struct in_addr          role_addr_ipv4;
+    struct sock             *sk;
+    struct net_device       *dev;
+    struct rcu_head         rcu_head;
 
     /* Drop Count */
     u64                     ul_drop_cnt;
@@ -194,25 +206,25 @@ struct gtp5g_pdr {
 
 /* One instance of the GTP device. */
 struct gtp5g_dev {
-    struct list_head    	list;
+    struct list_head        list;
 
-    struct sock        		*sk1u;
+    struct sock             *sk1u;
 
-    struct net_device    	*dev;
+    struct net_device       *dev;
 
-    unsigned int        	role;
+    unsigned int            role;
 
-    unsigned int        	hash_size;
-    struct hlist_head    	*pdr_id_hash;
-    struct hlist_head    	*far_id_hash;
-    struct hlist_head    	*qer_id_hash;
+    unsigned int            hash_size;
+    struct hlist_head       *pdr_id_hash;
+    struct hlist_head       *far_id_hash;
+    struct hlist_head       *qer_id_hash;
 
-    struct hlist_head    	*i_teid_hash;      // Used for GTP-U packet detect
-    struct hlist_head    	*addr_hash;        // Used for IPv4 packet detect
+    struct hlist_head       *i_teid_hash;      // Used for GTP-U packet detect
+    struct hlist_head       *addr_hash;        // Used for IPv4 packet detect
 
     /* IEs list related to PDR */
-    struct hlist_head    	*related_far_hash;     // PDR list waiting the FAR to handle
-    struct hlist_head    	*related_qer_hash;     // PDR list waiting the QER to handle
+    struct hlist_head       *related_far_hash;     // PDR list waiting the FAR to handle
+    struct hlist_head       *related_qer_hash;     // PDR list waiting the QER to handle
 
     /* Used by proc interface */
     struct list_head        proc_list;
@@ -224,22 +236,22 @@ struct gtp5g_pktinfo {
     struct flowi4                 fl4;
     struct rtable                 *rt;
     struct outer_header_creation  *hdr_creation;
-	struct gtp5g_qer			  *qer; 
+    struct gtp5g_qer              *qer; 
     struct net_device             *dev;
     __be16                        gtph_port;
 };
 
 struct gtp5g_emark_pktinfo {
-	u32 teid;
-	u32 peer_addr;
-	u32 local_addr;
-	u32 role_addr;
-	
-	struct sock			*sk;
+    u32 teid;
+    u32 peer_addr;
+    u32 local_addr;
+    u32 role_addr;
+    
+    struct sock         *sk;
     struct flowi4       fl4;
-	struct rtable       *rt;
-	struct net_device   *dev;
-	__be16              gtph_port;
+    struct rtable       *rt;
+    struct net_device   *dev;
+    __be16              gtph_port;
 };
 
 
@@ -252,6 +264,7 @@ struct gtp5g_net {
 struct list_head proc_gtp5g_dev;
 struct proc_gtp5g_pdr {
     u16     id;
+    u64     seid;
     u32     precedence;
     u8      ohr;
     u32     role_addr4;
@@ -269,6 +282,7 @@ struct proc_gtp5g_pdr {
 
 struct proc_gtp5g_far {
     u32     id;
+    u64     seid;
     u8      action;
 
     //OHC
@@ -279,24 +293,64 @@ struct proc_gtp5g_far {
 
 struct proc_gtp5g_qer {
     u32     id;
+    u64     seid;
     u8      qfi;
 };
 
 static struct gtp5g_qer *gtp5g_find_qer(struct net *net, struct nlattr *nla[]);
-static struct gtp5g_qer *qer_find_by_id(struct gtp5g_dev *gtp, u32 id);
+static struct gtp5g_qer *find_qer_by_id(struct gtp5g_dev *gtp, u64 seid, u32 qer_id);
 static void qer_context_delete(struct gtp5g_qer *qer);
+
+static char* seid_and_u32id_to_hex_str(u64 seid_int, u32 id)
+{
+    #define SEID_HEX_STR_LEN 16
+    #define U32_ID_HEX_STR_LEN 8
+    
+    char seid_hexstr[SEID_HEX_STR_LEN];
+    char id_hexstr[U32_ID_HEX_STR_LEN];
+    
+    char *seid_u32id_hexstr;
+   
+    seid_u32id_hexstr = kzalloc(sizeof(SEID_HEX_STR_LEN + U32_ID_HEX_STR_LEN), GFP_ATOMIC);
+    if (!seid_u32id_hexstr) {
+        GTP5G_ERR(NULL, "Failed to allocate concate id\n");
+    }
+
+    snprintf(seid_hexstr, SEID_HEX_STR_LEN, "%llx", seid_int);
+    snprintf(id_hexstr, U32_ID_HEX_STR_LEN, "%x", id);
+    strcpy(seid_u32id_hexstr, seid_hexstr);
+    strcat(seid_u32id_hexstr, id_hexstr);
+
+    return seid_u32id_hexstr;
+}
+
+static char* seid_pdr_id_to_hex_str(u64 seid_int, u16 pdr_id)
+{
+    return seid_and_u32id_to_hex_str(seid_int, (u32)(pdr_id));
+}
+
+static char* seid_far_id_to_hex_str(u64 seid_int, u32 far_id)
+{
+    return seid_and_u32id_to_hex_str(seid_int, far_id);
+}
+
+static char* seid_qer_id_to_hex_str(u64 seid_int, u32 qer_id)
+{
+    return seid_and_u32id_to_hex_str(seid_int, qer_id);
+}
 
 /* Function unix_sock_{...} are used to handle buffering */
 // Send PDR ID, FAR action and buffered packet to user space
 static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
 {
     struct msghdr msg;
-    struct iovec iov[2];
+    struct iovec *iov;
     mm_segment_t oldfs;
 
-    int msg_iovlen = sizeof(iov) / sizeof(struct iovec);
+    int msg_iovlen;
     int total_iov_len = 0;
     int i, rt;
+    u64 self_seid_hdr[1] = {pdr->seid};
     u16 self_hdr[2] = {pdr->id, pdr->far->action};
 
     if (!pdr->sock_for_buf) {
@@ -305,13 +359,33 @@ static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
     }
 
     memset(&msg, 0, sizeof(msg));
-    memset(iov, 0, sizeof(iov));
-
-    iov[0].iov_base = self_hdr;
-    iov[0].iov_len = sizeof(self_hdr);
-    iov[1].iov_base = buf;
-    iov[1].iov_len = len;
-
+    if (api_with_seid) {
+        msg_iovlen = MSG_SEID_IOV_LEN;
+        iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
+            GFP_KERNEL);
+    
+        memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
+    
+        iov[0].iov_base = self_seid_hdr;
+        iov[0].iov_len = sizeof(self_seid_hdr);
+        iov[1].iov_base = self_hdr;
+        iov[1].iov_len = sizeof(self_hdr);
+        iov[2].iov_base = buf;
+        iov[2].iov_len = len;
+    } else {
+        // for backward compatible
+        msg_iovlen = MSG_NO_SEID_IOV_LEN;
+        iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
+            GFP_KERNEL);
+    
+        memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
+    
+        iov[0].iov_base = self_hdr;
+        iov[0].iov_len = sizeof(self_hdr);
+        iov[1].iov_base = buf;
+        iov[1].iov_len = len;
+    }
+    
     for (i = 0; i < msg_iovlen; i++)
         total_iov_len += iov[i].iov_len;
 
@@ -335,7 +409,7 @@ static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
     force_uaccess_end(oldfs);
 #else
     set_fs(oldfs);
-#endif	
+#endif
 
     return rt;
 }
@@ -398,20 +472,27 @@ static inline u32 u32_hashfn(u32 val)
     return jhash_1word(val, gtp5g_h_initval);
 }
 
+static inline u32 str_hashfn(char *str)
+{
+    return jhash(str, strlen(str), 0);
+}
+
 static inline u32 ipv4_hashfn(__be32 ip)
 {
     return jhash_1word((__force u32)ip, gtp5g_h_initval);
 }
 
-static struct gtp5g_far *far_find_by_id(struct gtp5g_dev *gtp, u32 id)
+static struct gtp5g_far *find_far_by_id(struct gtp5g_dev *gtp, u64 seid, u32 far_id)
 {
     struct hlist_head *head;
     struct gtp5g_far *far;
+    char *seid_far_id_hexstr;
 
-    head = &gtp->far_id_hash[u32_hashfn(id) % gtp->hash_size];
+    seid_far_id_hexstr = seid_far_id_to_hex_str(seid, far_id);
+    head = &gtp->far_id_hash[str_hashfn(seid_far_id_hexstr) % gtp->hash_size];
 
     hlist_for_each_entry_rcu(far, head, hlist_id) {
-        if (far->id == id)
+        if (far->seid == seid && far->id == far_id)
             return far;
     }
 
@@ -419,7 +500,7 @@ static struct gtp5g_far *far_find_by_id(struct gtp5g_dev *gtp, u32 id)
 }
 
 static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_info *info,
-	u8 *flag, struct gtp5g_emark_pktinfo *epkt_info)
+    u8 *flag, struct gtp5g_emark_pktinfo *epkt_info)
 {
     struct nlattr *fwd_param_attrs[GTP5G_FORWARDING_PARAMETER_ATTR_MAX + 1];
     struct nlattr *hdr_creation_attrs[GTP5G_OUTER_HEADER_CREATION_ATTR_MAX + 1];
@@ -428,6 +509,8 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
     struct gtp5g_pdr *pdr;
     struct hlist_head *head;
 
+    char *seid_far_id_hexstr;
+
     if (!far) {
         GTP5G_ERR(NULL, "Far is null\n");
         return -EINVAL;
@@ -435,22 +518,27 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
 
     far->id = nla_get_u32(info->attrs[GTP5G_FAR_ID]);
 
+    if (info->attrs[GTP5G_FAR_SEID])
+        far->seid = nla_get_u64(info->attrs[GTP5G_FAR_SEID]);
+    else
+        far->seid = 0;
+
     if (info->attrs[GTP5G_FAR_APPLY_ACTION]) {
         far->action = nla_get_u8(info->attrs[GTP5G_FAR_APPLY_ACTION]);
     }
 
     if (info->attrs[GTP5G_FAR_FORWARDING_PARAMETER] &&
         !nla_parse_nested(fwd_param_attrs, 
-						GTP5G_FORWARDING_PARAMETER_ATTR_MAX, 
-						info->attrs[GTP5G_FAR_FORWARDING_PARAMETER], 
-						NULL, 
-						NULL)) {
+                        GTP5G_FORWARDING_PARAMETER_ATTR_MAX, 
+                        info->attrs[GTP5G_FAR_FORWARDING_PARAMETER], 
+                        NULL, 
+                        NULL)) {
         if (!far->fwd_param) {
             far->fwd_param = kzalloc(sizeof(*far->fwd_param), GFP_ATOMIC);
             if (!far->fwd_param) {
-				GTP5G_ERR(NULL, "Failed to allocate memory for FAR fwd param\n");
+                GTP5G_ERR(NULL, "Failed to allocate memory for FAR fwd param\n");
                 return -ENOMEM;
-			}
+            }
         }
 
         if (fwd_param_attrs[GTP5G_FORWARDING_PARAMETER_OUTER_HEADER_CREATION] &&
@@ -469,7 +557,7 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
 
             if (!far->fwd_param->hdr_creation) {
                 far->fwd_param->hdr_creation = kzalloc(sizeof(*far->fwd_param->hdr_creation), 
-					GFP_ATOMIC);
+                    GFP_ATOMIC);
                 if (!far->fwd_param->hdr_creation) {
                     GTP5G_ERR(NULL, "Failed to allocate FAR fwd Hdr creation\n");
                     return -ENOMEM;
@@ -512,10 +600,10 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
                     if (((old_peer_addr & hdr_creation->peer_addr_ipv4.s_addr) != 0) &&
                         ((old_teid != hdr_creation->teid ) ||
                          (old_peer_addr != hdr_creation->peer_addr_ipv4.s_addr))) {
-						*flag = 1;
-						epkt_info->teid = old_teid;
-						epkt_info->peer_addr = old_peer_addr;
-						epkt_info->gtph_port = old_port;
+                        *flag = 1;
+                        epkt_info->teid = old_teid;
+                        epkt_info->peer_addr = old_peer_addr;
+                        epkt_info->gtph_port = old_port;
                     }
                 }
             }
@@ -524,17 +612,17 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
         if (fwd_param_attrs[GTP5G_FORWARDING_PARAMETER_FORWARDING_POLICY]) {
             if (!far->fwd_param->fwd_policy) {
                 far->fwd_param->fwd_policy = kzalloc(sizeof(*far->fwd_param->fwd_policy), 
-													GFP_ATOMIC);
+                                                    GFP_ATOMIC);
                 if (!far->fwd_param->fwd_policy) {
-					GTP5G_ERR(NULL, "Failed to allocate FAR fwd policy\n");
+                    GTP5G_ERR(NULL, "Failed to allocate FAR fwd policy\n");
                     return -ENOMEM;
-				}
+                }
             }
             fwd_policy = far->fwd_param->fwd_policy;
 
             fwd_policy->len = nla_len(fwd_param_attrs[GTP5G_FORWARDING_PARAMETER_FORWARDING_POLICY]);
             if (fwd_policy->len >= sizeof(fwd_policy->identifier)) {
-				GTP5G_ERR(NULL, "Failed FAR fwd policy length is bigger\n");
+                GTP5G_ERR(NULL, "Failed FAR fwd policy length is bigger\n");
                 return -EINVAL;
             }
             strncpy(fwd_policy->identifier, 
@@ -543,16 +631,17 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
 
             /* Exact value to handle forwarding policy */
             if (!(fwd_policy->mark = simple_strtol(fwd_policy->identifier, NULL, 10))) {
-				GTP5G_ERR(NULL, "Failed FAR fwd policy mark not set\n");
+                GTP5G_ERR(NULL, "Failed FAR fwd policy mark not set\n");
                 return -EINVAL;
             }
         }
     }
 
     /* Update PDRs which has not linked to this FAR */
-    head = &gtp->related_far_hash[u32_hashfn(far->id) % gtp->hash_size];
+    seid_far_id_hexstr = seid_far_id_to_hex_str(far->seid, far->id);
+    head = &gtp->related_far_hash[str_hashfn(seid_far_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_far) {
-        if (*pdr->far_id == far->id) {
+        if (pdr->seid == far->seid && *pdr->far_id == far->id) {
             if (flag != NULL && *flag == 1) {
                 epkt_info->role_addr = pdr->role_addr_ipv4.s_addr;
                 epkt_info->sk = pdr->sk;
@@ -568,14 +657,16 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
     return 0;
 }
 
-static struct gtp5g_pdr *pdr_find_by_id(struct gtp5g_dev *gtp, u16 id)
+static struct gtp5g_pdr *find_pdr_by_id(struct gtp5g_dev *gtp, u64 seid, u16 pdr_id)
 {
     struct hlist_head *head;
     struct gtp5g_pdr *pdr;
+    char *seid_pdr_id;
 
-    head = &gtp->pdr_id_hash[u32_hashfn(id) % gtp->hash_size];
+    seid_pdr_id = seid_pdr_id_to_hex_str(seid, pdr_id);
+    head = &gtp->pdr_id_hash[str_hashfn(seid_pdr_id) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_id) {
-        if (pdr->id == id)
+        if (pdr->seid == seid && pdr->id == pdr_id)
             return pdr;
     }
 
@@ -605,7 +696,7 @@ static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb,
     struct iphdr *iph;
     struct ip_filter_rule *rule;
     const __be16 *pptr;
-	__be16 _ports[2];
+    __be16 _ports[2];
 
     if (!sdf) {
         GTP5G_ERR(NULL, "SDF is null\n");
@@ -704,13 +795,24 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
     int i;
     char *str;
 
+    char *seid_far_id_hexstr;
+    char *seid_qer_id_hexstr;
+
     if (!pdr) {
         GTP5G_ERR(NULL, "PDR is NULL\n");
-		return -EINVAL;
-	}
+        return -EINVAL;
+    }
 
     pdr->af = AF_INET;
     pdr->id = nla_get_u16(info->attrs[GTP5G_PDR_ID]);
+    if (info->attrs[GTP5G_PDR_SEID]) {
+        api_with_seid = true;
+        pdr->seid = nla_get_u64(info->attrs[GTP5G_PDR_SEID]);
+    }
+    else {
+        api_with_seid = false;
+        pdr->seid = 0;
+    }
 
     if (info->attrs[GTP5G_PDR_PRECEDENCE]) 
         pdr->precedence = nla_get_u32(info->attrs[GTP5G_PDR_PRECEDENCE]);
@@ -719,9 +821,9 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
         if (!pdr->outer_header_removal) {
             pdr->outer_header_removal = kzalloc(sizeof(*pdr->outer_header_removal), GFP_ATOMIC);
             if (!pdr->outer_header_removal) {
-				GTP5G_ERR(NULL, "Failed to allocate OHC\n");
+                GTP5G_ERR(NULL, "Failed to allocate OHC\n");
                 return -ENOMEM;
-			}
+            }
         }
         *pdr->outer_header_removal = nla_get_u8(info->attrs[GTP5G_OUTER_HEADER_REMOVAL]);
     }
@@ -729,7 +831,7 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
     /* Not in 3GPP spec, just used for routing */
     if (info->attrs[GTP5G_PDR_ROLE_ADDR_IPV4]) {
         pdr->role_addr_ipv4.s_addr = nla_get_u32(info->attrs[GTP5G_PDR_ROLE_ADDR_IPV4]);
-	}
+    }
 
     /* Not in 3GPP spec, just used for buffering */
     if (info->attrs[GTP5G_PDR_UNIX_SOCKET_PATH]) {
@@ -738,67 +840,69 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
         strncpy(pdr->addr_unix.sun_path, str, nla_len(info->attrs[GTP5G_PDR_UNIX_SOCKET_PATH]));
     }
 
-	/* FAR */
+    /* FAR */
     if (info->attrs[GTP5G_PDR_FAR_ID]) {
         if (!pdr->far_id) {
             pdr->far_id = kzalloc(sizeof(*pdr->far_id), GFP_ATOMIC);
-            if (!pdr->far_id) {	
-				GTP5G_ERR(NULL, "Failed to allocate FAR ID\n");
+            if (!pdr->far_id) {
+                GTP5G_ERR(NULL, "Failed to allocate FAR ID\n");
                 return -ENOMEM;
-			}
+            }
         }
         *pdr->far_id = nla_get_u32(info->attrs[GTP5G_PDR_FAR_ID]);
 
         if (!hlist_unhashed(&pdr->hlist_related_far))
             hlist_del_rcu(&pdr->hlist_related_far);
 
+        seid_far_id_hexstr = seid_far_id_to_hex_str(pdr->seid, *pdr->far_id);
         hlist_add_head_rcu(&pdr->hlist_related_far, 
-			&gtp->related_far_hash[u32_hashfn(*pdr->far_id) % gtp->hash_size]);
-        pdr->far = far_find_by_id(gtp, *pdr->far_id);
+            &gtp->related_far_hash[str_hashfn(seid_far_id_hexstr) % gtp->hash_size]);
+        pdr->far = find_far_by_id(gtp, pdr->seid, *pdr->far_id);
     } else {
-		GTP5G_ERR(NULL, "FAR ID not exist\n");
-	}
+        GTP5G_ERR(NULL, "FAR ID not exist\n");
+    }
 
-	/* QER */
+    /* QER */
     if (info->attrs[GTP5G_PDR_QER_ID]) {
         if (!pdr->qer_id) {
             pdr->qer_id = kzalloc(sizeof(*pdr->qer_id), GFP_ATOMIC);
             if (!pdr->qer_id) {
-            	GTP5G_ERR(NULL, "Failed to allocate memory qer id\n");
-				return -ENOMEM;
-			}
+                GTP5G_ERR(NULL, "Failed to allocate memory qer id\n");
+                return -ENOMEM;
+            }
         }
         *pdr->qer_id = nla_get_u32(info->attrs[GTP5G_PDR_QER_ID]);
 
         if (!hlist_unhashed(&pdr->hlist_related_qer))
             hlist_del_rcu(&pdr->hlist_related_qer);
 
+        seid_qer_id_hexstr = seid_qer_id_to_hex_str(pdr->seid, *pdr->qer_id);
         hlist_add_head_rcu(&pdr->hlist_related_qer, 
-			&gtp->related_qer_hash[u32_hashfn(*pdr->qer_id) % gtp->hash_size]);
+            &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size]);
 
-        pdr->qer = qer_find_by_id(gtp, *pdr->qer_id);
-		if (!pdr->qer)
-			GTP5G_ERR(NULL, "Failed to find QER id(%u)\n", *pdr->qer_id);
+        pdr->qer = find_qer_by_id(gtp, pdr->seid, *pdr->qer_id);
+        if (!pdr->qer)
+            GTP5G_ERR(NULL, "Failed to find QER id(%u)\n", *pdr->qer_id);
     } 
 
     if (unix_sock_client_update(pdr) < 0) {
-		GTP5G_ERR(NULL, "PDR sock client update fail\n");
+        GTP5G_ERR(NULL, "PDR sock client update fail\n");
         return -EINVAL;
-	}
+    }
 
     /* Parse PDI in PDR */
     if (info->attrs[GTP5G_PDR_PDI] &&
         !nla_parse_nested(pdi_attrs, 
-						GTP5G_PDI_ATTR_MAX, 
-						info->attrs[GTP5G_PDR_PDI], 
-						NULL, 
-						NULL)) {
+                        GTP5G_PDI_ATTR_MAX, 
+                        info->attrs[GTP5G_PDR_PDI], 
+                        NULL, 
+                        NULL)) {
         if (!pdr->pdi) {
             pdr->pdi = kzalloc(sizeof(*pdr->pdi), GFP_ATOMIC);
             if (!pdr->pdi) {
-				GTP5G_ERR(NULL, "Failed to allocate PDI\n");
+                GTP5G_ERR(NULL, "Failed to allocate PDI\n");
                 return -ENOMEM;
-			}
+            }
         }
         pdi = pdr->pdi;
 
@@ -806,9 +910,9 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
             if (!pdi->ue_addr_ipv4) {
                 pdi->ue_addr_ipv4 = kzalloc(sizeof(*pdi->ue_addr_ipv4), GFP_ATOMIC);
                 if (!pdi->ue_addr_ipv4) {
-					GTP5G_ERR(NULL, "Failed to allocate UE IPv4 address\n");
+                    GTP5G_ERR(NULL, "Failed to allocate UE IPv4 address\n");
                     return -ENOMEM;
-				}
+                }
             }
 
             pdi->ue_addr_ipv4->s_addr = nla_get_be32(pdi_attrs[GTP5G_PDI_UE_ADDR_IPV4]);
@@ -817,50 +921,50 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
         /* Parse F-TEID in PDI */
         if (pdi_attrs[GTP5G_PDI_F_TEID] &&
             !nla_parse_nested(f_teid_attrs, 
-							GTP5G_F_TEID_ATTR_MAX, 
-							pdi_attrs[GTP5G_PDI_F_TEID], 
-							NULL, 
-							NULL)) {
+                            GTP5G_F_TEID_ATTR_MAX, 
+                            pdi_attrs[GTP5G_PDI_F_TEID], 
+                            NULL, 
+                            NULL)) {
             if (!f_teid_attrs[GTP5G_F_TEID_I_TEID] || 
-				!f_teid_attrs[GTP5G_F_TEID_GTPU_ADDR_IPV4]) {
-				GTP5G_ERR(NULL, "TEID is not preset\n");
+                !f_teid_attrs[GTP5G_F_TEID_GTPU_ADDR_IPV4]) {
+                GTP5G_ERR(NULL, "TEID is not preset\n");
                 return -EINVAL;
-			}
+            }
 
             if (!pdi->f_teid) {
                 pdi->f_teid = kzalloc(sizeof(*pdi->f_teid), GFP_ATOMIC);
                 if (!pdi->f_teid) {
-					GTP5G_ERR(NULL, "Failed to allocate UE IPv4 address\n");
+                    GTP5G_ERR(NULL, "Failed to allocate UE IPv4 address\n");
                     return -ENOMEM;
-				}
+                }
             } 
-			f_teid = pdi->f_teid;
-			f_teid->teid = htonl(nla_get_u32(f_teid_attrs[GTP5G_F_TEID_I_TEID]));
-			f_teid->gtpu_addr_ipv4.s_addr = nla_get_be32(f_teid_attrs[GTP5G_F_TEID_GTPU_ADDR_IPV4]);
+            f_teid = pdi->f_teid;
+            f_teid->teid = htonl(nla_get_u32(f_teid_attrs[GTP5G_F_TEID_I_TEID]));
+            f_teid->gtpu_addr_ipv4.s_addr = nla_get_be32(f_teid_attrs[GTP5G_F_TEID_GTPU_ADDR_IPV4]);
         }
 
         /* Parse SDF Filter in PDI */
         if (pdi_attrs[GTP5G_PDI_SDF_FILTER] &&
             !nla_parse_nested(sdf_attrs, 
-							GTP5G_SDF_FILTER_ATTR_MAX, 
-							pdi_attrs[GTP5G_PDI_SDF_FILTER], 
-							NULL, 
-							NULL)) {
+                            GTP5G_SDF_FILTER_ATTR_MAX, 
+                            pdi_attrs[GTP5G_PDI_SDF_FILTER], 
+                            NULL, 
+                            NULL)) {
             if (!pdi->sdf) {
                 pdi->sdf = kzalloc(sizeof(*pdi->sdf), GFP_ATOMIC);
                 if (!pdi->sdf) {
-					GTP5G_ERR(NULL, "Failed to allocate SDF\n");
+                    GTP5G_ERR(NULL, "Failed to allocate SDF\n");
                     return -ENOMEM;
-				}
+                }
             }
             sdf = pdi->sdf;
 
             if (sdf_attrs[GTP5G_SDF_FILTER_FLOW_DESCRIPTION] &&
                 !nla_parse_nested(rule_attrs, 
-									GTP5G_FLOW_DESCRIPTION_ATTR_MAX, 
-									sdf_attrs[GTP5G_SDF_FILTER_FLOW_DESCRIPTION], 
-									NULL, 
-									NULL)) {
+                                GTP5G_FLOW_DESCRIPTION_ATTR_MAX, 
+                                sdf_attrs[GTP5G_SDF_FILTER_FLOW_DESCRIPTION], 
+                                NULL, 
+                                NULL)) {
                 if (!rule_attrs[GTP5G_FLOW_DESCRIPTION_ACTION] ||
                     !rule_attrs[GTP5G_FLOW_DESCRIPTION_DIRECTION] ||
                     !rule_attrs[GTP5G_FLOW_DESCRIPTION_PROTOCOL] ||
@@ -871,9 +975,9 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
                 if (!sdf->rule) {
                     sdf->rule = kzalloc(sizeof(*sdf->rule), GFP_ATOMIC);
                     if (!sdf->rule) {
-						GTP5G_ERR(NULL, "Failed to allocate SDF's Rule\n"); 
+                        GTP5G_ERR(NULL, "Failed to allocate SDF's Rule\n"); 
                         return -ENOMEM;
-					}
+                    }
                 }
                 rule = sdf->rule;
 
@@ -900,9 +1004,9 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
                         kfree(rule->sport);
                     rule->sport = kzalloc(rule->sport_num * sizeof(*rule->sport), GFP_ATOMIC);
                     if (!rule->sport) {
-						GTP5G_ERR(NULL, "Failed to allocate SDF's Rule Source Port\n");
+                        GTP5G_ERR(NULL, "Failed to allocate SDF's Rule Source Port\n");
                         return -ENOMEM;
-					}
+                    }
 
                     for (i = 0; i < rule->sport_num; i++) {
                         if ((sport_encode[i] & 0xFFFF) <= (sport_encode[i] >> 16)) {
@@ -924,9 +1028,9 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
 
                     rule->dport = kzalloc(rule->dport_num * sizeof(*rule->dport), GFP_ATOMIC);
                     if (!rule->dport) {
-						GTP5G_ERR(NULL, "Failed to allocate SDF's Rule Destination Port\n");
+                        GTP5G_ERR(NULL, "Failed to allocate SDF's Rule Destination Port\n");
                         return -ENOMEM;
-					}
+                    }
 
                     for (i = 0; i < rule->dport_num; i++) {
                         if ((dport_encode[i] & 0xFFFF) <= (dport_encode[i] >> 16)) {
@@ -942,44 +1046,44 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
 
             if (sdf_attrs[GTP5G_SDF_FILTER_TOS_TRAFFIC_CLASS]) {
                 if (!sdf->tos_traffic_class) {
-                   	sdf->tos_traffic_class = kzalloc(sizeof(*sdf->tos_traffic_class), GFP_ATOMIC);
+                    sdf->tos_traffic_class = kzalloc(sizeof(*sdf->tos_traffic_class), GFP_ATOMIC);
                     if (!sdf->tos_traffic_class) {
-						GTP5G_ERR(NULL, "Failed to allocate SDF's TOS Traffic class\n");
+                        GTP5G_ERR(NULL, "Failed to allocate SDF's TOS Traffic class\n");
                         return -ENOMEM;
-					}
+                    }
                 }
                 *sdf->tos_traffic_class = nla_get_u16(sdf_attrs[GTP5G_SDF_FILTER_TOS_TRAFFIC_CLASS]);
             }
 
             if (sdf_attrs[GTP5G_SDF_FILTER_SECURITY_PARAMETER_INDEX]) {
                 if (!sdf->security_param_idx) {
-					sdf->security_param_idx = kzalloc(sizeof(*sdf->security_param_idx), GFP_ATOMIC);
+                    sdf->security_param_idx = kzalloc(sizeof(*sdf->security_param_idx), GFP_ATOMIC);
                     if (!sdf->security_param_idx) {
-						GTP5G_ERR(NULL, "Failed to allocate SDF's Security Param Index\n"); 
+                        GTP5G_ERR(NULL, "Failed to allocate SDF's Security Param Index\n"); 
                         return -ENOMEM;
-					}
+                    }
                 }
                 *sdf->security_param_idx = nla_get_u32(sdf_attrs[GTP5G_SDF_FILTER_SECURITY_PARAMETER_INDEX]);
             }
 
             if (sdf_attrs[GTP5G_SDF_FILTER_FLOW_LABEL]) {
                 if (!sdf->flow_label) {
-					sdf->flow_label = kzalloc(sizeof(*sdf->flow_label), GFP_ATOMIC);
+                    sdf->flow_label = kzalloc(sizeof(*sdf->flow_label), GFP_ATOMIC);
                     if (!sdf->flow_label) {
-						GTP5G_ERR(NULL, "Failed to allocate SDF's Flow label\n");
+                        GTP5G_ERR(NULL, "Failed to allocate SDF's Flow label\n");
                         return -ENOMEM;
-					}
+                    }
                 }
                 *sdf->flow_label = nla_get_u32(sdf_attrs[GTP5G_SDF_FILTER_FLOW_LABEL]);
             }
 
             if (sdf_attrs[GTP5G_SDF_FILTER_SDF_FILTER_ID]) {
                 if (!sdf->bi_id) {
-                   	sdf->bi_id = kzalloc(sizeof(*sdf->bi_id), GFP_ATOMIC);
+                    sdf->bi_id = kzalloc(sizeof(*sdf->bi_id), GFP_ATOMIC);
                     if (!sdf->bi_id) {
-						GTP5G_ERR(NULL, "Failed to allocate SDF's Filter id\n"); 
+                        GTP5G_ERR(NULL, "Failed to allocate SDF's Filter id\n"); 
                         return -ENOMEM;
-					}
+                    }
                 }
                 *sdf->bi_id = nla_get_u32(sdf_attrs[GTP5G_SDF_FILTER_SDF_FILTER_ID]);
             }
@@ -1036,7 +1140,7 @@ static int gtp5g_dev_init(struct net_device *dev)
 
     dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
     if (!dev->tstats) {
-		GTP5G_ERR(dev, "Failled to allocate stats\n");
+        GTP5G_ERR(dev, "Failled to allocate stats\n");
         return -ENOMEM;
     }
 
@@ -1083,12 +1187,12 @@ static void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo
 {
     int payload_len = skb->len;
     struct gtpv1_hdr *gtp1;
-	gtpv1_hdr_opt_t	*gtp1opt;
-	ext_pdu_sess_ctr_t *dl_pdu_sess;
+    gtpv1_hdr_opt_t *gtp1opt;
+    ext_pdu_sess_ctr_t *dl_pdu_sess;
     int ext_flag = 0;
 
     GTP5G_TRC(NULL, "SKBLen(%u) GTP-U V1(%zu) Opt(%zu) DL_PDU(%zu)\n", 
-		payload_len, sizeof(*gtp1), sizeof(*gtp1opt), sizeof(*dl_pdu_sess));
+        payload_len, sizeof(*gtp1), sizeof(*gtp1opt), sizeof(*dl_pdu_sess));
 
     pktinfo->gtph_port = pktinfo->hdr_creation->port;
 
@@ -1098,40 +1202,40 @@ static void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo
     if (pktinfo->qer) {
         ext_flag = 1; 
 
-		/* Push PDU Session container information */
-		dl_pdu_sess = skb_push(skb, sizeof(*dl_pdu_sess));
-		/* Multiple of 4 (TODO include PPI) */
-		dl_pdu_sess->length = 1; 
-		dl_pdu_sess->pdu_sess_ctr.type_spare = 0; /* For DL */
-		dl_pdu_sess->pdu_sess_ctr.u.dl.ppp_rqi_qfi = pktinfo->qer->qfi; 
-		//TODO: PPI
-		dl_pdu_sess->next_ehdr_type = 0; /* No more extension Header */
+        /* Push PDU Session container information */
+        dl_pdu_sess = skb_push(skb, sizeof(*dl_pdu_sess));
+        /* Multiple of 4 (TODO include PPI) */
+        dl_pdu_sess->length = 1;
+        dl_pdu_sess->pdu_sess_ctr.type_spare = 0; /* For DL */
+        dl_pdu_sess->pdu_sess_ctr.u.dl.ppp_rqi_qfi = pktinfo->qer->qfi;
+        //TODO: PPI
+        dl_pdu_sess->next_ehdr_type = 0; /* No more extension Header */
         
         /* Push optional header information */
-		gtp1opt = skb_push(skb, sizeof(*gtp1opt));
-		gtp1opt->seq_number = 0;
-    	gtp1opt->NPDU = 0;
-    	gtp1opt->next_ehdr_type = 0x85; /* PDU Session Container */
+        gtp1opt = skb_push(skb, sizeof(*gtp1opt));
+        gtp1opt->seq_number = 0;
+        gtp1opt->NPDU = 0;
+        gtp1opt->next_ehdr_type = 0x85; /* PDU Session Container */
         // Increment the GTP-U payload length by size of optional headers length
         payload_len += (sizeof(*gtp1opt) + sizeof(*dl_pdu_sess));
-	} 
+    }
 
-    /* Bits 8  7  6  5  4  3  2	 1
-     *	  +--+--+--+--+--+--+--+--+
-     *	  |version |PT| 0| E| S|PN|
-     *	  +--+--+--+--+--+--+--+--+
-     *	    0  0  1  1	0  0  0  0
+    /* Bits 8  7  6  5  4  3  2  1
+     *    +--+--+--+--+--+--+--+--+
+     *    |version |PT| 0| E| S|PN|
+     *    +--+--+--+--+--+--+--+--+
+     *      0  0  1  1  0  0  0  0
      */
     gtp1 = skb_push(skb, sizeof(*gtp1));
-	gtp1->flags	= 0x30; /* v1, GTP-non-prime. */
+    gtp1->flags = 0x30; /* v1, GTP-non-prime. */
     if (ext_flag) 
-        gtp1->flags	|= GTPV1_HDR_FLG_EXTHDR; /* v1, Extension header enabled */ 
-    gtp1->type	= GTP_TPDU;
+        gtp1->flags |= GTPV1_HDR_FLG_EXTHDR; /* v1, Extension header enabled */ 
+    gtp1->type = GTP_TPDU;
     gtp1->tid = pktinfo->hdr_creation->teid;
-    gtp1->length = htons(payload_len); 		/* Excluded the header length of gtpv1 */
+    gtp1->length = htons(payload_len);       /* Excluded the header length of gtpv1 */
 
     GTP5G_TRC(NULL, "QER Found GTP-U Flg(%u) GTPU-L(%u) SkbLen(%u)\n", 
-	    gtp1->flags, ntohs(gtp1->length), skb->len);
+        gtp1->flags, ntohs(gtp1->length), skb->len);
 }
 
 static inline void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *pktinfo,
@@ -1139,56 +1243,56 @@ static inline void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *pktinfo,
     struct gtp5g_qer *qer, struct rtable *rt, struct flowi4 *fl4,
     struct net_device *dev)
 {
-	pktinfo->sk            = sk;
-	pktinfo->iph           = iph;
-	pktinfo->hdr_creation  = hdr_creation;
-	pktinfo->qer  		   = qer;
-	pktinfo->rt            = rt;
-	pktinfo->fl4           = *fl4;
-	pktinfo->dev           = dev;
+    pktinfo->sk = sk;
+    pktinfo->iph = iph;
+    pktinfo->hdr_creation = hdr_creation;
+    pktinfo->qer = qer;
+    pktinfo->rt = rt;
+    pktinfo->fl4 = *fl4;
+    pktinfo->dev = dev;
 }
 
 static struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
     struct sock *sk, struct net_device *gtp_dev, 
     __be32 saddr, __be32 daddr, struct flowi4 *fl4)
 {
-	struct rtable *rt;
-	__be16 df;
-	int mtu;
+    struct rtable *rt;
+    __be16 df;
+    int mtu;
 
-	memset(fl4, 0, sizeof(*fl4));
-	fl4->flowi4_oif = sk->sk_bound_dev_if;
-	fl4->daddr	   = daddr;
-	fl4->saddr	   = (saddr ? saddr : inet_sk(sk)->inet_saddr);
-	fl4->flowi4_tos		= RT_CONN_FLAGS(sk);
-	fl4->flowi4_proto	= sk->sk_protocol;
+    memset(fl4, 0, sizeof(*fl4));
+    fl4->flowi4_oif = sk->sk_bound_dev_if;
+    fl4->daddr = daddr;
+    fl4->saddr = (saddr ? saddr : inet_sk(sk)->inet_saddr);
+    fl4->flowi4_tos = RT_CONN_FLAGS(sk);
+    fl4->flowi4_proto = sk->sk_protocol;
 
-	rt = ip_route_output_key(dev_net(gtp_dev), fl4);
-	if (IS_ERR(rt)) {
-		GTP5G_ERR(gtp_dev, "no route to %pI4\n", &iph->daddr);
-		gtp_dev->stats.tx_carrier_errors++;
-		goto err;
-	}
+    rt = ip_route_output_key(dev_net(gtp_dev), fl4);
+    if (IS_ERR(rt)) {
+        GTP5G_ERR(gtp_dev, "no route to %pI4\n", &iph->daddr);
+        gtp_dev->stats.tx_carrier_errors++;
+        goto err;
+    }
 
-	if (rt->dst.dev == gtp_dev) {
-		GTP5G_ERR(gtp_dev, "circular route to %pI4\n", &iph->daddr);
-		gtp_dev->stats.collisions++;
-		goto err_rt;
-	}
+    if (rt->dst.dev == gtp_dev) {
+        GTP5G_ERR(gtp_dev, "circular route to %pI4\n", &iph->daddr);
+        gtp_dev->stats.collisions++;
+        goto err_rt;
+    }
 
-	skb_dst_drop(skb);
+    skb_dst_drop(skb);
 
-	/* This is similar to tnl_update_pmtu(). */
-	df = iph->frag_off;
-	if (df) {
-		mtu = dst_mtu(&rt->dst) - gtp_dev->hard_header_len -
-			sizeof(struct iphdr) - sizeof(struct udphdr);
-		// GTPv1
-		mtu -= sizeof(struct gtpv1_hdr);
-	}
-	else {
-		mtu = dst_mtu(&rt->dst);
-	}
+    /* This is similar to tnl_update_pmtu(). */
+    df = iph->frag_off;
+    if (df) {
+        mtu = dst_mtu(&rt->dst) - gtp_dev->hard_header_len -
+            sizeof(struct iphdr) - sizeof(struct udphdr);
+        // GTPv1
+        mtu -= sizeof(struct gtpv1_hdr);
+    }
+    else {
+        mtu = dst_mtu(&rt->dst);
+    }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0) || defined(RHEL8)
        rt->dst.ops->update_pmtu(&rt->dst, NULL, skb, mtu, false);
@@ -1196,69 +1300,69 @@ static struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
        rt->dst.ops->update_pmtu(&rt->dst, NULL, skb, mtu);
 #endif
 
-	if (!skb_is_gso(skb) && (iph->frag_off & htons(IP_DF)) &&
-	    mtu < ntohs(iph->tot_len)) {
-		GTP5G_ERR(gtp_dev, "packet too big, fragmentation needed\n");
-		memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
-		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
-			  htonl(mtu));
-		goto err_rt;
-	}
+    if (!skb_is_gso(skb) && (iph->frag_off & htons(IP_DF)) &&
+        mtu < ntohs(iph->tot_len)) {
+        GTP5G_ERR(gtp_dev, "packet too big, fragmentation needed\n");
+        memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+        icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
+              htonl(mtu));
+        goto err_rt;
+    }
 
-	return rt;
+    return rt;
 err_rt:
-	ip_rt_put(rt);
+    ip_rt_put(rt);
 err:
-	return ERR_PTR(-ENOENT);
+    return ERR_PTR(-ENOENT);
 }
 
 static struct rtable *ip4_find_route_simple(struct sk_buff *skb,
     struct sock *sk, struct net_device *gtp_dev, 
     __be32 saddr, __be32 daddr, struct flowi4 *fl4)
 {
-	struct rtable *rt;
+    struct rtable *rt;
 
-	memset(fl4, 0, sizeof(*fl4));
-	fl4->flowi4_oif = sk->sk_bound_dev_if;
-	fl4->daddr	   = daddr;
-	fl4->saddr	   = (saddr ? saddr : inet_sk(sk)->inet_saddr);
-	fl4->flowi4_tos		= RT_CONN_FLAGS(sk);
-	fl4->flowi4_proto	= sk->sk_protocol;
+    memset(fl4, 0, sizeof(*fl4));
+    fl4->flowi4_oif = sk->sk_bound_dev_if;
+    fl4->daddr = daddr;
+    fl4->saddr = (saddr ? saddr : inet_sk(sk)->inet_saddr);
+    fl4->flowi4_tos = RT_CONN_FLAGS(sk);
+    fl4->flowi4_proto = sk->sk_protocol;
 
-	rt = ip_route_output_key(dev_net(gtp_dev), fl4);
-	if (IS_ERR(rt)) {
-		GTP5G_ERR(gtp_dev, "no route from %#x to %#x\n", saddr, daddr);
-		gtp_dev->stats.tx_carrier_errors++;
-		goto err;
-	}
+    rt = ip_route_output_key(dev_net(gtp_dev), fl4);
+    if (IS_ERR(rt)) {
+        GTP5G_ERR(gtp_dev, "no route from %#x to %#x\n", saddr, daddr);
+        gtp_dev->stats.tx_carrier_errors++;
+        goto err;
+    }
 
-	if (rt->dst.dev == gtp_dev) {
-		GTP5G_ERR(gtp_dev, "Packet colllisions from %#x to %#x\n", 
-			saddr, daddr);
-		gtp_dev->stats.collisions++;
-		goto err_rt;
-	}
+    if (rt->dst.dev == gtp_dev) {
+        GTP5G_ERR(gtp_dev, "Packet colllisions from %#x to %#x\n", 
+            saddr, daddr);
+        gtp_dev->stats.collisions++;
+        goto err_rt;
+    }
 
-	skb_dst_drop(skb);
+    skb_dst_drop(skb);
 
-	return rt;
+    return rt;
 
 err_rt:
-	ip_rt_put(rt);
+    ip_rt_put(rt);
 err:
-	return ERR_PTR(-ENOENT);
+    return ERR_PTR(-ENOENT);
 }
 
 static int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_dev) 
 {
     struct iphdr *iph = ip_hdr(skb);
-	struct flowi4 fl4;
-	struct rtable *rt;
+    struct flowi4 fl4;
+    struct rtable *rt;
 
-	rt = ip4_find_route_simple(skb, sk, gtp_dev, 0, iph->daddr, &fl4);
-	if (IS_ERR(rt)) {
-		GTP5G_ERR(gtp_dev, "Failed to find route\n");
-		return -EBADMSG;
+    rt = ip4_find_route_simple(skb, sk, gtp_dev, 0, iph->daddr, &fl4);
+    if (IS_ERR(rt)) {
+        GTP5G_ERR(gtp_dev, "Failed to find route\n");
+        return -EBADMSG;
     }
 
     skb_dst_set(skb, &rt->dst);
@@ -1285,28 +1389,28 @@ static void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
     struct flowi4 fl4;
     struct gtpv1_hdr *gtp1;
 
-	/* Reset all headers */
-	skb_reset_transport_header(skb);
-	skb_reset_network_header(skb);
-	skb_reset_mac_header(skb);
+    /* Reset all headers */
+    skb_reset_transport_header(skb);
+    skb_reset_network_header(skb);
+    skb_reset_mac_header(skb);
 
-	/* Fill GTP-U Header */
+    /* Fill GTP-U Header */
     gtp1 = skb_push(skb, sizeof(*gtp1));
-	gtp1->flags	= 0x30; /* v1, GTP-non-prime. */
-    gtp1->type	= GTP_EMARK;
+    gtp1->flags = 0x30; /* v1, GTP-non-prime. */
+    gtp1->type = GTP_EMARK;
     gtp1->tid = epkt_info->teid;
 
     rt = ip4_find_route_simple(skb, epkt_info->sk, dev, 
         epkt_info->role_addr /* Src Addr */ ,
         epkt_info->peer_addr /* Dst Addr*/, 
         &fl4);
-	if (IS_ERR(rt)) {
+    if (IS_ERR(rt)) {
         GTP5G_ERR(dev, "Failed to send GTP-U end-marker due to routing\n");
         dev_kfree_skb(skb);
-		return;
-	}
+        return;
+    }
 
-	udp_tunnel_xmit_skb(rt, 
+    udp_tunnel_xmit_skb(rt, 
         epkt_info->sk, 
         skb,
         fl4.saddr, 
@@ -1343,11 +1447,11 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
         pdr->role_addr_ipv4.s_addr, 
         hdr_creation->peer_addr_ipv4.s_addr, 
         &fl4);
-	if (IS_ERR(rt))
+    if (IS_ERR(rt))
         goto err;
 
-	if (!pdr->qer) {
-		gtp5g_set_pktinfo_ipv4(pktinfo, 
+    if (!pdr->qer) {
+        gtp5g_set_pktinfo_ipv4(pktinfo,
             pdr->sk, 
             iph, 
             hdr_creation,
@@ -1355,8 +1459,8 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             rt, 
             &fl4, 
             dev);
-	} else {
-		gtp5g_set_pktinfo_ipv4(pktinfo, 
+    } else {
+        gtp5g_set_pktinfo_ipv4(pktinfo,
             pdr->sk, 
             iph, 
             hdr_creation, 
@@ -1364,7 +1468,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             rt, 
             &fl4, 
             dev);
-	}
+    }
 
     gtp5g_push_header(skb, pktinfo);
 
@@ -1409,13 +1513,13 @@ static int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         return -ENOENT;
     }
 
-	/* TODO: QoS rule have to apply before apply FAR 
-	 * */
-	//qer = pdr->qer;
-	//if (qer) {
-	//	GTP5G_ERR(dev, "%s:%d QER Rule found, id(%#x) qfi(%#x) TODO\n", 
-	//			__func__, __LINE__, qer->id, qer->qfi);
-	//} 
+    /* TODO: QoS rule have to apply before apply FAR 
+     * */
+    //qer = pdr->qer;
+    //if (qer) {
+    //    GTP5G_ERR(dev, "%s:%d QER Rule found, id(%#x) qfi(%#x) TODO\n", 
+    //            __func__, __LINE__, qer->id, qer->qfi);
+    //}
 
     far = pdr->far;
     if (far) {
@@ -1522,31 +1626,31 @@ static void pdr_context_free(struct rcu_head *head)
     pdi = pdr->pdi;
     if (pdi) {
         if (pdi->ue_addr_ipv4)
-			kfree(pdi->ue_addr_ipv4);
+            kfree(pdi->ue_addr_ipv4);
         if (pdi->f_teid)
-			kfree(pdi->f_teid);
+            kfree(pdi->f_teid);
         if (pdr->far_id)
-			kfree(pdr->far_id);
-		if (pdr->qer_id)
-			kfree(pdr->qer_id);
+            kfree(pdr->far_id);
+        if (pdr->qer_id)
+            kfree(pdr->qer_id);
 
         sdf = pdi->sdf;
         if (sdf) {
             if (sdf->rule) {
                 if (sdf->rule->sport)
-					kfree(sdf->rule->sport);
+                    kfree(sdf->rule->sport);
                 if (sdf->rule->dport)
-					kfree(sdf->rule->dport);
-				kfree(sdf->rule);
+                    kfree(sdf->rule->dport);
+                kfree(sdf->rule);
             }
             if (sdf->tos_traffic_class)
-				kfree(sdf->tos_traffic_class);
+                kfree(sdf->tos_traffic_class);
             if (sdf->security_param_idx)
-				kfree(sdf->security_param_idx);
+                kfree(sdf->security_param_idx);
             if (sdf->flow_label)
-				kfree(sdf->flow_label);
+                kfree(sdf->flow_label);
             if (sdf->bi_id)
-				kfree(sdf->bi_id);
+                kfree(sdf->bi_id);
 
             kfree(sdf);
         }
@@ -1591,9 +1695,9 @@ static void far_context_free(struct rcu_head *head)
     fwd_param = far->fwd_param;
     if (fwd_param) {
         if (fwd_param->hdr_creation) 
-			kfree(fwd_param->hdr_creation);
+            kfree(fwd_param->hdr_creation);
         if (fwd_param->fwd_policy)
-			kfree(fwd_param->fwd_policy);
+            kfree(fwd_param->fwd_policy);
         kfree(fwd_param);
     }
 
@@ -1606,6 +1710,8 @@ static void far_context_delete(struct gtp5g_far *far)
     struct hlist_head *head;
     struct gtp5g_pdr *pdr;
 
+    char *seid_far_id_hexstr;
+
     if (!far)
         return;
 
@@ -1614,9 +1720,10 @@ static void far_context_delete(struct gtp5g_far *far)
     if (!hlist_unhashed(&far->hlist_id))
         hlist_del_rcu(&far->hlist_id);
 
-    head = &gtp->related_far_hash[u32_hashfn(far->id) % gtp->hash_size];
+    seid_far_id_hexstr = seid_far_id_to_hex_str(far->seid, far->id);
+    head = &gtp->related_far_hash[str_hashfn(seid_far_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_far) {
-        if (*pdr->far_id == far->id) {
+        if (pdr->seid == far->seid && *pdr->far_id == far->id) {
             pdr->far = NULL;
             unix_sock_client_delete(pdr);
         }
@@ -1646,10 +1753,10 @@ static int gtp5g_hashtable_new(struct gtp5g_dev *gtp, int hsize)
 
     gtp->far_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
-	if (gtp->far_id_hash == NULL)
+    if (gtp->far_id_hash == NULL)
         goto err3;
 
-	gtp->qer_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
+    gtp->qer_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
     if (gtp->qer_id_hash == NULL)
         goto err4;
@@ -1679,10 +1786,10 @@ static int gtp5g_hashtable_new(struct gtp5g_dev *gtp, int hsize)
     return 0;
 err6:
     kfree(gtp->related_far_hash);
-err5:	
+err5:
     kfree(gtp->qer_id_hash);
 err4:
-	kfree(gtp->far_id_hash);
+    kfree(gtp->far_id_hash);
 err3:
     kfree(gtp->pdr_id_hash);
 err2:
@@ -1726,9 +1833,9 @@ static void gtp5g_link_setup(struct net_device *dev)
     dev->hard_header_len = 0;
     dev->addr_len = 0;
     dev->mtu = ETH_DATA_LEN -
-	    (sizeof(struct iphdr) +
-	     sizeof(struct udphdr) +
-	     sizeof(struct gtpv1_hdr));
+        (sizeof(struct iphdr) +
+         sizeof(struct udphdr) +
+         sizeof(struct gtpv1_hdr));
 
     /* Zero header length. */
     dev->type = ARPHRD_NONE;
@@ -1739,8 +1846,8 @@ static void gtp5g_link_setup(struct net_device *dev)
     netif_keep_dst(dev);
 
     /* TODO: Modify the headroom size based on
-	 * what are the extension header going to support
-	 * */
+     * what are the extension header going to support
+     * */
     dev->needed_headroom = LL_MAX_HEADER +
         sizeof(struct iphdr) +
         sizeof(struct udphdr) +
@@ -1788,6 +1895,12 @@ static struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, struct nlattr *nla[
 static struct gtp5g_pdr *gtp5g_find_pdr_by_link(struct net *net, struct nlattr *nla[])
 {
     struct gtp5g_dev *gtp;
+    u64 seid;
+
+    if (nla[GTP5G_PDR_SEID])
+        seid =  nla_get_u64(nla[GTP5G_PDR_SEID]);
+    else
+        seid = 0;
 
     gtp = gtp5g_find_dev(net, nla);
     if (!gtp) {
@@ -1797,7 +1910,7 @@ static struct gtp5g_pdr *gtp5g_find_pdr_by_link(struct net *net, struct nlattr *
 
     if (nla[GTP5G_PDR_ID]) {
         u16 id = nla_get_u16(nla[GTP5G_PDR_ID]);
-        return pdr_find_by_id(gtp, id);
+        return find_pdr_by_id(gtp, seid, id);
     }
 
     return ERR_PTR(-EINVAL);
@@ -1821,6 +1934,12 @@ static struct gtp5g_pdr *gtp5g_find_pdr(struct net *net, struct nlattr *nla[])
 static struct gtp5g_far *gtp5g_find_far_by_link(struct net *net, struct nlattr *nla[])
 {
     struct gtp5g_dev *gtp;
+    u64 seid;
+
+    if (nla[GTP5G_FAR_SEID])
+        seid = nla_get_u64(nla[GTP5G_FAR_SEID]);
+    else
+        seid = 0;
 
     gtp = gtp5g_find_dev(net, nla);
     if (!gtp) {
@@ -1830,7 +1949,7 @@ static struct gtp5g_far *gtp5g_find_far_by_link(struct net *net, struct nlattr *
 
     if (nla[GTP5G_FAR_ID]) {
         u32 id = nla_get_u32(nla[GTP5G_FAR_ID]);
-        return far_find_by_id(gtp, id);
+        return find_far_by_id(gtp, seid, id);
     }
 
     return ERR_PTR(-EINVAL);
@@ -1939,7 +2058,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     struct forwarding_policy *fwd_policy;
     struct gtpv1_hdr *gtp1;
     struct iphdr *iph;
-	struct udphdr *uh;
+    struct udphdr *uh;
     struct pcpu_sw_netstats *stats;
     int ret;
 
@@ -1975,8 +2094,8 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
             return 0;
         }
-	}
-	
+    }
+
     // Get rid of the GTP-U + UDP headers.
     if (iptunnel_pull_header(skb,
             hdrlen, 
@@ -2033,11 +2152,11 @@ static int gtp5g_rx(struct gtp5g_pdr *pdr, struct sk_buff *skb,
         goto out;
     }
 
-	//TODO: QER
-	//if (qer) {
-	//	printk_ratelimited("%s:%d QER Rule found, id(%#x) qfi(%#x)\n", __func__, __LINE__,
-	//		qer->id, qer->qfi);
-	//} 
+    //TODO: QER
+    //if (qer) {
+    //    printk_ratelimited("%s:%d QER Rule found, id(%#x) qfi(%#x)\n", __func__, __LINE__,
+    //        qer->id, qer->qfi);
+    //}
 
     // TODO: not reading the value of outer_header_removal now,
     // just check if it is assigned.
@@ -2080,13 +2199,13 @@ static int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
      *
      * This field shall be present if and only if any one or more of the S, PN and E flags are set.
      * This field means seq number (2 Octect), N-PDU number (1 Octet) and  Next ext hdr type (1 Octet).
-	 * 
+     *
      * TODO: Validate the Reserved flag set or not, if it is set then protocol error
      */
-	if (gtpv1->flags & GTPV1_HDR_FLG_MASK) 
-		len += 4;
-	else
-		return len;
+    if (gtpv1->flags & GTPV1_HDR_FLG_MASK) 
+        len += 4;
+    else
+        return len;
     pull_len += len;
 
     /** TS 29.281 Chapter 5.2 and Figure 5.2.1-1
@@ -2094,21 +2213,21 @@ static int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
      * i.e. m+1 = n*4 octets, where n is a positive integer.
      */
     if (gtpv1->flags & GTPV1_HDR_FLG_EXTHDR) {
-		__u8 next_ehdr_type = 0;
-		gtpv1_hdr_opt_t *gtpv1_opt;
+        __u8 next_ehdr_type = 0;
+        gtpv1_hdr_opt_t *gtpv1_opt;
         
         if (!pskb_may_pull(skb, pull_len)) {
             GTP5G_ERR(NULL, "Failed to pull skb length %#x\n", pull_len);
             return -1;
         }
-		gtpv1_opt = (gtpv1_hdr_opt_t *) ((u8 *) gtpv1 + sizeof(*gtpv1));
+        gtpv1_opt = (gtpv1_hdr_opt_t *) ((u8 *) gtpv1 + sizeof(*gtpv1));
 
         next_ehdr_type = gtpv1_opt->next_ehdr_type;
-		while (next_ehdr_type) {
-			switch (next_ehdr_type) {
-			case GTPV1_NEXT_EXT_HDR_TYPE_85: {
-				ext_pdu_sess_ctr_t *etype85; 
-				// pdu_sess_ctr_t *pdu_sess_info = &etype85->pdu_sess_ctr;
+        while (next_ehdr_type) {
+            switch (next_ehdr_type) {
+            case GTPV1_NEXT_EXT_HDR_TYPE_85: {
+                ext_pdu_sess_ctr_t *etype85; 
+                // pdu_sess_ctr_t *pdu_sess_info = &etype85->pdu_sess_ctr;
 
                 if (!pskb_may_pull(skb, (pull_len + 4))) {
                     GTP5G_ERR(NULL, "Failed to pull skb length %#x\n", pull_len);
@@ -2117,24 +2236,24 @@ static int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
                 etype85 = (ext_pdu_sess_ctr_t *) ((u8 *) gtpv1_opt + sizeof(*gtpv1_opt)); 
 
                 // Commented the below code due to support N9 packet downlink
-				// if (pdu_sess_info->type_spare == PDU_SESSION_INFO_TYPE0)
-				// 	return -1;
-			
-				//TODO: validate pdu_sess_ctr
+                // if (pdu_sess_info->type_spare == PDU_SESSION_INFO_TYPE0)
+                // return -1;
+            
+                //TODO: validate pdu_sess_ctr
 
-				//Length should be multiple of 4
-				len += (etype85->length * 4);
+                //Length should be multiple of 4
+                len += (etype85->length * 4);
                 pull_len += (etype85->length * 4);
-				next_ehdr_type = etype85->next_ehdr_type;
-				break;
-			}
-			default:
-				/* Unknown/Unhandled Extension Header Type */
-				 GTP5G_ERR(NULL, "%s: Invalid header type(%#x)\n", 
+                next_ehdr_type = etype85->next_ehdr_type;
+                break;
+            }
+            default:
+                /* Unknown/Unhandled Extension Header Type */
+                 GTP5G_ERR(NULL, "%s: Invalid header type(%#x)\n", 
                     __func__, next_ehdr_type);
-				return -1;
-			}
-		}
+                return -1;
+            }
+        }
     }
 
     return len;
@@ -2169,7 +2288,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     if (gtpv1_hdr_len < 0) {
         GTP5G_ERR(gtp->dev, "Invalid extension header length or else\n");
         return -1;
-	}
+    }
 
     hdrlen = sizeof(struct udphdr) + gtpv1_hdr_len;
     if (!pskb_may_pull(skb, hdrlen)) {
@@ -2177,7 +2296,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         return -1;
     }
 
-	//GTP5G_ERR(gtp->dev, "Total header len(%#x)\n", hdrlen);
+    //GTP5G_ERR(gtp->dev, "Total header len(%#x)\n", hdrlen);
     //gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, gtpv1->tid);
     if (!pdr) {
@@ -2412,15 +2531,22 @@ static int gtp5g_gnl_add_pdr(struct gtp5g_dev *gtp, struct genl_info *info)
     struct gtp5g_pdr *pdr;
     int err = 0;
     u32 pdr_id;
+    u64 seid_int;
+    char *seid_pdr_id_hexstr;
+    
+    if (info->attrs[GTP5G_PDR_SEID])
+        seid_int = nla_get_u64(info->attrs[GTP5G_PDR_SEID]);
+    else   
+        seid_int = 0;
 
     pdr_id = nla_get_u16(info->attrs[GTP5G_PDR_ID]);
-    pdr = pdr_find_by_id(gtp, pdr_id);
+    pdr = find_pdr_by_id(gtp, seid_int, pdr_id);
     if (pdr) {
         if (info->nlhdr->nlmsg_flags & NLM_F_EXCL) {
             GTP5G_ERR(dev, "PDR-Up: Failed NLM_F_EXCL is set\n");
             err = -EEXIST;
             goto out;
-		} else if (!(info->nlhdr->nlmsg_flags & NLM_F_REPLACE)) {
+        } else if (!(info->nlhdr->nlmsg_flags & NLM_F_REPLACE)) {
             GTP5G_ERR(dev, "PDR-Up: Failed NLM_F_REPLACE is not set\n");
             err = -EOPNOTSUPP;
             goto out;
@@ -2441,13 +2567,13 @@ static int gtp5g_gnl_add_pdr(struct gtp5g_dev *gtp, struct genl_info *info)
         GTP5G_ERR(dev, "PDR-Add: Failed NLM_F_REPLACE is set\n");
         err = -ENOENT;
         goto out;
-	}
+    }
 
     if (info->nlhdr->nlmsg_flags & NLM_F_APPEND) {
         GTP5G_ERR(dev, "PDR-Add: Failed NLM_F_APPEND is set\n");
         err = -EOPNOTSUPP;
         goto out;
-	}
+    }
 
     // Check only at the creation part
     if (!info->attrs[GTP5G_PDR_PRECEDENCE]) {
@@ -2473,9 +2599,10 @@ static int gtp5g_gnl_add_pdr(struct gtp5g_dev *gtp, struct genl_info *info)
         pdr_context_delete(pdr);
         goto out;
     } 
-    
+    seid_pdr_id_hexstr = seid_pdr_id_to_hex_str(seid_int, pdr_id);
     hlist_add_head_rcu(&pdr->hlist_id, 
-        &gtp->pdr_id_hash[u32_hashfn(pdr_id) % gtp->hash_size]);
+        &gtp->pdr_id_hash[str_hashfn(seid_pdr_id_hexstr) % gtp->hash_size]);
+
     GTP5G_INF(dev, "PDR-Add: id(%u) success\n", pdr_id);
 
 out:
@@ -2489,16 +2616,16 @@ static int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 
     if (!info->attrs[GTP5G_PDR_ID] ||
         !info->attrs[GTP5G_LINK]) {
-		GTP5G_ERR(NULL, "PDR-Add: ID or LINK value is not exists\n");
+        GTP5G_ERR(NULL, "PDR-Add: ID or LINK value is not exists\n");
         return -EINVAL;
-	}
+    }
 
     rtnl_lock();
     rcu_read_lock();
 
     gtp = gtp5g_find_dev(sock_net(skb->sk), info->attrs);
     if (!gtp) {
-		GTP5G_ERR(NULL, "PDR-Add: Failed to find the gtp5g dev\n");
+        GTP5G_ERR(NULL, "PDR-Add: Failed to find the gtp5g dev\n");
         err = -ENODEV;
         goto unlock;
     }
@@ -2519,9 +2646,9 @@ static int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
 
     if (!info->attrs[GTP5G_PDR_ID] ||
         !info->attrs[GTP5G_LINK]) {
-		GTP5G_ERR(NULL, "PDR-Del: ID or LINK is not present\n");
+        GTP5G_ERR(NULL, "PDR-Del: ID or LINK is not present\n");
         return -EINVAL;
-	}
+    }
 
     id = nla_get_u16(info->attrs[GTP5G_PDR_ID]);
 
@@ -2529,7 +2656,7 @@ static int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
 
     pdr = gtp5g_find_pdr(sock_net(skb->sk), info->attrs);
     if (IS_ERR(pdr)) {
-		GTP5G_ERR(NULL, "PDR-Del: failed to find id(%u)\n", id);
+        GTP5G_ERR(NULL, "PDR-Del: failed to find id(%u)\n", id);
         err = PTR_ERR(pdr);
         goto unlock;
     }
@@ -2554,10 +2681,10 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
 
     int i;
     u32 *u32_buf = kzalloc(0xff * sizeof(u32), GFP_KERNEL);
-	if (!u32_buf) {
-		GTP5G_ERR(NULL, "Failed to allocate memory\n");
-		goto out;
-	}
+    if (!u32_buf) {
+        GTP5G_ERR(NULL, "Failed to allocate memory\n");
+        goto out;
+    }
 
     genlh = genlmsg_put(skb, snd_portid, snd_seq, &gtp5g_genl_family, 0, type);
     if (!genlh) 
@@ -2566,6 +2693,11 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     if (nla_put_u16(skb, GTP5G_PDR_ID, pdr->id) ||
         nla_put_u32(skb, GTP5G_PDR_PRECEDENCE, pdr->precedence))
         goto genlmsg_fail;
+
+    if (pdr->seid) {
+        if (nla_put_u64_64bit(skb, GTP5G_PDR_SEID, pdr->seid, 0))
+            goto genlmsg_fail;
+    }
 
     if (pdr->outer_header_removal) {
         if (nla_put_u8(skb, GTP5G_OUTER_HEADER_REMOVAL, *pdr->outer_header_removal))
@@ -2693,21 +2825,21 @@ static int gtp5g_genl_get_pdr(struct sk_buff *skb, struct genl_info *info)
     int err;
 
     if (!info->attrs[GTP5G_PDR_ID]) {
-		GTP5G_ERR(NULL, "PDR ID is not given\n");
+        GTP5G_ERR(NULL, "PDR ID is not given\n");
         return -EINVAL;
-	}
+    }
 
     rcu_read_lock();
     pdr = gtp5g_find_pdr(sock_net(skb->sk), info->attrs);
     if (IS_ERR(pdr)) {
-		GTP5G_ERR(NULL, "PDR record is not present\n");
+        GTP5G_ERR(NULL, "PDR record is not present\n");
         err = PTR_ERR(pdr);
         goto unlock;
     }
 
     skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
     if (!skb_ack) {
-		GTP5G_ERR(NULL, "Failed to allocate skb ack\n");
+        GTP5G_ERR(NULL, "Failed to allocate skb ack\n");
         err = -ENOMEM;
         goto unlock;
     }
@@ -2718,9 +2850,9 @@ static int gtp5g_genl_get_pdr(struct sk_buff *skb, struct genl_info *info)
         info->nlhdr->nlmsg_type, 
         pdr);
     if (err < 0) {
-		GTP5G_ERR(NULL, "Failed to fill PDR err(%d)\n", err);
+        GTP5G_ERR(NULL, "Failed to fill PDR err(%d)\n", err);
         goto freebuf;
-	}
+    }
     rcu_read_unlock();
 
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
@@ -2747,9 +2879,9 @@ static int gtp5g_genl_dump_pdr(struct sk_buff *skb, struct netlink_callback *cb)
     struct gtp5g_pdr *pdr;
 
     if (cb->args[5]) {
-		GTP5G_ERR(NULL, "Failed to dump callback args[5] is present\n");
+        GTP5G_ERR(NULL, "Failed to dump callback args[5] is present\n");
         return 0;
-	}
+    }
 
     list_for_each_entry_rcu(gtp, &gn->gtp5g_dev_list, list) {
         if (last_gtp && last_gtp != gtp)
@@ -2793,26 +2925,34 @@ static int gtp5g_gnl_add_far(struct gtp5g_dev *gtp, struct genl_info *info)
     u32 far_id;
     u8  flag;
 
+    u64 seid_int;
+    char *seid_far_id_hexstr;
+
+    if (info->attrs[GTP5G_FAR_SEID])
+        seid_int = nla_get_u64(info->attrs[GTP5G_FAR_SEID]);
+    else
+        seid_int = 0;
+
     far_id = nla_get_u32(info->attrs[GTP5G_FAR_ID]);
-    far = far_find_by_id(gtp, far_id);
+    far = find_far_by_id(gtp, seid_int, far_id);
     if (far) {
-    	if (info->nlhdr->nlmsg_flags & NLM_F_EXCL) {
-			GTP5G_ERR(dev, "FAR-Up: Failed NLM_F_EXCL is set\n");
+        if (info->nlhdr->nlmsg_flags & NLM_F_EXCL) {
+            GTP5G_ERR(dev, "FAR-Up: Failed NLM_F_EXCL is set\n");
             err = -EEXIST;
             goto out;
-  		} else if (!(info->nlhdr->nlmsg_flags & NLM_F_REPLACE)) {
-			GTP5G_ERR(dev, "FAR-Up: Failed NLM_F_REPLACE is not set\n");
+        } else if (!(info->nlhdr->nlmsg_flags & NLM_F_REPLACE)) {
+            GTP5G_ERR(dev, "FAR-Up: Failed NLM_F_REPLACE is not set\n");
             err = -EOPNOTSUPP;
             goto out;
-		}
+        }
 
-		flag = 0;
-		err = far_fill(far, gtp, info, &flag, &epkt_info);
-		if (err < 0) {
-			far_context_delete(far);
-			GTP5G_ERR(dev,"FAR-Up: failed to update id(%u) err: %d\n", far_id, err);
+        flag = 0;
+        err = far_fill(far, gtp, info, &flag, &epkt_info);
+        if (err < 0) {
+            far_context_delete(far);
+            GTP5G_ERR(dev,"FAR-Up: failed to update id(%u) err: %d\n", far_id, err);
             goto out;
-		} 
+        }
 
         // Send GTP-U End marker to gNB
         if (flag) {
@@ -2823,37 +2963,37 @@ static int gtp5g_gnl_add_far(struct gtp5g_dev *gtp, struct genl_info *info)
             if (!skb) {
                 GTP5G_ERR(dev, "FAR-Up: Failled to allocate EndMarker SKB with a size 52B\n");
                 err = 0;
-				goto out;
+                goto out;
             }
             skb_reserve(skb, 2);
             skb->protocol = eth_type_trans(skb, dev);
             gtp5g_fwd_emark_skb_ipv4(skb, dev, &epkt_info);
        }
-	   GTP5G_INF(dev, "FAR-Up: update id(%u) success\n", far_id);
-	   return 0;
+       GTP5G_INF(dev, "FAR-Up: update id(%u) success\n", far_id);
+       return 0;
     }
 
     if (info->nlhdr->nlmsg_flags & NLM_F_REPLACE) {
-		GTP5G_ERR(dev, "FAR-Add: Failed NLM_F_REPLACE is set\n");
+        GTP5G_ERR(dev, "FAR-Add: Failed NLM_F_REPLACE is set\n");
         err = -ENOENT;
         goto out;
-	}
+    }
 
     if (info->nlhdr->nlmsg_flags & NLM_F_APPEND) {
-		GTP5G_ERR(dev, "FAR-Add: Failed NLM_F_APPEND is set\n");
+        GTP5G_ERR(dev, "FAR-Add: Failed NLM_F_APPEND is set\n");
         err = -EOPNOTSUPP;
         goto out;
-	}
+    }
 
-	// Check only at the creation part
-	if (!info->attrs[GTP5G_FAR_APPLY_ACTION]) {
-		GTP5G_ERR(dev, "FAR-Add: Failed apply action is not given\n");
-	    err = -EINVAL;
+    // Check only at the creation part
+    if (!info->attrs[GTP5G_FAR_APPLY_ACTION]) {
+        GTP5G_ERR(dev, "FAR-Add: Failed apply action is not given\n");
+        err = -EINVAL;
         goto out;
-	}
+    }
 
-	far = kzalloc(sizeof(*far), GFP_ATOMIC);
-	if (!far) {
+    far = kzalloc(sizeof(*far), GFP_ATOMIC);
+    if (!far) {
         GTP5G_ERR(dev, "FAR-Add: Failed to allocate memory\n");
         err = -ENOMEM;
         goto out;
@@ -2864,12 +3004,13 @@ static int gtp5g_gnl_add_far(struct gtp5g_dev *gtp, struct genl_info *info)
     if (err < 0) {
         GTP5G_ERR(dev, "FAR-Add: id(%u) fail\n", far_id);
         far_context_delete(far);
-		goto out;
+        goto out;
     } 
 
-	hlist_add_head_rcu(&far->hlist_id, 
-        &gtp->far_id_hash[u32_hashfn(far_id) % gtp->hash_size]);
-	GTP5G_INF(dev, "FAR-Add: id(%u) success\n", far_id);
+    seid_far_id_hexstr = seid_far_id_to_hex_str(seid_int, far_id);
+    hlist_add_head_rcu(&far->hlist_id,
+        &gtp->far_id_hash[str_hashfn(seid_far_id_hexstr) % gtp->hash_size]);
+    GTP5G_INF(dev, "FAR-Add: id(%u) success\n", far_id);
 
 out:
     return err;
@@ -2882,16 +3023,16 @@ static int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
 
     if (!info->attrs[GTP5G_FAR_ID] ||
         !info->attrs[GTP5G_LINK]) {
-		GTP5G_ERR(NULL, "Failed to find FAR_ID or LINK in netlink\n");
+        GTP5G_ERR(NULL, "Failed to find FAR_ID or LINK in netlink\n");
         return -EINVAL;
-	}
+    }
 
     rtnl_lock();
     rcu_read_lock();
 
     gtp = gtp5g_find_dev(sock_net(skb->sk), info->attrs);
     if (!gtp) {
-		GTP5G_ERR(NULL, "Failed to find the gtp5g_dev\n");
+        GTP5G_ERR(NULL, "Failed to find the gtp5g_dev\n");
         err = -ENODEV;
         goto unlock;
     }
@@ -2912,9 +3053,9 @@ static int gtp5g_genl_del_far(struct sk_buff *skb, struct genl_info *info)
 
     if (!info->attrs[GTP5G_FAR_ID] ||
         !info->attrs[GTP5G_LINK]) {
-		GTP5G_ERR(NULL, "FAR-Del: Failed to find FAR_ID or LINK in netlink\n");
+        GTP5G_ERR(NULL, "FAR-Del: Failed to find FAR_ID or LINK in netlink\n");
         return -EINVAL;
-	}
+    }
 
     id = nla_get_u32(info->attrs[GTP5G_FAR_ID]);
 
@@ -2922,7 +3063,7 @@ static int gtp5g_genl_del_far(struct sk_buff *skb, struct genl_info *info)
 
     far = gtp5g_find_far(sock_net(skb->sk), info->attrs);
     if (IS_ERR(far)) {
-		GTP5G_ERR(NULL, "FAR-Del: Failed to find id (%u)\n", id);
+        GTP5G_ERR(NULL, "FAR-Del: Failed to find id (%u)\n", id);
         err = PTR_ERR(far);
         goto unlock;
     }
@@ -2944,15 +3085,17 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
 
+    char *seid_far_id_hexstr;
+
     int cnt;
     struct gtp5g_dev *gtp = netdev_priv(far->dev);
     struct hlist_head *head;
     struct gtp5g_pdr *pdr;
     u16 *u16_buf = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
-	if (!u16_buf) {
-		GTP5G_ERR(NULL, "Failed to allocate buf\n");
-		goto out;
-	}
+    if (!u16_buf) {
+        GTP5G_ERR(NULL, "Failed to allocate buf\n");
+        goto out;
+    }
 
     genlh = genlmsg_put(skb, snd_portid, snd_seq, &gtp5g_genl_family, 0, type);
     if (!genlh)
@@ -2962,6 +3105,10 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         nla_put_u8(skb, GTP5G_FAR_APPLY_ACTION, far->action))
         goto genlmsg_fail;
 
+    if (far->seid) {
+        if (nla_put_u64_64bit(skb, GTP5G_FAR_SEID, far->seid, 0))
+            goto genlmsg_fail;
+    }
     if (far->fwd_param) {
         if (!(nest_fwd_param = nla_nest_start(skb, GTP5G_FAR_FORWARDING_PARAMETER)))
             goto genlmsg_fail;
@@ -2989,12 +3136,13 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     }
 
     cnt = 0;    
-    head = &gtp->related_far_hash[u32_hashfn(far->id) % gtp->hash_size];
+    seid_far_id_hexstr = seid_far_id_to_hex_str(far->seid, far->id);
+    head = &gtp->related_far_hash[str_hashfn(seid_far_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_far) {
         if (cnt >= 0xff)
             goto genlmsg_fail;
 
-        if (*pdr->far_id == far->id)
+        if (pdr->seid == far->seid && *pdr->far_id == far->id)
             u16_buf[cnt++] = pdr->id;
     }
 
@@ -3020,22 +3168,21 @@ static int gtp5g_genl_get_far(struct sk_buff *skb, struct genl_info *info)
     int err;
 
     if (!info->attrs[GTP5G_FAR_ID]) {
-		GTP5G_ERR(NULL, "Failed to find FAR_ID in netlink msg\n");
+        GTP5G_ERR(NULL, "Failed to find FAR_ID in netlink msg\n");
         return -EINVAL;
-	}
-
+    }
     rcu_read_lock();
 
     far = gtp5g_find_far(sock_net(skb->sk), info->attrs);
     if (IS_ERR(far)) {
-		GTP5G_ERR(NULL, "Failed to find far\n");
+        GTP5G_ERR(NULL, "Failed to find far\n");
         err = PTR_ERR(far);
         goto unlock;
     }
 
     skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
     if (!skb_ack) {
-		GTP5G_ERR(NULL, "Failed to allocate skb_ack\n");
+        GTP5G_ERR(NULL, "Failed to allocate skb_ack\n");
         err = -ENOMEM;
         goto unlock;
     }
@@ -3046,9 +3193,9 @@ static int gtp5g_genl_get_far(struct sk_buff *skb, struct genl_info *info)
         info->nlhdr->nlmsg_type, 
         far);
     if (err < 0) {
-		GTP5G_ERR(NULL, "Failed to fill far\n");
+        GTP5G_ERR(NULL, "Failed to fill far\n");
         goto freebuf;
-	}
+    }
 
     rcu_read_unlock();
 
@@ -3076,9 +3223,9 @@ static int gtp5g_genl_dump_far(struct sk_buff *skb, struct netlink_callback *cb)
     struct gtp5g_far *far;
 
     if (cb->args[5]) {
-		GTP5G_ERR(NULL, "Failed to dump FAR arg5 present\n");
+        GTP5G_ERR(NULL, "Failed to dump FAR arg5 present\n");
         return 0;
-	}
+    }
 
     list_for_each_entry_rcu(gtp, &gn->gtp5g_dev_list, list) {
         if (last_gtp && last_gtp != gtp)
@@ -3114,7 +3261,7 @@ out:
 }
 
 /** ---------------------------------------------------------------------
- * 								QER
+ *                                 QER
  *  ---------------------------------------------------------------------
  * */
 static void qer_context_free(struct rcu_head *head)
@@ -3133,6 +3280,8 @@ static void qer_context_delete(struct gtp5g_qer *qer)
     struct hlist_head *head;
     struct gtp5g_pdr *pdr;
 
+    char *seid_qer_id_hexstr;
+
     if (!qer)
         return;
 
@@ -3141,7 +3290,8 @@ static void qer_context_delete(struct gtp5g_qer *qer)
     if (!hlist_unhashed(&qer->hlist_id))
         hlist_del_rcu(&qer->hlist_id);
 
-    head = &gtp->related_qer_hash[u32_hashfn(qer->id) % gtp->hash_size];
+    seid_qer_id_hexstr = seid_qer_id_to_hex_str(qer->seid, qer->id);
+    head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
         if (*pdr->qer_id == qer->id) {
             pdr->qer = NULL;
@@ -3159,28 +3309,35 @@ static int qer_fill(struct gtp5g_qer *qer, struct gtp5g_dev *gtp, struct genl_in
     struct gtp5g_pdr *pdr;
     struct hlist_head *head;
 
+    char *seid_qer_id_hexstr;
+
     qer->id = nla_get_u32(info->attrs[GTP5G_QER_ID]);
+    if (info->attrs[GTP5G_QER_SEID])
+        qer->seid = nla_get_u64(info->attrs[GTP5G_QER_SEID]);
+    else
+        qer->seid = 0;
+    
 
     if (info->attrs[GTP5G_QER_GATE]) {
         qer->ul_dl_gate = nla_get_u8(info->attrs[GTP5G_QER_GATE]);
     }
 
-	/* MBR */
+    /* MBR */
     if (info->attrs[GTP5G_QER_MBR] &&
         !nla_parse_nested(mbr_param_attrs, GTP5G_QER_MBR_ATTR_MAX, info->attrs[GTP5G_QER_MBR], NULL, NULL)) {
-		qer->mbr.ul_high = nla_get_u32(mbr_param_attrs[GTP5G_QER_MBR_UL_HIGH32]);
-		qer->mbr.ul_low  = nla_get_u8(mbr_param_attrs[GTP5G_QER_MBR_UL_LOW8]);
-		qer->mbr.dl_high = nla_get_u32(mbr_param_attrs[GTP5G_QER_MBR_DL_HIGH32]);
-		qer->mbr.dl_low  = nla_get_u8(mbr_param_attrs[GTP5G_QER_MBR_DL_LOW8]);
+        qer->mbr.ul_high = nla_get_u32(mbr_param_attrs[GTP5G_QER_MBR_UL_HIGH32]);
+        qer->mbr.ul_low  = nla_get_u8(mbr_param_attrs[GTP5G_QER_MBR_UL_LOW8]);
+        qer->mbr.dl_high = nla_get_u32(mbr_param_attrs[GTP5G_QER_MBR_DL_HIGH32]);
+        qer->mbr.dl_low  = nla_get_u8(mbr_param_attrs[GTP5G_QER_MBR_DL_LOW8]);
     }
 
-	/* GBR */
+    /* GBR */
     if (info->attrs[GTP5G_QER_GBR] &&
         !nla_parse_nested(gbr_param_attrs, GTP5G_QER_GBR_ATTR_MAX, info->attrs[GTP5G_QER_GBR], NULL, NULL)) {
-		qer->gbr.ul_high = nla_get_u32(gbr_param_attrs[GTP5G_QER_GBR_UL_HIGH32]);
-		qer->gbr.ul_low  = nla_get_u8(gbr_param_attrs[GTP5G_QER_GBR_UL_LOW8]);
-		qer->gbr.dl_high = nla_get_u32(gbr_param_attrs[GTP5G_QER_GBR_DL_HIGH32]);
-		qer->gbr.dl_low  = nla_get_u8(gbr_param_attrs[GTP5G_QER_GBR_DL_LOW8]);
+        qer->gbr.ul_high = nla_get_u32(gbr_param_attrs[GTP5G_QER_GBR_UL_HIGH32]);
+        qer->gbr.ul_low  = nla_get_u8(gbr_param_attrs[GTP5G_QER_GBR_UL_LOW8]);
+        qer->gbr.dl_high = nla_get_u32(gbr_param_attrs[GTP5G_QER_GBR_DL_HIGH32]);
+        qer->gbr.dl_low  = nla_get_u8(gbr_param_attrs[GTP5G_QER_GBR_DL_LOW8]);
     }
 
     if (info->attrs[GTP5G_QER_CORR_ID]) {
@@ -3204,7 +3361,8 @@ static int qer_fill(struct gtp5g_qer *qer, struct gtp5g_dev *gtp, struct genl_in
     }
 
     /* Update PDRs which has not linked to this QER */
-    head = &gtp->related_qer_hash[u32_hashfn(qer->id) % gtp->hash_size];
+    seid_qer_id_hexstr = seid_qer_id_to_hex_str(qer->seid, qer->id);
+    head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
         if (*pdr->qer_id == qer->id) {
             pdr->qer = qer;
@@ -3217,14 +3375,16 @@ static int qer_fill(struct gtp5g_qer *qer, struct gtp5g_dev *gtp, struct genl_in
     return 0;
 }
 
-static struct gtp5g_qer *qer_find_by_id(struct gtp5g_dev *gtp, u32 id)
+static struct gtp5g_qer *find_qer_by_id(struct gtp5g_dev *gtp, u64 seid, u32 qer_id)
 {
     struct hlist_head *head;
     struct gtp5g_qer *qer;
+    char *seid_qer_id_hexstr;
 
-    head = &gtp->qer_id_hash[u32_hashfn(id) % gtp->hash_size];
+    seid_qer_id_hexstr = seid_qer_id_to_hex_str(seid, qer_id);
+    head = &gtp->qer_id_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(qer, head, hlist_id) {
-        if (qer->id == id)
+        if (qer->seid == seid && qer->id == qer_id)
             return qer;
     }
 
@@ -3238,15 +3398,23 @@ static int gtp5g_gnl_add_qer(struct gtp5g_dev *gtp, struct genl_info *info)
     int err = 0;
     u32 qer_id;
 
-	if (!dev) {
-		GTP5G_ERR(NULL, "QER-Add: net_device of gtp is not set\n");
-		return -EEXIST;
-	}
+    u64 seid_int;
+    char *seid_qer_id_hexstr;
 
+    if (!dev) {
+        GTP5G_ERR(NULL, "QER-Add: net_device of gtp is not set\n");
+        return -EEXIST;
+    }
+
+    if (info->attrs[GTP5G_QER_SEID])
+        seid_int = nla_get_u64(info->attrs[GTP5G_QER_SEID]);
+    else
+        seid_int = 0;
+    
     qer_id = nla_get_u32(info->attrs[GTP5G_QER_ID]);
-    qer = qer_find_by_id(gtp, qer_id);
+    qer = find_qer_by_id(gtp, seid_int, qer_id);
     if (qer) {
-    	if (info->nlhdr->nlmsg_flags & NLM_F_EXCL) {
+        if (info->nlhdr->nlmsg_flags & NLM_F_EXCL) {
             GTP5G_ERR(NULL, "QER-Up: Failed NLM_F_EXCL is set\n");
             return -EEXIST;
         } else if (!(info->nlhdr->nlmsg_flags & NLM_F_REPLACE)) {
@@ -3257,27 +3425,27 @@ static int gtp5g_gnl_add_qer(struct gtp5g_dev *gtp, struct genl_info *info)
         err = qer_fill(qer, gtp, info);
         if (err < 0) {
             qer_context_delete(qer);
-			GTP5G_ERR(dev, "QER-Up: failed to update id(%u) err: %d\n", qer_id, err);
-			return err;
+            GTP5G_ERR(dev, "QER-Up: failed to update id(%u) err: %d\n", qer_id, err);
+            return err;
         } 
 
-		GTP5G_INF(dev, "QER-Up: update id(%u) success\n", qer_id);
+        GTP5G_INF(dev, "QER-Up: update id(%u) success\n", qer_id);
         return 0;
     }
 
     if (info->nlhdr->nlmsg_flags & NLM_F_REPLACE) {
-		GTP5G_ERR(dev, "QER-Add: Invalid flag set NLM_F_REPLACE\n");
+        GTP5G_ERR(dev, "QER-Add: Invalid flag set NLM_F_REPLACE\n");
         return -ENOENT;
-	}
+    }
 
     if (info->nlhdr->nlmsg_flags & NLM_F_APPEND) {
-		GTP5G_ERR(dev, "QER-Add: Invalid flag set NLM_F_APPEND\n");
+        GTP5G_ERR(dev, "QER-Add: Invalid flag set NLM_F_APPEND\n");
         return -EOPNOTSUPP;
-	}
+    }
 
     qer = kzalloc(sizeof(*qer), GFP_ATOMIC);
     if (!qer) {
-		GTP5G_ERR(dev, "QER-Add: Failed to allocate memory for QER_ID(%u)\n", qer_id);
+        GTP5G_ERR(dev, "QER-Add: Failed to allocate memory for QER_ID(%u)\n", qer_id);
         return -ENOMEM;
     }
 
@@ -3290,8 +3458,9 @@ static int gtp5g_gnl_add_qer(struct gtp5g_dev *gtp, struct genl_info *info)
         goto out;
     } 
 
+    seid_qer_id_hexstr = seid_qer_id_to_hex_str(seid_int, qer_id);
     hlist_add_head_rcu(&qer->hlist_id, 
-		&gtp->qer_id_hash[u32_hashfn(qer_id) % gtp->hash_size]);
+        &gtp->qer_id_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size]);
     GTP5G_INF(dev, "QER-Add: QER_ID(%u) success\n", qer_id);
 out:
     return err;
@@ -3304,16 +3473,16 @@ static int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
 
     if (!info->attrs[GTP5G_QER_ID] ||
         !info->attrs[GTP5G_LINK]) {
-    	GTP5G_ERR(NULL, "QER-Add: QER_ID or GTP5G_LINK is not present\n");
-	   	return -EINVAL;
-	}
+        GTP5G_ERR(NULL, "QER-Add: QER_ID or GTP5G_LINK is not present\n");
+        return -EINVAL;
+    }
 
     rtnl_lock();
     rcu_read_lock();
 
     gtp = gtp5g_find_dev(sock_net(skb->sk), info->attrs);
     if (!gtp) {
-		GTP5G_ERR(NULL, "QER-Add: Unable to find the gtp device\n");
+        GTP5G_ERR(NULL, "QER-Add: Unable to find the gtp device\n");
         err = -ENODEV;
         goto unlock;
     }
@@ -3334,7 +3503,7 @@ static int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
 
     if (!info->attrs[GTP5G_QER_ID] ||
         !info->attrs[GTP5G_LINK]) {
-    	GTP5G_ERR(NULL, "QER-Del: QER_ID or GTP5G_LINK is not present\n");
+        GTP5G_ERR(NULL, "QER-Del: QER_ID or GTP5G_LINK is not present\n");
         return -EINVAL;
     }
 
@@ -3366,59 +3535,67 @@ static int gtp5g_genl_fill_qer(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     struct hlist_head *head;
     struct gtp5g_pdr *pdr;
 
+    char *seid_qer_id_hexstr;
+
     u16 *u16_buf = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
-	if (!u16_buf) {
-		GTP5G_ERR(NULL, "Failed to allocated mmeory\n");
-		return -EMSGSIZE;
-	}
+    if (!u16_buf) {
+        GTP5G_ERR(NULL, "Failed to allocated mmeory\n");
+        return -EMSGSIZE;
+    }
 
     genlh = genlmsg_put(skb, snd_portid, snd_seq, 
         &gtp5g_genl_family, 0, type);
     if (!genlh) {
-		GTP5G_ERR(NULL, "Failed to get genlh snd_port_id(%#x)"
+        GTP5G_ERR(NULL, "Failed to get genlh snd_port_id(%#x)"
             " \t snd_seq(%#x) type(%#x)\n", snd_portid, snd_seq, type);
         goto genlmsg_fail;
-	}
+    }
 
-	/* QER_ID & GATE */
-	if (nla_put_u32(skb, GTP5G_QER_ID, qer->id) ||
-		nla_put_u8(skb, GTP5G_QER_GATE, qer->ul_dl_gate))
+    /* QER_ID & GATE */
+    if (nla_put_u32(skb, GTP5G_QER_ID, qer->id) ||
+        nla_put_u8(skb, GTP5G_QER_GATE, qer->ul_dl_gate))
         goto genlmsg_fail;
 
-	/* MBR */
-	if (!(nest_mbr_param = nla_nest_start(skb, GTP5G_QER_MBR)))
-		goto genlmsg_fail;
+    if (qer->seid) {
+        if (nla_put_u64_64bit(skb, GTP5G_QER_SEID, qer->seid, 0))
+            goto genlmsg_fail;
+    }
 
-	if (nla_put_u32(skb, GTP5G_QER_MBR_UL_HIGH32, qer->mbr.ul_high) ||
-		nla_put_u8(skb, GTP5G_QER_MBR_UL_LOW8, qer->mbr.ul_low) ||
-		nla_put_u32(skb, GTP5G_QER_MBR_DL_HIGH32, qer->mbr.dl_high) ||
-		nla_put_u8(skb, GTP5G_QER_MBR_DL_LOW8, qer->mbr.dl_low))
+    /* MBR */
+    if (!(nest_mbr_param = nla_nest_start(skb, GTP5G_QER_MBR)))
+        goto genlmsg_fail;
+
+    if (nla_put_u32(skb, GTP5G_QER_MBR_UL_HIGH32, qer->mbr.ul_high) ||
+        nla_put_u8(skb, GTP5G_QER_MBR_UL_LOW8, qer->mbr.ul_low) ||
+        nla_put_u32(skb, GTP5G_QER_MBR_DL_HIGH32, qer->mbr.dl_high) ||
+        nla_put_u8(skb, GTP5G_QER_MBR_DL_LOW8, qer->mbr.dl_low))
         goto genlmsg_fail;
 
     nla_nest_end(skb, nest_mbr_param);
 
-	/* GBR */
-	if (!(nest_gbr_param = nla_nest_start(skb, GTP5G_QER_GBR)))
-		goto genlmsg_fail;
+    /* GBR */
+    if (!(nest_gbr_param = nla_nest_start(skb, GTP5G_QER_GBR)))
+        goto genlmsg_fail;
 
-	if (nla_put_u32(skb, GTP5G_QER_GBR_UL_HIGH32, qer->gbr.ul_high) ||
-		nla_put_u8(skb, GTP5G_QER_GBR_UL_LOW8, qer->gbr.ul_low) ||
-		nla_put_u32(skb, GTP5G_QER_GBR_DL_HIGH32, qer->gbr.dl_high) ||
-		nla_put_u8(skb, GTP5G_QER_GBR_DL_LOW8, qer->gbr.dl_low))
+    if (nla_put_u32(skb, GTP5G_QER_GBR_UL_HIGH32, qer->gbr.ul_high) ||
+        nla_put_u8(skb, GTP5G_QER_GBR_UL_LOW8, qer->gbr.ul_low) ||
+        nla_put_u32(skb, GTP5G_QER_GBR_DL_HIGH32, qer->gbr.dl_high) ||
+        nla_put_u8(skb, GTP5G_QER_GBR_DL_LOW8, qer->gbr.dl_low))
         goto genlmsg_fail;
 
     nla_nest_end(skb, nest_gbr_param);
 
-	/* CORR_ID, RQI, QFI, PPI, RCSR */
+    /* CORR_ID, RQI, QFI, PPI, RCSR */
     if (nla_put_u32(skb, GTP5G_QER_CORR_ID, qer->qer_corr_id) ||
-		nla_put_u8(skb, GTP5G_QER_RQI, qer->rqi) ||
-		nla_put_u8(skb, GTP5G_QER_QFI, qer->qfi) ||
-		nla_put_u8(skb, GTP5G_QER_PPI, qer->ppi) ||
-		nla_put_u8(skb, GTP5G_QER_RCSR, qer->rcsr))
+        nla_put_u8(skb, GTP5G_QER_RQI, qer->rqi) ||
+        nla_put_u8(skb, GTP5G_QER_QFI, qer->qfi) ||
+        nla_put_u8(skb, GTP5G_QER_PPI, qer->ppi) ||
+        nla_put_u8(skb, GTP5G_QER_RCSR, qer->rcsr))
         goto genlmsg_fail;
 
-    cnt = 0;    
-    head = &gtp->related_qer_hash[u32_hashfn(qer->id) % gtp->hash_size];
+    cnt = 0;
+    seid_qer_id_hexstr = seid_qer_id_to_hex_str(qer->seid, qer->id);
+    head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];        
     hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
         if (cnt >= 0xff)
             goto genlmsg_fail;
@@ -3426,7 +3603,6 @@ static int gtp5g_genl_fill_qer(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         if (*pdr->qer_id == qer->id)
             u16_buf[cnt++] = pdr->id;
     }
-
     if (cnt) {
         if (nla_put(skb, 
             GTP5G_QER_RELATED_TO_PDR,
@@ -3448,6 +3624,13 @@ genlmsg_fail:
 static struct gtp5g_qer *gtp5g_find_qer_by_link(struct net *net, struct nlattr *nla[])
 {
     struct gtp5g_dev *gtp;
+    u64 seid;
+
+    if (nla[GTP5G_QER_SEID])
+        seid =  nla_get_u64(nla[GTP5G_QER_SEID]);
+    else
+        seid = 0;
+    
 
     gtp = gtp5g_find_dev(net, nla);
     if (!gtp)
@@ -3455,7 +3638,7 @@ static struct gtp5g_qer *gtp5g_find_qer_by_link(struct net *net, struct nlattr *
 
     if (nla[GTP5G_QER_ID]) {
         u32 id = nla_get_u32(nla[GTP5G_QER_ID]);
-        return qer_find_by_id(gtp, id);
+        return find_qer_by_id(gtp, seid, id);
     }
 
     return ERR_PTR(-EINVAL);
@@ -3483,14 +3666,14 @@ static int gtp5g_genl_get_qer(struct sk_buff *skb, struct genl_info *info)
     int err;
 
     if (!info->attrs[GTP5G_QER_ID]) {
-		GTP5G_ERR(NULL, "QER ID is not present\n");
+        GTP5G_ERR(NULL, "QER ID is not present\n");
         return -EINVAL;
-	}
+    }
 
     rcu_read_lock();
     qer = gtp5g_find_qer(sock_net(skb->sk), info->attrs);
     if (IS_ERR(qer)) {
-		GTP5G_ERR(NULL, "Failed to find QER\n");
+        GTP5G_ERR(NULL, "Failed to find QER\n");
         err = PTR_ERR(qer);
         goto unlock;
     }
@@ -3507,9 +3690,9 @@ static int gtp5g_genl_get_qer(struct sk_buff *skb, struct genl_info *info)
         info->nlhdr->nlmsg_type, 
         qer);
     if (err < 0) {
-		GTP5G_ERR(NULL, "Failed to fil the qer\n");
+        GTP5G_ERR(NULL, "Failed to fil the qer\n");
         goto freebuf;
-	}
+    }
     rcu_read_unlock();
 
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
@@ -3536,9 +3719,9 @@ static int gtp5g_genl_dump_qer(struct sk_buff *skb, struct netlink_callback *cb)
     struct gtp5g_qer *qer;
 
     if (cb->args[5]) {
-		GTP5G_ERR(NULL, "Invalid args\n");
+        GTP5G_ERR(NULL, "Invalid args\n");
         return 0;
-	}
+    }
 
     list_for_each_entry_rcu(gtp, &gn->gtp5g_dev_list, list) {
         if (last_gtp && last_gtp != gtp)
@@ -3592,7 +3775,7 @@ static const struct nla_policy gtp5g_genl_qer_policy[GTP5G_QER_ATTR_MAX + 1] = {
     [GTP5G_QER_GATE]                            = { .type = NLA_U8, },
     [GTP5G_QER_MBR]                             = { .type = NLA_NESTED, },
     [GTP5G_QER_GBR]                             = { .type = NLA_NESTED, },
-    [GTP5G_QER_CORR_ID]                     	= { .type = NLA_U32, },
+    [GTP5G_QER_CORR_ID]                         = { .type = NLA_U32, },
     [GTP5G_QER_RQI]                             = { .type = NLA_U8, },
     [GTP5G_QER_QFI]                             = { .type = NLA_U8, },
     [GTP5G_QER_PPI]                             = { .type = NLA_U8, },
@@ -3644,7 +3827,7 @@ static const struct genl_ops gtp5g_genl_ops[] = {
         // .policy = gtp5g_genl_far_policy,
         .flags = GENL_ADMIN_PERM,
     },
-	{
+    {
         .cmd = GTP5G_CMD_ADD_QER,
         // .validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
         .doit = gtp5g_genl_add_qer,
@@ -3717,20 +3900,21 @@ struct proc_dir_entry *proc_gtp5g_qer = NULL;
 struct proc_gtp5g_pdr proc_pdr;
 struct proc_gtp5g_far proc_far;
 struct proc_gtp5g_qer proc_qer;
+u64 proc_seid = 0;
 u16 proc_pdr_id = 0;
 u32 proc_far_id = 0;
 u32 proc_qer_id = 0;
 
 static int gtp5g_dbg_read(struct seq_file *s, void *v) 
 {
-	seq_printf(s, "gtp5g kerenl debug level range: 0~4\n");
-	seq_printf(s, "\t 0 -> Logging\n");
-	seq_printf(s, "\t 1 -> Error(default)\n");
-	seq_printf(s, "\t 2 -> Warning\n");
-	seq_printf(s, "\t 3 -> Information\n");
-	seq_printf(s, "\t 4 -> Trace\n");
-	seq_printf(s, "Current: %d\n", dbg_trace_lvl);
-	return 0;
+    seq_printf(s, "gtp5g kerenl debug level range: 0~4\n");
+    seq_printf(s, "\t 0 -> Logging\n");
+    seq_printf(s, "\t 1 -> Error(default)\n");
+    seq_printf(s, "\t 2 -> Warning\n");
+    seq_printf(s, "\t 3 -> Information\n");
+    seq_printf(s, "\t 4 -> Trace\n");
+    seq_printf(s, "Current: %d\n", dbg_trace_lvl);
+    return 0;
 }
 
 static ssize_t proc_dbg_write(struct file *filp, const char __user *buffer,
@@ -3775,6 +3959,7 @@ static int gtp5g_pdr_read(struct seq_file *s, void *v)
     }
     
     seq_printf(s, "PDR: \n");
+    seq_printf(s, "\t SEID : %llu\n", proc_pdr.seid);
     seq_printf(s, "\t ID : %u\n", proc_pdr.id);
     seq_printf(s, "\t Precedence: %u\n", proc_pdr.precedence);
     seq_printf(s, "\t OHR: %u\n", proc_pdr.ohr);
@@ -3797,6 +3982,7 @@ static int gtp5g_far_read(struct seq_file *s, void *v)
     }
     
     seq_printf(s, "FAR: \n");
+    seq_printf(s, "\t SEID : %llu\n", proc_far.seid);
     seq_printf(s, "\t ID : %u\n", proc_far.id);
     seq_printf(s, "\t Apply Action: %#x\n", proc_far.action);
     seq_printf(s, "\t OHC Description: %#x\n", proc_far.description);
@@ -3813,6 +3999,7 @@ static int gtp5g_qer_read(struct seq_file *s, void *v)
     }
     
     seq_printf(s, "QER: \n");
+    seq_printf(s, "\t SEID : %llu\n", proc_qer.seid);
     seq_printf(s, "\t ID : %u\n", proc_qer.id);
     seq_printf(s, "\t QFI: %u\n", proc_qer.qfi);
     return 0;
@@ -3833,7 +4020,7 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
     }
     
     buf[buf_len] = 0;
-    if (sscanf(buf, "%s %hu", dev_name, &proc_pdr_id) != 2) {
+    if (sscanf(buf, "%s %llu %hu", dev_name, &proc_seid, &proc_pdr_id) != 3) {
         GTP5G_ERR(NULL, "proc write of PDR Dev & ID: %s is not valid\n", buf);
         goto err;
     }
@@ -3849,14 +4036,15 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
         goto err;
     }
 
-    pdr = pdr_find_by_id(gtp, proc_pdr_id);
+    pdr = find_pdr_by_id(gtp, proc_seid, proc_pdr_id);
     if (!pdr) {
-        GTP5G_ERR(NULL, "Given PDR ID : %u not exists\n", proc_pdr_id);
+        GTP5G_ERR(NULL, "Given SEID : %llu PDR ID : %u not exists\n", proc_seid, proc_pdr_id);
         goto err;
     }
     
     memset(&proc_pdr, 0, sizeof(proc_pdr));
     proc_pdr.id = pdr->id;
+    proc_pdr.seid = pdr->seid;
     proc_pdr.precedence = pdr->precedence;
     
     if (pdr->outer_header_removal) 
@@ -3883,7 +4071,7 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
     proc_pdr.ul_drop_cnt = pdr->ul_drop_cnt;
     proc_pdr.dl_drop_cnt = pdr->dl_drop_cnt;
 
-	return strnlen(buf, buf_len);
+    return strnlen(buf, buf_len);
 err:
     proc_pdr_id = 0;
     return -1;
@@ -3904,7 +4092,7 @@ static ssize_t proc_far_write(struct file *filp, const char __user *buffer,
     }
     
     buf[buf_len] = 0;
-    if (sscanf(buf, "%s %u", dev_name, &proc_far_id) != 2) {
+    if (sscanf(buf, "%s %llu %u", dev_name, &proc_seid, &proc_far_id) != 3) {
         GTP5G_ERR(NULL, "proc write of FAR Dev & ID: %s is not valid\n", buf);
         goto err;
     }
@@ -3920,7 +4108,7 @@ static ssize_t proc_far_write(struct file *filp, const char __user *buffer,
         goto err;
     }
 
-    far = far_find_by_id(gtp, proc_far_id);
+    far = find_far_by_id(gtp, proc_seid, proc_far_id);
     if (!far) {
         GTP5G_ERR(NULL, "Given FAR ID : %u not exists\n", proc_far_id);
         goto err;
@@ -3928,6 +4116,7 @@ static ssize_t proc_far_write(struct file *filp, const char __user *buffer,
     
     memset(&proc_far, 0, sizeof(proc_far));
     proc_far.id = far->id;
+    proc_far.seid = far->seid;
     proc_far.action = far->action;
    
     if (far->fwd_param) {
@@ -3938,7 +4127,7 @@ static ssize_t proc_far_write(struct file *filp, const char __user *buffer,
         }
     }
 
-	return strnlen(buf, buf_len);
+    return strnlen(buf, buf_len);
 err:
     proc_far_id = 0;
     return -1;
@@ -3959,7 +4148,7 @@ static ssize_t proc_qer_write(struct file *filp, const char __user *buffer,
     }
     
     buf[buf_len] = 0;
-    if (sscanf(buf, "%s %u", dev_name, &proc_qer_id) != 2) {
+    if (sscanf(buf, "%s %llu %u", dev_name, &proc_seid, &proc_qer_id) != 3) {
         GTP5G_ERR(NULL, "proc write of QER Dev & ID: %s is not valid\n", buf);
         goto err;
     }
@@ -3975,7 +4164,7 @@ static ssize_t proc_qer_write(struct file *filp, const char __user *buffer,
         goto err;
     }
 
-    qer = qer_find_by_id(gtp, proc_qer_id);
+    qer = find_qer_by_id(gtp, proc_seid, proc_qer_id);
     if (!qer) {
         GTP5G_ERR(NULL, "Given QER ID : %u not exists\n", proc_qer_id);
         goto err;
@@ -3983,9 +4172,10 @@ static ssize_t proc_qer_write(struct file *filp, const char __user *buffer,
     
     memset(&proc_qer, 0, sizeof(proc_qer));
     proc_qer.id = qer->id;
+    proc_qer.seid = qer->seid;
     proc_qer.qfi = qer->qfi;
 
-	return strnlen(buf, buf_len);
+    return strnlen(buf, buf_len);
 err:
     proc_qer_id = 0;
     return -1;
@@ -4008,11 +4198,11 @@ static int proc_qer_read(struct inode *inode, struct file *file)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
 static const struct proc_ops proc_gtp5g_dbg_ops = {
-	.proc_open	= proc_dbg_read,
-	.proc_read	= seq_read,
-	.proc_write	= proc_dbg_write,
-	.proc_lseek	= seq_lseek,
-	.proc_release = single_release,
+    .proc_open = proc_dbg_read,
+    .proc_read = seq_read,
+    .proc_write = proc_dbg_write,
+    .proc_lseek = seq_lseek,
+    .proc_release = single_release,
 };
 #else
 static const struct file_operations proc_gtp5g_dbg_ops = {
@@ -4027,11 +4217,11 @@ static const struct file_operations proc_gtp5g_dbg_ops = {
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
 static const struct proc_ops proc_gtp5g_pdr_ops = {
-	.proc_open	= proc_pdr_read,
-	.proc_read	= seq_read,
-	.proc_write	= proc_pdr_write,
-	.proc_lseek	= seq_lseek,
-	.proc_release = single_release,
+    .proc_open = proc_pdr_read,
+    .proc_read = seq_read,
+    .proc_write = proc_pdr_write,
+    .proc_lseek = seq_lseek,
+    .proc_release = single_release,
 };
 #else
 static const struct file_operations proc_gtp5g_pdr_ops = {
@@ -4046,11 +4236,11 @@ static const struct file_operations proc_gtp5g_pdr_ops = {
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
 static const struct proc_ops proc_gtp5g_far_ops = {
-	.proc_open	= proc_far_read,
-	.proc_read	= seq_read,
-	.proc_write	= proc_far_write,
-	.proc_lseek	= seq_lseek,
-	.proc_release = single_release,
+    .proc_open = proc_far_read,
+    .proc_read = seq_read,
+    .proc_write = proc_far_write,
+    .proc_lseek = seq_lseek,
+    .proc_release = single_release,
 };
 #else
 static const struct file_operations proc_gtp5g_far_ops = {
@@ -4065,11 +4255,11 @@ static const struct file_operations proc_gtp5g_far_ops = {
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
 static const struct proc_ops proc_gtp5g_qer_ops = {
-	.proc_open	= proc_qer_read,
-	.proc_read	= seq_read,
-	.proc_write	= proc_qer_write,
-	.proc_lseek	= seq_lseek,
-	.proc_release = single_release,
+    .proc_open = proc_qer_read,
+    .proc_read = seq_read,
+    .proc_write = proc_qer_write,
+    .proc_lseek = seq_lseek,
+    .proc_release = single_release,
 };
 #else
 static const struct file_operations proc_gtp5g_qer_ops = {
@@ -4110,39 +4300,39 @@ static int __init gtp5g_init(void)
         goto unreg_genl_family;
     }
 
-	proc_gtp5g = proc_mkdir("gtp5g", NULL);
+    proc_gtp5g = proc_mkdir("gtp5g", NULL);
     if (!proc_gtp5g) {
         GTP5G_ERR(NULL, "Failed to create /proc/gtp5g\n");
         goto unreg_pernet;
-	}
+    }
 
     proc_gtp5g_dbg = proc_create("dbg", (S_IFREG | S_IRUGO | S_IWUGO),
         proc_gtp5g, &proc_gtp5g_dbg_ops);
     if (!proc_gtp5g_dbg) {
         GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/dbg\n");
         goto remove_gtp5g_proc;
-	}
+    }
 
     proc_gtp5g_pdr = proc_create("pdr", (S_IFREG | S_IRUGO | S_IWUGO),
         proc_gtp5g, &proc_gtp5g_pdr_ops);
     if (!proc_gtp5g_pdr) {
         GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/pdr\n");
         goto remove_dbg_proc;
-	}
+    }
 
     proc_gtp5g_far = proc_create("far", (S_IFREG | S_IRUGO | S_IWUGO),
         proc_gtp5g, &proc_gtp5g_far_ops);
     if (!proc_gtp5g_far) {
         GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/far\n");
         goto remove_pdr_proc;
-	}
+    }
 
     proc_gtp5g_qer = proc_create("qer", (S_IFREG | S_IRUGO | S_IWUGO), 
         proc_gtp5g, &proc_gtp5g_qer_ops);
     if (!proc_gtp5g_qer) {
         GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/qer\n");
         goto remove_far_proc;
-	}
+    }
 
     GTP5G_LOG(NULL, "5G GTP module loaded\n");
 
@@ -4154,7 +4344,7 @@ remove_pdr_proc:
 remove_dbg_proc:
     remove_proc_entry("dbg", proc_gtp5g);
 remove_gtp5g_proc:
-	remove_proc_entry("gtp5g", NULL);
+    remove_proc_entry("gtp5g", NULL);
 unreg_pernet:
     unregister_pernet_subsys(&gtp5g_net_ops);
 unreg_genl_family:
@@ -4176,7 +4366,7 @@ static void __exit gtp5g_fini(void)
     remove_proc_entry("far", proc_gtp5g);
     remove_proc_entry("pdr", proc_gtp5g);
     remove_proc_entry("dbg", proc_gtp5g);
-	remove_proc_entry("gtp5g", NULL);
+    remove_proc_entry("gtp5g", NULL);
 
     GTP5G_LOG(NULL, "5G GTP module unloaded\n");
 }
