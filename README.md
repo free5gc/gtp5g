@@ -34,7 +34,7 @@ The gtp5g interface will be created by using libgtp5gnl scripts
     + sudo ./run.sh UPF_PDR_FAR_QER
 4) Troubleshoot
     + dmesg
-    + echo #interfaceName #ID > /proc/gtp5g/pdr
+    + echo #interfaceName 0 #ID > /proc/gtp5g/pdr
     + cat /proc/gtp5g/pdr
 5) Delete an interface 
     + sudo ./run.sh Clean
