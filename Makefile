@@ -32,6 +32,7 @@ else
 endif
 
 MY_CFLAGS += -g -DDEBUG $(RHEL8FLAG)
+# MY_CFLAGS += -DMATCH_IP # match IP address(in F-TEID) or not
 EXTRA_CFLAGS += -Wno-misleading-indentation -Wuninitialized
 CC += ${MY_CFLAGS}
 

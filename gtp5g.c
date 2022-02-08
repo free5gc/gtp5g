@@ -1980,8 +1980,10 @@ static void gtp5g_encap_destroy(struct sock *sk)
 static struct gtp5g_pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     unsigned int hdrlen, u32 teid)
 {
-    struct iphdr *iph;
+#ifdef MATCH_IP
     struct iphdr *outer_iph;
+#endif
+    struct iphdr *iph;
     __be32 *target_addr;
     struct hlist_head *head;
     struct gtp5g_pdr *pdr;
@@ -2017,15 +2019,17 @@ static struct gtp5g_pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff
         if (!(pdi->f_teid && pdi->f_teid->teid == teid))
             continue;
 
+#ifdef MATCH_IP
         // check outer IP dest addr to distinguish between N3 and N9 packet while act as i-upf
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
-        outer_iph = (struct iphdr *)(skb->head + skb->network_header);
-        if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr))
-            continue;
-#else
-        outer_iph = (struct iphdr *)(skb->network_header);
-        if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr))
-            continue;
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
+            outer_iph = (struct iphdr *)(skb->head + skb->network_header);
+            if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr))
+                continue;
+    #else
+            outer_iph = (struct iphdr *)(skb->network_header);
+            if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr))
+                continue;
+    #endif
 #endif
         if (pdi->ue_addr_ipv4)
             if (!(pdr->af == AF_INET && *target_addr == pdi->ue_addr_ipv4->s_addr))
