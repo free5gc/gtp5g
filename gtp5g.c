@@ -36,7 +36,7 @@
 
 #include "gtp5g.h"
 
-#define DRV_VERSION "1.1.0"
+#define DRV_VERSION "1.1.1"
 
 /* used to compatible with api with/without seid */
 #define MSG_SEID_IOV_LEN 3
@@ -2023,13 +2023,12 @@ static struct gtp5g_pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff
         // check outer IP dest addr to distinguish between N3 and N9 packet while act as i-upf
     #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
             outer_iph = (struct iphdr *)(skb->head + skb->network_header);
-            if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr))
-                continue;
     #else
             outer_iph = (struct iphdr *)(skb->network_header);
+    #endif
+
             if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr))
                 continue;
-    #endif
 #endif
         if (pdi->ue_addr_ipv4)
             if (!(pdr->af == AF_INET && *target_addr == pdi->ue_addr_ipv4->s_addr))
