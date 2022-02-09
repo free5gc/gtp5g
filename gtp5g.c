@@ -36,7 +36,7 @@
 
 #include "gtp5g.h"
 
-#define DRV_VERSION "1.0.3b"
+#define DRV_VERSION "1.1.0"
 
 /* used to compatible with api with/without seid */
 #define MSG_SEID_IOV_LEN 3
