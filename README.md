@@ -33,9 +33,20 @@ The gtp5g interface will be created by using libgtp5gnl scripts
 3) Create an interface and update rules
     + sudo ./run.sh UPF_PDR_FAR_QER
 4) Troubleshoot
-    + dmesg
-    + echo #interfaceName 0 #ID > /proc/gtp5g/pdr
-    + cat /proc/gtp5g/pdr
+    ```
+    dmesg
+    ```
+    ```
+    # if UPF used legacy netlink struct without SEID, need use #SEID=0 to query related info as below:
+    echo #interfaceName #SEID #PDRID > /proc/gtp5g/pdr
+    echo #interfaceName #SEID #FARID > /proc/gtp5g/far
+    echo #interfaceName #SEID #QERID > /proc/gtp5g/qer
+    ```
+    ```
+    cat /proc/gtp5g/pdr
+    cat /proc/gtp5g/far
+    cat /proc/gtp5g/qer
+    ```
 5) Delete an interface 
     + sudo ./run.sh Clean
     + Note: It will delete list of rules and interface
