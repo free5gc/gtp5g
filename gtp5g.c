@@ -689,6 +689,7 @@ static int ports_match(struct range *match_list, int list_len, __be16 port) {
             match = 1;
         }
     }
+    
     return match;
 }
 
@@ -775,6 +776,8 @@ static struct gtp5g_pdr *pdr_find_by_ipv4(struct gtp5g_dev *gtp, struct sk_buff 
         if (pdi->sdf)
             if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT))
                 continue;
+
+        GTP5G_INF(NULL, "Match PDR ID:%d\n", pdr->id);
 
         return pdr;
     }
