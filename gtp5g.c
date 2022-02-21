@@ -1606,7 +1606,11 @@ static const struct net_device_ops gtp5g_netdev_ops = {
     .ndo_init           = gtp5g_dev_init,
     .ndo_uninit         = gtp5g_dev_uninit,
     .ndo_start_xmit     = gtp5g_dev_xmit,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+    .ndo_get_stats64    = dev_get_tstats64,
+#else
     .ndo_get_stats64    = ip_tunnel_get_stats64,
+#endif
 };
 
 static void pdr_context_free(struct rcu_head *head)
