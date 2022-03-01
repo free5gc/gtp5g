@@ -677,16 +677,16 @@ static int ipv4_match(__be32 target_addr, __be32 ifa_addr, __be32 ifa_mask) {
     return !((target_addr ^ ifa_addr) & ifa_mask);
 }
 
-static int ports_match(struct range *match_list, int list_len, __be16 port) {
-    int i, match;
+static bool ports_match(struct range *match_list, int list_len, __be16 port) {
+    int i;
+    bool match =  false;
 
     if (!list_len)
-        return 1;
+        return true;
 
-    match = 0;
     for (i = 0; i < list_len; i++) {
         if (match_list[i].start <= port && match_list[i].end >= port){
-            match = 1;
+            match = true;
         }
     }
     
