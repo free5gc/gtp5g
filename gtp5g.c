@@ -17,6 +17,7 @@
 #include <linux/jhash.h>
 #include <linux/if_tunnel.h>
 #include <linux/net.h>
+#include <linux/inetdevice.h>
 #include <linux/file.h>
 #include <linux/gtp.h>
 #include <linux/range.h>
@@ -1371,7 +1372,12 @@ static int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_
     }
 
     skb_dst_set(skb, &rt->dst);
-    
+    /*
+        Source address should be IP addr of the outgoing interface.
+        Limitation: Not support multiple IP address configured on outgoing interface.
+     */
+    iph->saddr = rt->dst.dev->ip_ptr->ifa_list->ifa_address;
+
     if (ip_local_out(dev_net(gtp_dev), sk, skb) < 0) {
         GTP5G_ERR(gtp_dev, "Failed to send skb to ip layer\n");
         return -1;
