@@ -302,42 +302,35 @@ static struct gtp5g_qer *gtp5g_find_qer(struct net *net, struct nlattr *nla[]);
 static struct gtp5g_qer *find_qer_by_id(struct gtp5g_dev *gtp, u64 seid, u32 qer_id);
 static void qer_context_delete(struct gtp5g_qer *qer);
 
-static char* seid_and_u32id_to_hex_str(u64 seid_int, u32 id)
+#define SEID_U32ID_HEX_STR_LEN 24
+
+static void seid_and_u32id_to_hex_str(u64 seid_int, u32 id, char *seid_u32id_hexstr)
 {
     #define SEID_HEX_STR_LEN 16
     #define U32_ID_HEX_STR_LEN 8
     
     char seid_hexstr[SEID_HEX_STR_LEN];
     char id_hexstr[U32_ID_HEX_STR_LEN];
-    
-    char *seid_u32id_hexstr;
-   
-    seid_u32id_hexstr = kzalloc(sizeof(SEID_HEX_STR_LEN + U32_ID_HEX_STR_LEN), GFP_ATOMIC);
-    if (!seid_u32id_hexstr) {
-        GTP5G_ERR(NULL, "Failed to allocate concate id\n");
-    }
 
     snprintf(seid_hexstr, SEID_HEX_STR_LEN, "%llx", seid_int);
     snprintf(id_hexstr, U32_ID_HEX_STR_LEN, "%x", id);
     strcpy(seid_u32id_hexstr, seid_hexstr);
     strcat(seid_u32id_hexstr, id_hexstr);
-
-    return seid_u32id_hexstr;
 }
 
-static char* seid_pdr_id_to_hex_str(u64 seid_int, u16 pdr_id)
+static void seid_pdr_id_to_hex_str(u64 seid_int, u16 pdr_id, char *buff)
 {
-    return seid_and_u32id_to_hex_str(seid_int, (u32)(pdr_id));
+    seid_and_u32id_to_hex_str(seid_int, (u32)(pdr_id), buff);
 }
 
-static char* seid_far_id_to_hex_str(u64 seid_int, u32 far_id)
+static void seid_far_id_to_hex_str(u64 seid_int, u32 far_id, char *buff)
 {
-    return seid_and_u32id_to_hex_str(seid_int, far_id);
+    seid_and_u32id_to_hex_str(seid_int, far_id, buff);
 }
 
-static char* seid_qer_id_to_hex_str(u64 seid_int, u32 qer_id)
+static void seid_qer_id_to_hex_str(u64 seid_int, u32 qer_id, char *buff)
 {
-    return seid_and_u32id_to_hex_str(seid_int, qer_id);
+    seid_and_u32id_to_hex_str(seid_int, qer_id, buff);
 }
 
 /* Function unix_sock_{...} are used to handle buffering */
@@ -487,9 +480,9 @@ static struct gtp5g_far *find_far_by_id(struct gtp5g_dev *gtp, u64 seid, u32 far
 {
     struct hlist_head *head;
     struct gtp5g_far *far;
-    char *seid_far_id_hexstr;
+    char seid_far_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
-    seid_far_id_hexstr = seid_far_id_to_hex_str(seid, far_id);
+    seid_far_id_to_hex_str(seid, far_id, seid_far_id_hexstr);
     head = &gtp->far_id_hash[str_hashfn(seid_far_id_hexstr) % gtp->hash_size];
 
     hlist_for_each_entry_rcu(far, head, hlist_id) {
@@ -510,7 +503,7 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
     struct gtp5g_pdr *pdr;
     struct hlist_head *head;
 
-    char *seid_far_id_hexstr;
+    char seid_far_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     if (!far) {
         GTP5G_ERR(NULL, "Far is null\n");
@@ -639,7 +632,7 @@ static int far_fill(struct gtp5g_far *far, struct gtp5g_dev *gtp, struct genl_in
     }
 
     /* Update PDRs which has not linked to this FAR */
-    seid_far_id_hexstr = seid_far_id_to_hex_str(far->seid, far->id);
+    seid_far_id_to_hex_str(far->seid, far->id, seid_far_id_hexstr);
     head = &gtp->related_far_hash[str_hashfn(seid_far_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_far) {
         if (pdr->seid == far->seid && *pdr->far_id == far->id) {
@@ -662,9 +655,9 @@ static struct gtp5g_pdr *find_pdr_by_id(struct gtp5g_dev *gtp, u64 seid, u16 pdr
 {
     struct hlist_head *head;
     struct gtp5g_pdr *pdr;
-    char *seid_pdr_id;
+    char seid_pdr_id[SEID_U32ID_HEX_STR_LEN] = {0};
 
-    seid_pdr_id = seid_pdr_id_to_hex_str(seid, pdr_id);
+    seid_pdr_id_to_hex_str(seid, pdr_id, seid_pdr_id);
     head = &gtp->pdr_id_hash[str_hashfn(seid_pdr_id) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_id) {
         if (pdr->seid == seid && pdr->id == pdr_id)
@@ -801,8 +794,8 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
     int i;
     char *str;
 
-    char *seid_far_id_hexstr;
-    char *seid_qer_id_hexstr;
+    char seid_far_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
+    char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     if (!pdr) {
         GTP5G_ERR(NULL, "PDR is NULL\n");
@@ -860,7 +853,7 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
         if (!hlist_unhashed(&pdr->hlist_related_far))
             hlist_del_rcu(&pdr->hlist_related_far);
 
-        seid_far_id_hexstr = seid_far_id_to_hex_str(pdr->seid, *pdr->far_id);
+        seid_far_id_to_hex_str(pdr->seid, *pdr->far_id, seid_far_id_hexstr);
         hlist_add_head_rcu(&pdr->hlist_related_far, 
             &gtp->related_far_hash[str_hashfn(seid_far_id_hexstr) % gtp->hash_size]);
         pdr->far = find_far_by_id(gtp, pdr->seid, *pdr->far_id);
@@ -882,7 +875,7 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
         if (!hlist_unhashed(&pdr->hlist_related_qer))
             hlist_del_rcu(&pdr->hlist_related_qer);
 
-        seid_qer_id_hexstr = seid_qer_id_to_hex_str(pdr->seid, *pdr->qer_id);
+        seid_qer_id_to_hex_str(pdr->seid, *pdr->qer_id, seid_qer_id_hexstr);
         hlist_add_head_rcu(&pdr->hlist_related_qer, 
             &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size]);
 
@@ -1725,7 +1718,7 @@ static void far_context_delete(struct gtp5g_far *far)
     struct hlist_head *head;
     struct gtp5g_pdr *pdr;
 
-    char *seid_far_id_hexstr;
+    char seid_far_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     if (!far)
         return;
@@ -1735,7 +1728,7 @@ static void far_context_delete(struct gtp5g_far *far)
     if (!hlist_unhashed(&far->hlist_id))
         hlist_del_rcu(&far->hlist_id);
 
-    seid_far_id_hexstr = seid_far_id_to_hex_str(far->seid, far->id);
+    seid_far_id_to_hex_str(far->seid, far->id, seid_far_id_hexstr);
     head = &gtp->related_far_hash[str_hashfn(seid_far_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_far) {
         if (pdr->seid == far->seid && *pdr->far_id == far->id) {
@@ -2550,7 +2543,7 @@ static int gtp5g_gnl_add_pdr(struct gtp5g_dev *gtp, struct genl_info *info)
     int err = 0;
     u32 pdr_id;
     u64 seid_int;
-    char *seid_pdr_id_hexstr;
+    char seid_pdr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     
     if (info->attrs[GTP5G_PDR_SEID])
         seid_int = nla_get_u64(info->attrs[GTP5G_PDR_SEID]);
@@ -2617,7 +2610,7 @@ static int gtp5g_gnl_add_pdr(struct gtp5g_dev *gtp, struct genl_info *info)
         pdr_context_delete(pdr);
         goto out;
     } 
-    seid_pdr_id_hexstr = seid_pdr_id_to_hex_str(seid_int, pdr_id);
+    seid_pdr_id_to_hex_str(seid_int, pdr_id, seid_pdr_id_hexstr);
     hlist_add_head_rcu(&pdr->hlist_id, 
         &gtp->pdr_id_hash[str_hashfn(seid_pdr_id_hexstr) % gtp->hash_size]);
 
@@ -2944,7 +2937,7 @@ static int gtp5g_gnl_add_far(struct gtp5g_dev *gtp, struct genl_info *info)
     u8  flag;
 
     u64 seid_int;
-    char *seid_far_id_hexstr;
+    char seid_far_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     if (info->attrs[GTP5G_FAR_SEID])
         seid_int = nla_get_u64(info->attrs[GTP5G_FAR_SEID]);
@@ -3025,7 +3018,7 @@ static int gtp5g_gnl_add_far(struct gtp5g_dev *gtp, struct genl_info *info)
         goto out;
     } 
 
-    seid_far_id_hexstr = seid_far_id_to_hex_str(seid_int, far_id);
+    seid_far_id_to_hex_str(seid_int, far_id, seid_far_id_hexstr);
     hlist_add_head_rcu(&far->hlist_id,
         &gtp->far_id_hash[str_hashfn(seid_far_id_hexstr) % gtp->hash_size]);
     GTP5G_INF(dev, "FAR-Add: id(%u) success\n", far_id);
@@ -3103,7 +3096,7 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
 
-    char *seid_far_id_hexstr;
+    char seid_far_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     int cnt;
     struct gtp5g_dev *gtp = netdev_priv(far->dev);
@@ -3154,7 +3147,7 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     }
 
     cnt = 0;    
-    seid_far_id_hexstr = seid_far_id_to_hex_str(far->seid, far->id);
+    seid_far_id_to_hex_str(far->seid, far->id, seid_far_id_hexstr);
     head = &gtp->related_far_hash[str_hashfn(seid_far_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_far) {
         if (cnt >= 0xff)
@@ -3298,7 +3291,7 @@ static void qer_context_delete(struct gtp5g_qer *qer)
     struct hlist_head *head;
     struct gtp5g_pdr *pdr;
 
-    char *seid_qer_id_hexstr;
+    char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     if (!qer)
         return;
@@ -3308,7 +3301,7 @@ static void qer_context_delete(struct gtp5g_qer *qer)
     if (!hlist_unhashed(&qer->hlist_id))
         hlist_del_rcu(&qer->hlist_id);
 
-    seid_qer_id_hexstr = seid_qer_id_to_hex_str(qer->seid, qer->id);
+    seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
         if (*pdr->qer_id == qer->id) {
@@ -3327,7 +3320,7 @@ static int qer_fill(struct gtp5g_qer *qer, struct gtp5g_dev *gtp, struct genl_in
     struct gtp5g_pdr *pdr;
     struct hlist_head *head;
 
-    char *seid_qer_id_hexstr;
+    char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     qer->id = nla_get_u32(info->attrs[GTP5G_QER_ID]);
     if (info->attrs[GTP5G_QER_SEID])
@@ -3379,7 +3372,7 @@ static int qer_fill(struct gtp5g_qer *qer, struct gtp5g_dev *gtp, struct genl_in
     }
 
     /* Update PDRs which has not linked to this QER */
-    seid_qer_id_hexstr = seid_qer_id_to_hex_str(qer->seid, qer->id);
+    seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
         if (*pdr->qer_id == qer->id) {
@@ -3397,9 +3390,9 @@ static struct gtp5g_qer *find_qer_by_id(struct gtp5g_dev *gtp, u64 seid, u32 qer
 {
     struct hlist_head *head;
     struct gtp5g_qer *qer;
-    char *seid_qer_id_hexstr;
+    char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
-    seid_qer_id_hexstr = seid_qer_id_to_hex_str(seid, qer_id);
+    seid_qer_id_to_hex_str(seid, qer_id, seid_qer_id_hexstr);
     head = &gtp->qer_id_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(qer, head, hlist_id) {
         if (qer->seid == seid && qer->id == qer_id)
@@ -3417,7 +3410,7 @@ static int gtp5g_gnl_add_qer(struct gtp5g_dev *gtp, struct genl_info *info)
     u32 qer_id;
 
     u64 seid_int;
-    char *seid_qer_id_hexstr;
+    char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     if (!dev) {
         GTP5G_ERR(NULL, "QER-Add: net_device of gtp is not set\n");
@@ -3476,7 +3469,7 @@ static int gtp5g_gnl_add_qer(struct gtp5g_dev *gtp, struct genl_info *info)
         goto out;
     } 
 
-    seid_qer_id_hexstr = seid_qer_id_to_hex_str(seid_int, qer_id);
+    seid_qer_id_to_hex_str(seid_int, qer_id, seid_qer_id_hexstr);
     hlist_add_head_rcu(&qer->hlist_id, 
         &gtp->qer_id_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size]);
     GTP5G_INF(dev, "QER-Add: QER_ID(%u) success\n", qer_id);
@@ -3553,7 +3546,7 @@ static int gtp5g_genl_fill_qer(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     struct hlist_head *head;
     struct gtp5g_pdr *pdr;
 
-    char *seid_qer_id_hexstr;
+    char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     u16 *u16_buf = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
     if (!u16_buf) {
@@ -3612,7 +3605,7 @@ static int gtp5g_genl_fill_qer(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         goto genlmsg_fail;
 
     cnt = 0;
-    seid_qer_id_hexstr = seid_qer_id_to_hex_str(qer->seid, qer->id);
+    seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];        
     hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
         if (cnt >= 0xff)
