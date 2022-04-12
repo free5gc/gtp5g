@@ -673,18 +673,17 @@ static int ipv4_match(__be32 target_addr, __be32 ifa_addr, __be32 ifa_mask) {
 
 static bool ports_match(struct range *match_list, int list_len, __be16 port) {
     int i;
-    bool match =  false;
 
     if (!list_len)
         return true;
 
     for (i = 0; i < list_len; i++) {
         if (match_list[i].start <= port && match_list[i].end >= port){
-            match = true;
+            return true;
         }
     }
     
-    return match;
+    return false;
 }
 
 static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb, 
