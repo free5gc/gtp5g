@@ -456,6 +456,16 @@ enum gtp5g_urr_attrs {
 };
 #define GTP5G_URR_ATTR_MAX (__GTP5G_URR_ATTR_MAX - 1)
 
+struct user_report {
+    u32 flag;
+    u64 totalVolume;
+    u64 uplinkVolume;
+    u64 downlinkVolume;
+    u64 totalPktNum;
+    u64 uplinkPktNum;
+    u64 downlinkPktNum;
+} __attribute__((packed));
+
 /* ------------------------------------------------------------------
  *	                            BAR
  * ------------------------------------------------------------------
@@ -469,5 +479,11 @@ enum gtp5g_bar_attrs {
     __GTP5G_BAR_ATTR_MAX,
 };
 #define GTP5G_BAR_ATTR_MAX (__GTP5G_BAR_ATTR_MAX - 1)
+
+struct buffer_action {
+    u64 seid;
+    u16 notification_delay;
+    u32 buffer_packet_count;
+} __attribute__((packed));
 
 #endif

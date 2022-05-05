@@ -40,9 +40,15 @@
 #define DRV_VERSION "0.5.4"
 
 /* used to compatible with api with/without seid */
+#define MSG_URR_BAR_IOV_LEN 4
 #define MSG_SEID_IOV_LEN 3
 #define MSG_NO_SEID_IOV_LEN 2
 bool api_with_seid = false;
+bool api_with_urr_bar = false;
+
+#define TYPE_BUFFER 1
+#define TYPE_URR_REPORT 2
+#define TYPE_BAR_INFO 3
 
 int dbg_trace_lvl = 1;
 
@@ -344,6 +350,7 @@ static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
     int msg_iovlen;
     int total_iov_len = 0;
     int i, rt;
+    u8  type_hdr[1] = {TYPE_BUFFER};
     u64 self_seid_hdr[1] = {pdr->seid};
     u16 self_hdr[2] = {pdr->id, pdr->far->action};
 
@@ -353,13 +360,28 @@ static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
     }
 
     memset(&msg, 0, sizeof(msg));
-    if (api_with_seid) {
+    if (api_with_seid && api_with_urr_bar) {    
+        msg_iovlen = MSG_URR_BAR_IOV_LEN;
+        iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
+            GFP_KERNEL);
+
+        memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
+
+        iov[0].iov_base = type_hdr;
+        iov[0].iov_len = sizeof(type_hdr);
+        iov[1].iov_base = self_seid_hdr;
+        iov[1].iov_len = sizeof(self_seid_hdr);
+        iov[2].iov_base = self_hdr;
+        iov[2].iov_len = sizeof(self_hdr);
+        iov[3].iov_base = buf;
+        iov[3].iov_len = len;
+    } else if (api_with_seid) {
         msg_iovlen = MSG_SEID_IOV_LEN;
         iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
             GFP_KERNEL);
-    
+
         memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
-    
+
         iov[0].iov_base = self_seid_hdr;
         iov[0].iov_len = sizeof(self_seid_hdr);
         iov[1].iov_base = self_hdr;
@@ -371,9 +393,9 @@ static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
         msg_iovlen = MSG_NO_SEID_IOV_LEN;
         iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
             GFP_KERNEL);
-    
+
         memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
-    
+
         iov[0].iov_base = self_hdr;
         iov[0].iov_len = sizeof(self_hdr);
         iov[1].iov_base = buf;
@@ -812,6 +834,17 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
         pdr->seid = 0;
     }
 
+    /* 
+     * For backward compatability: 
+     * If information has GTP5G_PDR_URR_ID, 
+     * it means that user use the API which support 
+     * URR and BAR feature. Otherwise, use the older API. 
+     */
+    if (info->attrs[GTP5G_PDR_URR_ID])
+        api_with_urr_bar = true;
+    else
+        api_with_urr_bar = false;
+    
     if (info->attrs[GTP5G_PDR_PRECEDENCE]) 
         pdr->precedence = nla_get_u32(info->attrs[GTP5G_PDR_PRECEDENCE]);
 
