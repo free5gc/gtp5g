@@ -46,9 +46,11 @@
 bool api_with_seid = false;
 bool api_with_urr_bar = false;
 
-#define TYPE_BUFFER 1
-#define TYPE_URR_REPORT 2
-#define TYPE_BAR_INFO 3
+enum msg_type {
+    TYPE_BUFFER = 1,
+    TYPE_URR_REPORT,
+    TYPE_BAR_INFO,
+};
 
 int dbg_trace_lvl = 1;
 
@@ -3800,49 +3802,49 @@ out:
 
 static int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
 {
-    /* the functions below are not implemented yet */
+    /* Not implemented yet */
     return -1; 
 }
 
 static int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
 {
-    /* the functions below are not implemented yet */
+    /* Not implemented yet */
     return -1; 
 }
 
 static int gtp5g_genl_get_urr(struct sk_buff *skb, struct genl_info *info)
 {
-    /* the functions below are not implemented yet */
+    /* Not implemented yet */
     return -1; 
 }
 
 static int gtp5g_genl_dump_urr(struct sk_buff *skb, struct netlink_callback *cb)
 {
-    /* the functions below are not implemented yet */
+    /* Not implemented yet */
     return -1; 
 }
 
 static int gtp5g_genl_add_bar(struct sk_buff *skb, struct genl_info *info)
 {
-    /* the functions below are not implemented yet */
+    /* Not implemented yet */
     return -1; 
 }
 
 static int gtp5g_genl_del_bar(struct sk_buff *skb, struct genl_info *info)
 {
-    /* the functions below are not implemented yet */
+    /* Not implemented yet */
     return -1; 
 }
 
 static int gtp5g_genl_get_bar(struct sk_buff *skb, struct genl_info *info)
 {
-    /* the functions below are not implemented yet */
+    /* Not implemented yet */
     return -1; 
 }
 
 static int gtp5g_genl_dump_bar(struct sk_buff *skb, struct netlink_callback *cb)
 {
-    /* the functions below are not implemented yet */
+    /* Not implemented yet */
     return -1; 
 }
 
