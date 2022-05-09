@@ -227,6 +227,17 @@ enum gtp5g_cmd {
     GTP5G_CMD_GET_FAR,
     GTP5G_CMD_GET_QER,
 
+    GTP5G_CMD_ADD_URR,
+    GTP5G_CMD_ADD_BAR,
+    GTP5G_CMD_DEL_URR,
+    GTP5G_CMD_DEL_BAR,
+    GTP5G_CMD_GET_URR,
+    GTP5G_CMD_GET_BAR,
+    /* Add newly supported feature ON ABOVE
+     * for compatability with older version of
+     * free5GC's UPF or libgtp5gnl
+     * */
+
     __GTP5G_CMD_MAX,
 };
 #define GTP5G_CMD_MAX (__GTP5G_CMD_MAX - 1)
@@ -259,10 +270,11 @@ enum gtp5g_pdr_attrs {
     GTP5G_PDR_QER_ID,
 
     GTP5G_PDR_SEID,
-	/* Add newly supported feature ON ABOVE
-	 * for compatability with older version of
-	 * free5GC's UPF or libgtp5gnl
-	 * */
+    GTP5G_PDR_URR_ID,
+    /* Add newly supported feature ON ABOVE
+     * for compatability with older version of
+     * free5GC's UPF or libgtp5gnl
+     * */
 
     __GTP5G_PDR_ATTR_MAX,
 };
@@ -326,6 +338,7 @@ enum gtp5g_far_attrs {
     GTP5G_FAR_RELATED_TO_PDR,
 
     GTP5G_FAR_SEID,
+    GTP5G_FAR_BAR_ID,
     __GTP5G_FAR_ATTR_MAX,
 };
 #define GTP5G_FAR_ATTR_MAX (__GTP5G_FAR_ATTR_MAX - 1)
@@ -388,12 +401,12 @@ enum gtp5g_qer_attrs {
     GTP5G_QER_ID = 3,
     GTP5G_QER_GATE,
     GTP5G_QER_MBR,
-	GTP5G_QER_GBR,
-	GTP5G_QER_CORR_ID,
-	GTP5G_QER_RQI,
-	GTP5G_QER_QFI,
-	GTP5G_QER_PPI,
-	GTP5G_QER_RCSR,
+    GTP5G_QER_GBR,
+    GTP5G_QER_CORR_ID,
+    GTP5G_QER_RQI,
+    GTP5G_QER_QFI,
+    GTP5G_QER_PPI,
+    GTP5G_QER_RCSR,
 	
 
     /* Not IEs in 3GPP Spec, for other purpose */
@@ -425,5 +438,52 @@ enum gtp5g_qer_gbr_attrs {
     __GTP5G_QER_GBR_ATTR_MAX,
 };
 #define GTP5G_QER_GBR_ATTR_MAX (__GTP5G_QER_GBR_ATTR_MAX - 1)
+
+/* ------------------------------------------------------------------
+ *                              URR
+ * ------------------------------------------------------------------
+ * */
+enum gtp5g_urr_attrs {
+    GTP5G_URR_ID = 3,
+    GTP5G_URR_MEASUREMENT_METHOD,
+    GTP5G_URR_REPORTING_TRIGGER,
+    GTP5G_URR_MEASUREMENT_PERIOD,
+    GTP5G_URR_MEASUREMENT_INFO,
+    GTP5G_URR_SEQ, // 3GPP TS 29.244 table 7.5.8.3-1 UR-SEQN
+    GTP5G_URR_SEID,
+
+    __GTP5G_URR_ATTR_MAX,
+};
+#define GTP5G_URR_ATTR_MAX (__GTP5G_URR_ATTR_MAX - 1)
+
+struct user_report {
+    u32 flag;
+    u64 totalVolume;
+    u64 uplinkVolume;
+    u64 downlinkVolume;
+    u64 totalPktNum;
+    u64 uplinkPktNum;
+    u64 downlinkPktNum;
+} __attribute__((packed));
+
+/* ------------------------------------------------------------------
+ *	                            BAR
+ * ------------------------------------------------------------------
+ * */
+enum gtp5g_bar_attrs {
+    GTP5G_BAR_ID = 3,
+    GTP5G_DOWNLINK_DATA_NOTIFICATION_DELAY,
+    GTP5G_BUFFERING_PACKETS_COUNT,
+    GTP5G_BAR_SEID,
+
+    __GTP5G_BAR_ATTR_MAX,
+};
+#define GTP5G_BAR_ATTR_MAX (__GTP5G_BAR_ATTR_MAX - 1)
+
+struct buffer_action {
+    u64 seid;
+    u16 notification_delay;
+    u32 buffer_packet_count;
+} __attribute__((packed));
 
 #endif
