@@ -203,6 +203,12 @@ struct gtp5g_pdr {
     /* Drop Count */
     u64                     ul_drop_cnt;
     u64                     dl_drop_cnt;
+
+    /* Packet Statistics */
+    u64                     ul_pkt_cnt;
+    u64                     dl_pkt_cnt;
+    u64                     ul_byte_cnt;
+    u64                     dl_byte_cnt;
 };
 
 /* One instance of the GTP device. */
@@ -279,6 +285,12 @@ struct proc_gtp5g_pdr {
 
     u64     ul_drop_cnt;
     u64     dl_drop_cnt;
+
+    /* Packet Statistics */
+    u64     ul_pkt_cnt;
+    u64     dl_pkt_cnt;
+    u64     ul_byte_cnt;
+    u64     dl_byte_cnt;
 };
 
 struct proc_gtp5g_far {
@@ -1473,6 +1485,10 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             dev);
     }
 
+    pdr->dl_pkt_cnt++;
+    pdr->dl_byte_cnt += skb->len;
+    GTP5G_LOG(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
+
     gtp5g_push_header(skb, pktinfo);
 
     return FAR_ACTION_FORW;
@@ -2129,6 +2145,10 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     stats->rx_packets++;
     stats->rx_bytes += skb->len;
     u64_stats_update_end(&stats->syncp);
+
+    pdr->ul_pkt_cnt++;
+    pdr->ul_byte_cnt += skb->len; /* length without GTP header */
+    GTP5G_LOG(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);
 
     ret = netif_rx(skb);
     if (ret != NET_RX_SUCCESS) {
@@ -3981,6 +4001,10 @@ static int gtp5g_pdr_read(struct seq_file *s, void *v)
     seq_printf(s, "\t QER ID: %u\n", proc_pdr.qer_id);
     seq_printf(s, "\t UL Drop Count: %#llx\n", proc_pdr.ul_drop_cnt);
     seq_printf(s, "\t DL Drop Count: %#llx\n", proc_pdr.dl_drop_cnt);
+    seq_printf(s, "\t UL Packet Count: %llu\n", proc_pdr.ul_pkt_cnt);
+    seq_printf(s, "\t DL Packet Count: %llu\n", proc_pdr.dl_pkt_cnt);
+    seq_printf(s, "\t UL Byte Count: %llu\n", proc_pdr.ul_byte_cnt);
+    seq_printf(s, "\t DL Byte Count: %llu\n", proc_pdr.dl_byte_cnt);
     return 0;
 }
 
@@ -4080,6 +4104,11 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
 
     proc_pdr.ul_drop_cnt = pdr->ul_drop_cnt;
     proc_pdr.dl_drop_cnt = pdr->dl_drop_cnt;
+
+    proc_pdr.ul_pkt_cnt = pdr->ul_pkt_cnt;
+    proc_pdr.dl_pkt_cnt = pdr->dl_pkt_cnt;
+    proc_pdr.ul_byte_cnt = pdr->ul_byte_cnt;
+    proc_pdr.dl_byte_cnt = pdr->dl_byte_cnt;
 
     return strnlen(buf, buf_len);
 err:
