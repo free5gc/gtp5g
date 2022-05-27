@@ -378,6 +378,8 @@ static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
         msg_iovlen = MSG_URR_BAR_IOV_LEN;
         iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
             GFP_KERNEL);
+        if (iov == NULL)
+            return -ENOMEM;
 
         memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
 
@@ -393,6 +395,8 @@ static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
         msg_iovlen = MSG_SEID_IOV_LEN;
         iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
             GFP_KERNEL);
+        if (iov == NULL)
+            return -ENOMEM;
 
         memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
 
@@ -407,6 +411,8 @@ static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
         msg_iovlen = MSG_NO_SEID_IOV_LEN;
         iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
             GFP_KERNEL);
+        if (iov == NULL)
+            return -ENOMEM;
 
         memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
 
