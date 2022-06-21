@@ -34,6 +34,8 @@ int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
             GTP5G_ERR(NULL, "Failed to pull skb length %#x\n", pull_len);
             return -1;
         }
+        // pskb_may_pull() is called, so gtpv1 may be invalidated here.
+        gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
         gtpv1_opt = (gtpv1_hdr_opt_t *) ((u8 *) gtpv1 + sizeof(*gtpv1));
 
         next_ehdr_type = gtpv1_opt->next_ehdr_type;
@@ -47,6 +49,9 @@ int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
                     GTP5G_ERR(NULL, "Failed to pull skb length %#x\n", pull_len);
                     return -1;
                 }
+                // pskb_may_pull() is called, so gtpv1 and gtpv1_opt may be invalidated here.
+                gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+                gtpv1_opt = (gtpv1_hdr_opt_t *) ((u8 *) gtpv1 + sizeof(*gtpv1));
                 etype85 = (ext_pdu_sess_ctr_t *) ((u8 *) gtpv1_opt + sizeof(*gtpv1_opt)); 
 
                 // Commented the below code due to support N9 packet downlink

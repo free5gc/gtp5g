@@ -20,9 +20,9 @@
 #include "api_version.h"
 
 /* used to compatible with api with/without seid */
-#define MSG_URR_BAR_IOV_LEN 4
-#define MSG_SEID_IOV_LEN 3
-#define MSG_NO_SEID_IOV_LEN 2
+#define MSG_URR_BAR_KOV_LEN 4
+#define MSG_SEID_KOV_LEN 3
+#define MSG_NO_SEID_KOV_LEN 2
 
 enum msg_type {
     TYPE_BUFFER = 1,
@@ -171,6 +171,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     }
 
     gtpv1_hdr_len = get_gtpu_header_len(gtpv1, skb);
+    // pskb_may_pull() may be called in get_gtpu_header_len(), so gtpv1 may be invalidated here.
     if (gtpv1_hdr_len < 0) {
         GTP5G_ERR(gtp->dev, "Invalid extension header length or else\n");
         return -1;
@@ -181,8 +182,14 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
         return -1;
     }
+    // pskb_may_pull() is called, so gtpv1 may be invalidated here.
 
+    // recalculation gtpv1
+    gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, gtpv1->tid);
+    // pskb_may_pull() is called in pdr_find_by_gtp1u(), so gtpv1 may be invalidated here.
+    // recalculation gtpv1
+    gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     if (!pdr) {
         GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(gtpv1->tid));
         return -1;
@@ -216,17 +223,14 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
 static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
 {
     struct msghdr msg;
-    struct iovec *iov;
-    mm_segment_t oldfs;
+    struct kvec *kov;
 
-    int msg_iovlen;
-    int total_iov_len = 0;
+    int msg_kovlen;
+    int total_kov_len = 0;
     int i, rt;
     u8  type_hdr[1] = {TYPE_BUFFER};
     u64 self_seid_hdr[1] = {pdr->seid};
     u16 self_hdr[2] = {pdr->id, pdr->far->action};
-
-    GTP5G_TRC(NULL, "unix_sock_send\n");
 
     if (!pdr->sock_for_buf) {
         GTP5G_ERR(NULL, "Failed Socket buffer is NULL\n");
@@ -234,86 +238,69 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
     }
 
     memset(&msg, 0, sizeof(msg));
-    if (get_api_with_seid() && get_api_with_urr_bar()) {    
-        GTP5G_INF(NULL, "use API with SEID and URR and BAR\n");
-        msg_iovlen = MSG_URR_BAR_IOV_LEN;
-        iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
+        if (get_api_with_seid() && get_api_with_urr_bar()) {    
+        msg_kovlen = MSG_URR_BAR_KOV_LEN;
+        kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
             GFP_KERNEL);
-        if (iov == NULL)
+        if (kov == NULL)
             return -ENOMEM;
 
-        memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
+        memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
 
-        iov[0].iov_base = type_hdr;
-        iov[0].iov_len = sizeof(type_hdr);
-        iov[1].iov_base = self_seid_hdr;
-        iov[1].iov_len = sizeof(self_seid_hdr);
-        iov[2].iov_base = self_hdr;
-        iov[2].iov_len = sizeof(self_hdr);
-        iov[3].iov_base = buf;
-        iov[3].iov_len = len;
+        kov[0].iov_base = type_hdr;
+        kov[0].iov_len = sizeof(type_hdr);
+        kov[1].iov_base = self_seid_hdr;
+        kov[1].iov_len = sizeof(self_seid_hdr);
+        kov[2].iov_base = self_hdr;
+        kov[2].iov_len = sizeof(self_hdr);
+        kov[3].iov_base = buf;
+        kov[3].iov_len = len;
     } else if (get_api_with_seid()) {
-        GTP5G_INF(NULL, "use API with SEID\n");
-        msg_iovlen = MSG_SEID_IOV_LEN;
-        iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
+        msg_kovlen = MSG_SEID_KOV_LEN;
+        kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
             GFP_KERNEL);
-        if (iov == NULL)
+        if (kov == NULL)
             return -ENOMEM;
 
-        memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
+        memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
 
-        iov[0].iov_base = self_seid_hdr;
-        iov[0].iov_len = sizeof(self_seid_hdr);
-        iov[1].iov_base = self_hdr;
-        iov[1].iov_len = sizeof(self_hdr);
-        iov[2].iov_base = buf;
-        iov[2].iov_len = len;
+        kov[0].iov_base = self_seid_hdr;
+        kov[0].iov_len = sizeof(self_seid_hdr);
+        kov[1].iov_base = self_hdr;
+        kov[1].iov_len = sizeof(self_hdr);
+        kov[2].iov_base = buf;
+        kov[2].iov_len = len;
     } else {
         // for backward compatible
-        GTP5G_INF(NULL, "use API without SEID and URR and BAR\n");
-        msg_iovlen = MSG_NO_SEID_IOV_LEN;
-        iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
+        msg_kovlen = MSG_NO_SEID_KOV_LEN;
+        kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
             GFP_KERNEL);
-        if (iov == NULL)
+        if (kov == NULL)
             return -ENOMEM;
 
-        memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
+        memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
 
-        iov[0].iov_base = self_hdr;
-        iov[0].iov_len = sizeof(self_hdr);
-        iov[1].iov_base = buf;
-        iov[1].iov_len = len;
+        kov[0].iov_base = self_hdr;
+        kov[0].iov_len = sizeof(self_hdr);
+        kov[1].iov_base = buf;
+        kov[1].iov_len = len;
     }
-    
-    for (i = 0; i < msg_iovlen; i++)
-        total_iov_len += iov[i].iov_len;
+
+    for (i = 0; i < msg_kovlen; i++)
+        total_kov_len += kov[i].iov_len;
 
     msg.msg_name = 0;
     msg.msg_namelen = 0;
-    iov_iter_init(&msg.msg_iter, WRITE, iov, msg_iovlen, total_iov_len);
+    iov_iter_kvec(&msg.msg_iter, WRITE, kov, msg_kovlen, total_kov_len);
     msg.msg_control = NULL;
     msg.msg_controllen = 0;
     msg.msg_flags = MSG_DONTWAIT;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-    oldfs = force_uaccess_begin();
-#else
-    oldfs = get_fs();
-    set_fs(KERNEL_DS);
-#endif
-
     rt = sock_sendmsg(pdr->sock_for_buf, &msg);
-    kfree(iov);
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-    force_uaccess_end(oldfs);
-#else
-    set_fs(oldfs);
-#endif
+    kfree(kov);
 
     return rt;
 }
-
 
 static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
     unsigned int hdrlen, unsigned int role)
