@@ -40,9 +40,9 @@
 #define DRV_VERSION "0.5.4"
 
 /* used to compatible with api with/without seid */
-#define MSG_URR_BAR_IOV_LEN 4
-#define MSG_SEID_IOV_LEN 3
-#define MSG_NO_SEID_IOV_LEN 2
+#define MSG_URR_BAR_KOV_LEN 4
+#define MSG_SEID_KOV_LEN 3
+#define MSG_NO_SEID_KOV_LEN 2
 bool api_with_seid = false;
 bool api_with_urr_bar = false;
 
@@ -358,11 +358,10 @@ static void seid_qer_id_to_hex_str(u64 seid_int, u32 qer_id, char *buff)
 static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
 {
     struct msghdr msg;
-    struct iovec *iov;
-    mm_segment_t oldfs;
+    struct kvec *kov;
 
-    int msg_iovlen;
-    int total_iov_len = 0;
+    int msg_kovlen;
+    int total_kov_len = 0;
     int i, rt;
     u8  type_hdr[1] = {TYPE_BUFFER};
     u64 self_seid_hdr[1] = {pdr->seid};
@@ -375,78 +374,65 @@ static int unix_sock_send(struct gtp5g_pdr *pdr, void *buf, u32 len)
 
     memset(&msg, 0, sizeof(msg));
     if (api_with_seid && api_with_urr_bar) {    
-        msg_iovlen = MSG_URR_BAR_IOV_LEN;
-        iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
+        msg_kovlen = MSG_URR_BAR_KOV_LEN;
+        kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
             GFP_KERNEL);
-        if (iov == NULL)
+        if (kov == NULL)
             return -ENOMEM;
 
-        memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
+        memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
 
-        iov[0].iov_base = type_hdr;
-        iov[0].iov_len = sizeof(type_hdr);
-        iov[1].iov_base = self_seid_hdr;
-        iov[1].iov_len = sizeof(self_seid_hdr);
-        iov[2].iov_base = self_hdr;
-        iov[2].iov_len = sizeof(self_hdr);
-        iov[3].iov_base = buf;
-        iov[3].iov_len = len;
+        kov[0].iov_base = type_hdr;
+        kov[0].iov_len = sizeof(type_hdr);
+        kov[1].iov_base = self_seid_hdr;
+        kov[1].iov_len = sizeof(self_seid_hdr);
+        kov[2].iov_base = self_hdr;
+        kov[2].iov_len = sizeof(self_hdr);
+        kov[3].iov_base = buf;
+        kov[3].iov_len = len;
     } else if (api_with_seid) {
-        msg_iovlen = MSG_SEID_IOV_LEN;
-        iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
+        msg_kovlen = MSG_SEID_KOV_LEN;
+        kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
             GFP_KERNEL);
-        if (iov == NULL)
+        if (kov == NULL)
             return -ENOMEM;
 
-        memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
+        memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
 
-        iov[0].iov_base = self_seid_hdr;
-        iov[0].iov_len = sizeof(self_seid_hdr);
-        iov[1].iov_base = self_hdr;
-        iov[1].iov_len = sizeof(self_hdr);
-        iov[2].iov_base = buf;
-        iov[2].iov_len = len;
+        kov[0].iov_base = self_seid_hdr;
+        kov[0].iov_len = sizeof(self_seid_hdr);
+        kov[1].iov_base = self_hdr;
+        kov[1].iov_len = sizeof(self_hdr);
+        kov[2].iov_base = buf;
+        kov[2].iov_len = len;
     } else {
         // for backward compatible
-        msg_iovlen = MSG_NO_SEID_IOV_LEN;
-        iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
+        msg_kovlen = MSG_NO_SEID_KOV_LEN;
+        kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
             GFP_KERNEL);
-        if (iov == NULL)
+        if (kov == NULL)
             return -ENOMEM;
 
-        memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
+        memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
 
-        iov[0].iov_base = self_hdr;
-        iov[0].iov_len = sizeof(self_hdr);
-        iov[1].iov_base = buf;
-        iov[1].iov_len = len;
+        kov[0].iov_base = self_hdr;
+        kov[0].iov_len = sizeof(self_hdr);
+        kov[1].iov_base = buf;
+        kov[1].iov_len = len;
     }
     
-    for (i = 0; i < msg_iovlen; i++)
-        total_iov_len += iov[i].iov_len;
+    for (i = 0; i < msg_kovlen; i++)
+        total_kov_len += kov[i].iov_len;
 
     msg.msg_name = 0;
     msg.msg_namelen = 0;
-    iov_iter_init(&msg.msg_iter, WRITE, iov, msg_iovlen, total_iov_len);
+    iov_iter_kvec(&msg.msg_iter, WRITE, kov, msg_kovlen, total_kov_len);
     msg.msg_control = NULL;
     msg.msg_controllen = 0;
     msg.msg_flags = MSG_DONTWAIT;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-    oldfs = force_uaccess_begin();
-#else
-    oldfs = get_fs();
-    set_fs(KERNEL_DS);
-#endif
-
     rt = sock_sendmsg(pdr->sock_for_buf, &msg);
-    kfree(iov);
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-    force_uaccess_end(oldfs);
-#else
-    set_fs(oldfs);
-#endif
+    kfree(kov);
 
     return rt;
 }
