@@ -14,6 +14,8 @@ struct gtp5g_dev {
     struct hlist_head *pdr_id_hash;
     struct hlist_head *far_id_hash;
     struct hlist_head *qer_id_hash;
+    struct hlist_head *bar_id_hash;
+    struct hlist_head *urr_id_hash;
 
     struct hlist_head       *i_teid_hash;      // Used for GTP-U packet detect
     struct hlist_head       *addr_hash;        // Used for IPv4 packet detect
@@ -21,7 +23,9 @@ struct gtp5g_dev {
     /* IEs list related to PDR */
     struct hlist_head       *related_far_hash;     // PDR list waiting the FAR to handle
     struct hlist_head       *related_qer_hash;     // PDR list waiting the QER to handle
-
+    struct hlist_head       *related_bar_hash;
+    struct hlist_head       *related_urr_hash;
+    
     /* Used by proc interface */
     struct list_head        proc_list;
 };
