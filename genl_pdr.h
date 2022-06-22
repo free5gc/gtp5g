@@ -1,5 +1,5 @@
-#ifndef GENL_PDR_H__
-#define GENL_PDR_H__
+#ifndef __GENL_PDR_H__
+#define __GENL_PDR_H__
 
 #include "genl.h"
 
@@ -98,4 +98,4 @@ extern int gtp5g_genl_del_pdr(struct sk_buff *, struct genl_info *);
 extern int gtp5g_genl_get_pdr(struct sk_buff *, struct genl_info *);
 extern int gtp5g_genl_dump_pdr(struct sk_buff *, struct netlink_callback *);
 
-#endif
+#endif // __GENL_PDR_H__

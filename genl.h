@@ -1,5 +1,5 @@
-#ifndef GTP5G_GENL_H__
-#define GTP5G_GENL_H__
+#ifndef __GTP5G_GENL_H__
+#define __GTP5G_GENL_H__
 
 #include <net/genetlink.h>
 
@@ -45,4 +45,4 @@ enum gtp5g_device_attrs {
 
 extern struct genl_family gtp5g_genl_family;
 
-#endif
+#endif // __GTP5G_GENL_H__

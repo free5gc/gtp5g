@@ -1,5 +1,5 @@
-#ifndef PDR_H__
-#define PDR_H__
+#ifndef __PDR_H__
+#define __PDR_H__
 
 #include <linux/kernel.h>
 #include <linux/net.h>
@@ -99,4 +99,4 @@ extern void unix_sock_client_delete(struct pdr *);
 extern int unix_sock_client_new(struct pdr *);
 extern int unix_sock_client_update(struct pdr *);
 
-#endif
+#endif // __PDR_H__

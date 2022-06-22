@@ -1,5 +1,5 @@
-#ifndef ENCAP_H__
-#define ENCAP_H__
+#ifndef __ENCAP_H__
+#define __ENCAP_H__
 
 #include <linux/socket.h>
 
@@ -11,4 +11,4 @@ extern void gtp5g_encap_disable(struct sock *);
 extern int gtp5g_handle_skb_ipv4(struct sk_buff *, struct net_device *,
         struct gtp5g_pktinfo *);
 
-#endif
+#endif // __ENCAP_H__

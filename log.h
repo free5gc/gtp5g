@@ -1,5 +1,5 @@
-#ifndef GTP5G_LOG_H__
-#define GTP5G_LOG_H__
+#ifndef __GTP5G_LOG_H__
+#define __GTP5G_LOG_H__
 
 #include <linux/netdevice.h>
 
@@ -21,4 +21,4 @@
 extern int get_dbg_lvl(void);
 extern void set_dbg_lvl(int);
 
-#endif
+#endif // __GTP5G_LOG_H__

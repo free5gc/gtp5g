@@ -1,5 +1,5 @@
-#ifndef PKTINFO_H__
-#define PKTINFO_H__
+#ifndef __PKTINFO_H__
+#define __PKTINFO_H__
 
 #include <linux/skbuff.h>
 #include <linux/net.h>
@@ -45,4 +45,4 @@ extern void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *,
         struct net_device *);
 extern void gtp5g_push_header(struct sk_buff *, struct gtp5g_pktinfo *);
 
-#endif
+#endif // __PKTINFO_H__

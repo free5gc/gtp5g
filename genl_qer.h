@@ -1,5 +1,5 @@
-#ifndef GENL_QER_H__
-#define GENL_QER_H__
+#ifndef __GENL_QER_H__
+#define __GENL_QER_H__
 
 #include "genl.h"
 
@@ -51,4 +51,4 @@ extern int gtp5g_genl_del_qer(struct sk_buff *, struct genl_info *);
 extern int gtp5g_genl_get_qer(struct sk_buff *, struct genl_info *);
 extern int gtp5g_genl_dump_qer(struct sk_buff *, struct netlink_callback *);
 
-#endif
+#endif // __GENL_QER_H__

@@ -1,5 +1,5 @@
-#ifndef GENL_BAR_H__
-#define GENL_BAR_H__
+#ifndef __GENL_BAR_H__
+#define __GENL_BAR_H__
 
 #include "genl.h"
 
@@ -26,4 +26,4 @@ extern int gtp5g_genl_del_bar(struct sk_buff *, struct genl_info *);
 extern int gtp5g_genl_get_bar(struct sk_buff *, struct genl_info *);
 extern int gtp5g_genl_dump_bar(struct sk_buff *, struct netlink_callback *);
 
-#endif
+#endif // __GENL_BAR_H__

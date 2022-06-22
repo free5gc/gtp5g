@@ -1,5 +1,5 @@
-#ifndef QER_H__
-#define QER_H__
+#ifndef __QER_H__
+#define __QER_H__
 
 #include <linux/kernel.h>
 #include <linux/rculist.h>
@@ -40,4 +40,4 @@ extern void qer_append(u64, u32, struct qer *, struct gtp5g_dev *);
 extern int qer_get_pdr_ids(u16 *, int, struct qer *, struct gtp5g_dev *);
 extern void qer_set_pdr(u64, u32, struct hlist_node *, struct gtp5g_dev *);
 
-#endif
+#endif // __QER_H__

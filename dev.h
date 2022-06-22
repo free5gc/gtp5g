@@ -1,5 +1,5 @@
-#ifndef GTP5G_DEV_H__
-#define GTP5G_DEV_H__
+#ifndef __GTP5G_DEV_H__
+#define __GTP5G_DEV_H__
 
 #include <linux/netdevice.h>
 #include <linux/rculist.h>
@@ -33,4 +33,4 @@ extern struct gtp5g_dev *gtp5g_find_dev(struct net *, int, int);
 extern int dev_hashtable_new(struct gtp5g_dev *, int);
 extern void gtp5g_hashtable_free(struct gtp5g_dev *);
 
-#endif
+#endif // __GTP5G_DEV_H__

@@ -1,5 +1,5 @@
-#ifndef FAR_H__
-#define FAR_H__
+#ifndef __FAR_H__
+#define __FAR_H__
 
 #include <linux/kernel.h>
 #include <linux/rculist.h>
@@ -55,4 +55,4 @@ extern void far_append(u64, u32, struct far *, struct gtp5g_dev *);
 extern int far_get_pdr_ids(u16 *, int, struct far *, struct gtp5g_dev *);
 extern void far_set_pdr(u64, u32, struct hlist_node *, struct gtp5g_dev *);
 
-#endif
+#endif // __FAR_H__

@@ -1,5 +1,5 @@
-#ifndef GENL_FAR_H__
-#define GENL_FAR_H__
+#ifndef __GENL_FAR_H__
+#define __GENL_FAR_H__
 
 #include "genl.h"
 
@@ -44,4 +44,4 @@ extern int gtp5g_genl_del_far(struct sk_buff *, struct genl_info *);
 extern int gtp5g_genl_get_far(struct sk_buff *, struct genl_info *);
 extern int gtp5g_genl_dump_far(struct sk_buff *, struct netlink_callback *);
 
-#endif
+#endif // __GENL_FAR_H__

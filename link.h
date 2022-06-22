@@ -1,5 +1,5 @@
-#ifndef GTP5G_LINK_H__
-#define GTP5G_LINK_H__
+#ifndef __GTP5G_LINK_H__
+#define __GTP5G_LINK_H__
 
 #include <net/rtnetlink.h>
 
@@ -24,4 +24,4 @@ extern struct rtnl_link_ops gtp5g_link_ops;
 
 extern void gtp5g_link_all_del(struct list_head *);
 
-#endif
+#endif // __GTP5G_LINK_H__

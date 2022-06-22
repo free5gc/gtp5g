@@ -1,5 +1,5 @@
-#ifndef GTP5G_GTP_H__
-#define GTP5G_GTP_H__
+#ifndef __GTP5G_GTP_H__
+#define __GTP5G_GTP_H__
 
 #include <linux/skbuff.h>
 
@@ -75,4 +75,4 @@ typedef struct gtp1_hdr_ext_pdu_sess_ctr {
 
 extern int get_gtpu_header_len(struct gtpv1_hdr *,  struct sk_buff *);
 
-#endif
+#endif // __GTP5G_GTP_H__

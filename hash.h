@@ -1,5 +1,5 @@
-#ifndef HASH_H__
-#define HASH_H__
+#ifndef __HASH_H__
+#define __HASH_H__
 
 #include <linux/string.h>
 
@@ -22,4 +22,4 @@ static inline u32 ipv4_hashfn(__be32 ip)
     return jhash_1word((__force u32)ip, gtp5g_h_initval);
 }
 
-#endif
+#endif // __HASH_H__
