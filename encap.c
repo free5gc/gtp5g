@@ -207,8 +207,17 @@ static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev,
 }
 
 static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev, 
-    struct pdr *pdr)
+    unsigned int hdrlen, struct pdr *pdr)
 {
+    // Get rid of the GTP-U + UDP headers.
+    if (iptunnel_pull_header(skb,
+            hdrlen, 
+            skb->protocol,
+            !net_eq(sock_net(pdr->sk), dev_net(dev)))) {
+        GTP5G_ERR(dev, "Failed to pull GTP-U and UDP headers\n");
+        return -1;
+    }
+
     if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0) {
         GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
         ++pdr->ul_drop_cnt;
@@ -334,7 +343,7 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
             rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr);
             break;
         case FAR_ACTION_BUFF:
-            rt = gtp5g_buf_skb_encap(skb, pdr->dev, pdr);
+            rt = gtp5g_buf_skb_encap(skb, pdr->dev, hdrlen, pdr);
             break;
         default:
             GTP5G_ERR(pdr->dev, "Unhandled apply action(%u) in FAR(%u) and related to PDR(%u)\n",
