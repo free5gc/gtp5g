@@ -8,6 +8,8 @@
 #include "pdr.h"
 #include "far.h"
 #include "qer.h"
+#include "bar.h"
+#include "urr.h"
 #include "pktinfo.h"
 
 struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
@@ -143,15 +145,35 @@ int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
     if (gtp->qer_id_hash == NULL)
         goto err4;
 
+    gtp->bar_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
+            GFP_KERNEL);
+    if (!gtp->bar_id_hash)
+        goto err5;
+
+    gtp->urr_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
+            GFP_KERNEL);
+    if (!gtp->urr_id_hash)
+        goto err6;
+
     gtp->related_far_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
     if (gtp->related_far_hash == NULL)
-        goto err5;
+        goto err7;
 
     gtp->related_qer_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
     if (gtp->related_qer_hash == NULL)
-        goto err6;
+        goto err8;
+
+    gtp->related_bar_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
+            GFP_KERNEL);
+    if (!gtp->related_bar_hash)
+        goto err9;
+
+    gtp->related_urr_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
+            GFP_KERNEL);
+    if (!gtp->related_urr_hash)
+        goto err10;
 
     gtp->hash_size = hsize;
 
@@ -161,13 +183,25 @@ int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
         INIT_HLIST_HEAD(&gtp->pdr_id_hash[i]);
         INIT_HLIST_HEAD(&gtp->far_id_hash[i]);
         INIT_HLIST_HEAD(&gtp->qer_id_hash[i]);
+        INIT_HLIST_HEAD(&gtp->bar_id_hash[i]);
+        INIT_HLIST_HEAD(&gtp->urr_id_hash[i]);
         INIT_HLIST_HEAD(&gtp->related_far_hash[i]);
         INIT_HLIST_HEAD(&gtp->related_qer_hash[i]);
+        INIT_HLIST_HEAD(&gtp->related_bar_hash[i]);
+        INIT_HLIST_HEAD(&gtp->related_urr_hash[i]);
     }
 
     return 0;
-err6:
+err10:
+    kfree(gtp->related_bar_hash);
+err9:
+    kfree(gtp->related_qer_hash);
+err8:
     kfree(gtp->related_far_hash);
+err7:
+    kfree(gtp->urr_id_hash);
+err6:
+    kfree(gtp->bar_id_hash);
 err5:
     kfree(gtp->qer_id_hash);
 err4:
@@ -186,6 +220,8 @@ void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
     struct pdr *pdr;
     struct far *far;
     struct qer *qer;
+    struct bar *bar;
+    struct urr *urr;
     int i;
 
     for (i = 0; i < gtp->hash_size; i++) {
@@ -195,6 +231,10 @@ void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
             qer_context_delete(qer);
         hlist_for_each_entry_rcu(pdr, &gtp->pdr_id_hash[i], hlist_id)
             pdr_context_delete(pdr);
+        hlist_for_each_entry_rcu(bar, &gtp->bar_id_hash[i], hlist_id)
+            bar_context_delete(bar);
+        hlist_for_each_entry_rcu(urr, &gtp->urr_id_hash[i], hlist_id)
+            urr_context_delete(urr);
     }
 
     synchronize_rcu();
@@ -203,6 +243,10 @@ void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
     kfree(gtp->pdr_id_hash);
     kfree(gtp->far_id_hash);
     kfree(gtp->qer_id_hash);
+    kfree(gtp->bar_id_hash);
+    kfree(gtp->urr_id_hash);
     kfree(gtp->related_far_hash);
     kfree(gtp->related_qer_hash);
+    kfree(gtp->related_bar_hash);
+    kfree(gtp->related_urr_hash);
 }
