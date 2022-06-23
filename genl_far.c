@@ -1,5 +1,6 @@
 #include <linux/module.h>
 #include <net/genetlink.h>
+#include <stdbool.h> 
 
 #include "dev.h"
 #include "genl.h"
@@ -13,7 +14,8 @@
 
 static int header_creation_fill(struct forwarding_parameter *,
                 struct nlattr **, u8 *,
-                struct gtp5g_emark_pktinfo *);
+                struct gtp5g_emark_pktinfo *,
+                bool sendEndmarker);
 static int forwarding_parameter_fill(struct forwarding_parameter *,
                 struct nlattr **, u8 *,
                 struct gtp5g_emark_pktinfo *);
@@ -328,7 +330,8 @@ out:
 
 static int header_creation_fill(struct forwarding_parameter *param,
                struct nlattr **attrs, u8 *flag,
-               struct gtp5g_emark_pktinfo *epkt_info)
+               struct gtp5g_emark_pktinfo *epkt_info,
+               bool sendEndmarker)
 {
     struct outer_header_creation *hdr_creation;
 
@@ -388,7 +391,9 @@ static int header_creation_fill(struct forwarding_parameter *param,
             if (((old_peer_addr & hdr_creation->peer_addr_ipv4.s_addr) != 0) &&
 
                     ((old_teid != hdr_creation->teid ) ||
-                     (old_peer_addr != hdr_creation->peer_addr_ipv4.s_addr))) {
+                     (old_peer_addr != hdr_creation->peer_addr_ipv4.s_addr)) &&
+                     
+                     sendEndmarker) {
                 *flag = 1;
                 epkt_info->teid = old_teid;
                 epkt_info->peer_addr = old_peer_addr;
@@ -406,6 +411,7 @@ static int forwarding_parameter_fill(struct forwarding_parameter *param,
 {
     struct nlattr *hdr_creation_attrs[GTP5G_OUTER_HEADER_CREATION_ATTR_MAX + 1];
     struct forwarding_policy *fwd_policy;
+    bool sendEndmarker = false;
     int err;
 
     if (attrs[GTP5G_FORWARDING_PARAMETER_OUTER_HEADER_CREATION]) {
@@ -416,7 +422,14 @@ static int forwarding_parameter_fill(struct forwarding_parameter *param,
                 NULL);
         if (err)
             return err;
-        err = header_creation_fill(param, hdr_creation_attrs, flag, epkt_info);
+
+        #define SNDEM 0x02
+        if (attrs[GTP5G_ORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]) {
+            if ((nla_get_u8(attrs[GTP5G_ORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]) & SNDEM) == SNDEM){
+                sendEndmarker = true;
+            }      
+        }
+        err = header_creation_fill(param, hdr_creation_attrs, flag, epkt_info, sendEndmarker);
         if (err)
             return err;
     }
