@@ -7,7 +7,7 @@
 #include "hash.h"
 #include "log.h"
 
-#define DRV_VERSION "0.6.1"
+#define DRV_VERSION "0.6.0"
 
 static int __init gtp5g_init(void)
 {
