@@ -423,7 +423,7 @@ static int forwarding_parameter_fill(struct forwarding_parameter *param,
                 if this bit is set to "1", it indicates that the UP function 
                 shall construct and send End Marker packets
         */
-        #define SNDEM 0x02 //00000010
+        #define SNDEM 0x02
         if (attrs[GTP5G_FORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]) {
             sendEndmarker = nla_get_u8(attrs[GTP5G_FORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]) & SNDEM;       
         }
