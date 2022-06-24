@@ -1,6 +1,5 @@
 #include <linux/module.h>
 #include <net/genetlink.h>
-#include <stdbool.h> 
 
 #include "dev.h"
 #include "genl.h"
@@ -15,7 +14,7 @@
 static int header_creation_fill(struct forwarding_parameter *,
                 struct nlattr **, u8 *,
                 struct gtp5g_emark_pktinfo *,
-                bool sendEndmarker);
+                uint8_t sendEndmarker);
 static int forwarding_parameter_fill(struct forwarding_parameter *,
                 struct nlattr **, u8 *,
                 struct gtp5g_emark_pktinfo *);
@@ -331,7 +330,7 @@ out:
 static int header_creation_fill(struct forwarding_parameter *param,
                struct nlattr **attrs, u8 *flag,
                struct gtp5g_emark_pktinfo *epkt_info,
-               bool sendEndmarker)
+               uint8_t sendEndmarker)
 {
     struct outer_header_creation *hdr_creation;
 
@@ -388,12 +387,7 @@ static int header_creation_fill(struct forwarding_parameter *param,
          .
          * */
         if ((flag != NULL && epkt_info != NULL)) {
-            if (((old_peer_addr & hdr_creation->peer_addr_ipv4.s_addr) != 0) &&
-
-                    ((old_teid != hdr_creation->teid ) ||
-                     (old_peer_addr != hdr_creation->peer_addr_ipv4.s_addr)) &&
-                     
-                     sendEndmarker) {
+            if (sendEndmarker) {
                 *flag = 1;
                 epkt_info->teid = old_teid;
                 epkt_info->peer_addr = old_peer_addr;
@@ -411,7 +405,7 @@ static int forwarding_parameter_fill(struct forwarding_parameter *param,
 {
     struct nlattr *hdr_creation_attrs[GTP5G_OUTER_HEADER_CREATION_ATTR_MAX + 1];
     struct forwarding_policy *fwd_policy;
-    bool sendEndmarker = false;
+    uint8_t sendEndmarker = 0;
     int err;
 
     if (attrs[GTP5G_FORWARDING_PARAMETER_OUTER_HEADER_CREATION]) {
@@ -423,11 +417,15 @@ static int forwarding_parameter_fill(struct forwarding_parameter *param,
         if (err)
             return err;
 
-        #define SNDEM 0x02
-        if (attrs[GTP5G_ORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]) {
-            if ((nla_get_u8(attrs[GTP5G_ORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]) & SNDEM) == SNDEM){
-                sendEndmarker = true;
-            }      
+        /*
+            TS 29.244 PFCPSMReq-Flags
+            SNDEM (Send End Marker Packets): 
+                if this bit is set to "1", it indicates that the UP function 
+                shall construct and send End Marker packets
+        */
+        #define SNDEM 0x02 //00000010
+        if (attrs[GTP5G_FORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]) {
+            sendEndmarker = nla_get_u8(attrs[GTP5G_FORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]) & SNDEM;       
         }
         err = header_creation_fill(param, hdr_creation_attrs, flag, epkt_info, sendEndmarker);
         if (err)
