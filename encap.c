@@ -142,7 +142,7 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
         break;
     }
 
-    return 0;
+    return ret;
 }
 
 static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
