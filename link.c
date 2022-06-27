@@ -129,6 +129,8 @@ static void gtp5g_dellink(struct net_device *dev, struct list_head *head)
     list_del_rcu(&gtp->list);
     list_del_rcu(&gtp->proc_list);
     unregister_netdevice_queue(dev, head);
+
+    GTP5G_LOG(dev, "De-registered 5G GTP interface\n");
 }
 
 static size_t gtp5g_get_size(const struct net_device *dev)
