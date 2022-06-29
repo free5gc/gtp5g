@@ -153,8 +153,8 @@ void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
 
     /* Fill GTP-U Header */
     gtp1 = skb_push(skb, sizeof(*gtp1));
-    gtp1->flags = 0x30; /* v1, GTP-non-prime. */
-    gtp1->type = GTP_EMARK;
+    gtp1->flags = GTPV1; /* v1, GTP-non-prime. */
+    gtp1->type = GTPV1_MSG_TYPE_EMARK;
     gtp1->tid = epkt_info->teid;
 
     rt = ip4_find_route_simple(skb, epkt_info->sk, dev, 
@@ -255,10 +255,10 @@ void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
      *      0  0  1  1  0  0  0  0
      */
     gtp1 = skb_push(skb, sizeof(*gtp1));
-    gtp1->flags = 0x30; /* v1, GTP-non-prime. */
+    gtp1->flags = GTPV1; /* v1, GTP-non-prime. */
     if (ext_flag) 
         gtp1->flags |= GTPV1_HDR_FLG_EXTHDR; /* v1, Extension header enabled */ 
-    gtp1->type = GTP_TPDU;
+    gtp1->type = GTPV1_MSG_TYPE_TPDU;
     gtp1->tid = pktinfo->hdr_creation->teid;
     gtp1->length = htons(payload_len);       /* Excluded the header length of gtpv1 */
 
