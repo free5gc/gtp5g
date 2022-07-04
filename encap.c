@@ -246,8 +246,8 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         return gtp1c_handle_echo_req(skb, gtp);
     }
 
-    if (gtpv1->type != GTPV1_MSG_TYPE_TPDU) {
-        GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU: %#x\n",
+    if (gtpv1->type != GTPV1_MSG_TYPE_TPDU && gtpv1->type != GTPV1_MSG_TYPE_EMARK) {
+        GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU or End Marker: %#x\n",
             gtpv1->type);
         return 1;
     }
@@ -515,7 +515,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
     pdr->ul_pkt_cnt++;
     pdr->ul_byte_cnt += skb->len; /* length without GTP header */
-    GTP5G_LOG(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);
+    GTP5G_INF(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);
 
     ret = netif_rx(skb);
     if (ret != NET_RX_SUCCESS) {
@@ -581,7 +581,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
 
     pdr->dl_pkt_cnt++;
     pdr->dl_byte_cnt += skb->len;
-    GTP5G_LOG(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
+    GTP5G_INF(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
 
     gtp5g_push_header(skb, pktinfo);
 
