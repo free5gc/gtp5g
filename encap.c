@@ -407,6 +407,8 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
     int total_iov_len = 0;
     int i, rt;
     u8  type_hdr[1] = {TYPE_URR_REPORT};
+    u64 self_seid_hdr[1] = {pdr->seid};
+
     struct user_report report;
 
     // 8.2.44 Volume Measurement octet 5
@@ -465,8 +467,8 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
 
     memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
 
-    iov[0].iov_base = type_hdr;
-    iov[0].iov_len = sizeof(type_hdr);
+    iov[0].iov_base = self_seid_hdr;
+    iov[0].iov_len = sizeof(self_seid_hdr);
     iov[1].iov_base = &report;
     iov[1].iov_len = sizeof(report);
 
