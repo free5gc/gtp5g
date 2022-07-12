@@ -107,4 +107,8 @@ extern void unix_sock_client_delete(struct pdr *);
 extern int unix_sock_client_new(struct pdr *);
 extern int unix_sock_client_update(struct pdr *);
 
+extern void unix_sock_report_delete(struct pdr *);
+extern int unix_sock_report_new(struct pdr *);
+extern int unix_sock_report_update(struct pdr *);
+
 #endif // __PDR_H__
