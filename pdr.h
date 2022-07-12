@@ -91,6 +91,14 @@ struct pdr {
     u64                     dl_pkt_cnt;
     u64                     ul_byte_cnt;
     u64                     dl_byte_cnt;
+
+    /* Counter for Usage Report */
+    u64                     uplink_volume_cnt;
+    u64                     downlink_volume_cnt;
+    u64                     total_volume_cnt;
+    u64                     uplink_pkt_num_cnt;
+    u64                     downlink_pkt_num_cnt;
+    u64                     total_pkt_num_cnt;
 };
 
 extern void pdr_context_delete(struct pdr *);

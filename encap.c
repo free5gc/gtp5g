@@ -407,6 +407,8 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
     int total_iov_len = 0;
     int i, rt;
     u8  type_hdr[1] = {TYPE_URR_REPORT};
+    u64 self_seid_hdr[1] = {pdr->seid};
+    u16 self_hdr[1] = {pdr->far->action};
     struct user_report report;
 
     // 8.2.44 Volume Measurement octet 5
@@ -440,7 +442,7 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
             urr->start_time,
             urr->end_time,
             urr->time_of_fst_pkt,
-            urr->time_of_lst_pkt,
+            urr->time_of_lst_pkt
     };
     urr->start_time = ktime_get_real();
     urr->end_time = 0;
@@ -459,16 +461,18 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
 
     memset(&msg, 0, sizeof(msg));
   
-    msg_iovlen = 2;
+    msg_iovlen = 3;
     iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
         GFP_KERNEL);
 
     memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
 
-    iov[0].iov_base = type_hdr;
-    iov[0].iov_len = sizeof(type_hdr);
-    iov[1].iov_base = &report;
-    iov[1].iov_len = sizeof(report);
+    iov[0].iov_base = self_seid_hdr;
+    iov[0].iov_len = sizeof(self_seid_hdr);
+    iov[1].iov_base = self_hdr;
+    iov[1].iov_len = sizeof(self_hdr);
+    iov[2].iov_base = &report;
+    iov[2].iov_len = sizeof(report);
 
     for (i = 0; i < msg_iovlen; i++)
         total_iov_len += iov[i].iov_len;
@@ -646,6 +650,12 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct flowi4 fl4;
     struct iphdr *iph = ip_hdr(skb);
     struct outer_header_creation *hdr_creation;
+    struct urr *urr;
+    u8 info;
+    bool inactive = false;
+    u64 volume;
+    struct tcphdr *tcp; 
+
 
     if (!(pdr->far && pdr->far->fwd_param &&
         pdr->far->fwd_param->hdr_creation)) {
@@ -688,7 +698,109 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     pdr->dl_byte_cnt += skb->len;
     GTP5G_INF(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
 
+    volume = skb->len;
     gtp5g_push_header(skb, pktinfo);
+
+    // GTP5G_LOG(dev, "downlink (after qer)\n");
+    // GTP5G_LOG(pdr->dev, "dl skb->len(~mbqe): %d sizeof(pktinfo): %ld\n", skb->len, sizeof(pktinfo));
+    volume -= iph->ihl * 4; // iphdr->ihl: length of ip header (unit: 4 bit) 
+    // GTP5G_LOG(pdr->dev, "dl volume(~mbqe): %lld iph: %d\n", volume, iph->ihl);
+
+    // Deduct the header length of transport layer
+    switch (iph->protocol) {
+		case IPPROTO_TCP: 
+			// tcp = (struct tcphdr *)(skb_transport_header(skb) + (iph->ihl << 2));
+			tcp = (struct tcphdr *)(skb_transport_header(skb));
+            // GTP5G_LOG(pdr->dev, "dl ip tcp->doff(~mbqe): %d\n", tcp->doff);
+            volume -= tcp->doff * 4;
+			break;
+		case IPPROTO_UDP : 
+            volume -= 8; // udp header len = 8B
+			break;
+		default:
+			break;
+	}
+
+    // urr URR_INFO_MBQE=0
+
+    urr = pdr->urr;
+    if (urr && !(urr->info & URR_INFO_MBQE)) {
+        info = urr->info;
+
+        if ((info & URR_INFO_ASPOC) && (info & URR_INFO_CIAM) && (info & URR_INFO_INAM))
+            inactive = true;
+        
+        if (!inactive) {
+            if (urr->method & URR_METHOD_VOLUM) {
+                if (urr->info & URR_INFO_MNOP) { 
+                    ++pdr->downlink_pkt_num_cnt; 
+                    ++pdr->total_pkt_num_cnt; 
+                }
+                pdr->downlink_volume_cnt += volume; 
+                pdr->total_volume_cnt += volume;
+                
+                // Check threshold/quata
+                if (urr->trigger & URR_TRIGGER_VOLTH) {
+                    GTP5G_TRC(NULL,"URR Volume Threshold Downlink volume:%lld\n",urr->threshold_dvol);
+                    GTP5G_TRC(NULL,"URR Volume Threshold Total volume:%lld\n",urr->threshold_tovol);
+
+                    if(urr->threshold_tovol && pdr->total_volume_cnt >= urr->threshold_tovol && (urr->volumethreshold.flag & URR_VOLUME_THRESHOLD_TOVOL)){
+                        urr->time_of_lst_pkt = ktime_get_real();
+
+                        if (gtp5g_send_usage_report(pdr, urr) < 0) {
+                            GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
+                        }
+                        else {
+                            // Reset
+                            pdr->total_volume_cnt = 0;
+                            pdr->uplink_volume_cnt = 0;
+                            pdr->downlink_volume_cnt = 0;
+
+                            pdr->total_pkt_num_cnt = 0;
+                            pdr->downlink_pkt_num_cnt = 0;
+                            pdr->uplink_pkt_num_cnt = 0;
+
+                            // re-apply all the thresholds
+                            urr->threshold_tovol = urr->volumethreshold.tovol_low | ((u64)urr->volumethreshold.tovol_high << 32);
+                            urr->threshold_uvol = urr->volumethreshold.uvol_low | ((u64)urr->volumethreshold.uvol_high << 32);
+                            urr->threshold_dvol = urr->volumethreshold.dvol_low | ((u64)urr->volumethreshold.dvol_high << 32);
+                        }
+                    }
+                    else if(urr->threshold_dvol && pdr->downlink_volume_cnt >= urr->threshold_dvol && (urr->volumethreshold.flag & URR_VOLUME_THRESHOLD_DLVOL)){
+                        // send report'
+                        urr->time_of_lst_pkt = ktime_get_real();
+                        if (gtp5g_send_usage_report(pdr, urr) < 0) {
+                            GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
+                        }
+                        else {
+                            // Reset
+                            pdr->total_volume_cnt = 0;
+                            pdr->uplink_volume_cnt = 0;
+                            pdr->downlink_volume_cnt = 0;
+
+                            pdr->total_pkt_num_cnt = 0;
+                            pdr->downlink_pkt_num_cnt = 0;
+                            pdr->uplink_pkt_num_cnt = 0;
+
+                            // re-apply all the thresholds
+                            urr->threshold_tovol = urr->volumethreshold.tovol_low | ((u64)urr->volumethreshold.tovol_high << 32);
+                            urr->threshold_uvol = urr->volumethreshold.uvol_low | ((u64)urr->volumethreshold.uvol_high << 32);
+                            urr->threshold_dvol = urr->volumethreshold.dvol_low | ((u64)urr->volumethreshold.dvol_high << 32);
+                        }
+                    }
+
+                    if (urr->trigger & URR_TRIGGER_VOLQU) {
+                    // send a usage report when reaching the Volume Threshold and also later on when subsequently reaching the Volume Quota.
+                    // if (pdr->urr->)
+                    }
+                }
+            }
+            else {
+                GTP5G_ERR(dev, "method is not volume based(%llu) in URR(%u) and related to PDR(%u)",
+                    urr->method, urr->id, pdr->id);
+            }
+        }
+    }
 
     return FAR_ACTION_FORW;
 err:
