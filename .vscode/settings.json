@@ -1,0 +1,8 @@
+{
+    "makefile.extensionOutputFolder": "./.vscode",
+    "files.associations": {
+        "urr.h": "c",
+        "genl.h": "c",
+        "genl_urr.h": "c"
+    }
+}

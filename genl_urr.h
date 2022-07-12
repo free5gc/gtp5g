@@ -12,9 +12,42 @@ enum gtp5g_urr_attrs {
     GTP5G_URR_SEQ, // 3GPP TS 29.244 table 7.5.8.3-1 UR-SEQN
     GTP5G_URR_SEID,
 
+    GTP5G_URR_VOLUME_THRESHOLD,
+	GTP5G_URR_VOLUME_QUOTA,
+
     __GTP5G_URR_ATTR_MAX,
 };
 #define GTP5G_URR_ATTR_MAX (__GTP5G_URR_ATTR_MAX - 1)
+
+/* Nest in GTP5G_URR_VOL_THRESHOLD */
+enum gtp5g_urr_volume_threshold_attrs {
+    GTP5G_URR_VOLUME_THRESHOLD_FLAG = 1,
+
+    GTP5G_URR_VOLUME_THRESHOLD_TOVOL_HIGH32,
+    GTP5G_URR_VOLUME_THRESHOLD_TOVOL_LOW32,
+    GTP5G_URR_VOLUME_THRESHOLD_UVOL_HIGH32,
+    GTP5G_URR_VOLUME_THRESHOLD_UVOL_LOW32,
+    GTP5G_URR_VOLUME_THRESHOLD_DVOL_HIGH32,
+    GTP5G_URR_VOLUME_THRESHOLD_DVOL_LOW32,
+
+    __GTP5G_URR_VOLUME_THRESHOLD_ATTR_MAX,
+};
+#define GTP5G_URR_VOLUME_THRESHOLD_ATTR_MAX (__GTP5G_URR_VOLUME_THRESHOLD_ATTR_MAX - 1)
+
+/* Nest in GTP5G_URR_VOL_QUOTA */
+enum gtp5g_urr_volume_quota_attrs {
+    GTP5G_URR_VOLUME_QUOTA_FLAG = 1,
+
+    GTP5G_URR_VOLUME_QUOTA_TOVOL_HIGH32,
+    GTP5G_URR_VOLUME_QUOTA_TOVOL_LOW32,
+    GTP5G_URR_VOLUME_QUOTA_UVOL_HIGH32,
+    GTP5G_URR_VOLUME_QUOTA_UVOL_LOW32,
+    GTP5G_URR_VOLUME_QUOTA_DVOL_HIGH32,
+    GTP5G_URR_VOLUME_QUOTA_DVOL_LOW32,
+
+    __GTP5G_URR_VOLUME_QUOTA_ATTR_MAX,
+};
+#define GTP5G_URR_VOLUME_QUOTA_ATTR_MAX (__GTP5G_URR_VOLUME_QUOTA_ATTR_MAX - 1)
 
 struct user_report {
     u32 flag;
@@ -24,7 +57,13 @@ struct user_report {
     u64 totalPktNum;
     u64 uplinkPktNum;
     u64 downlinkPktNum;
+    u64 start_time;
+    u64 end_time;
+    u64 time_of_fst_pkt;
+    u64 time_of_lst_pkt;
+
 } __attribute__((packed));
+
 
 extern int gtp5g_genl_add_urr(struct sk_buff *, struct genl_info *);
 extern int gtp5g_genl_del_urr(struct sk_buff *, struct genl_info *);

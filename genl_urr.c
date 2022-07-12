@@ -285,6 +285,9 @@ out:
 
 static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *info)
 {
+    struct nlattr *volume_threshold_param_attrs[GTP5G_URR_VOLUME_THRESHOLD_ATTR_MAX + 1];
+    struct nlattr *volume_quota_param_attrs[GTP5G_URR_VOLUME_QUOTA_ATTR_MAX + 1];
+
     urr->id = nla_get_u32(info->attrs[GTP5G_URR_ID]);
 
     if (info->attrs[GTP5G_URR_SEID])
@@ -307,6 +310,31 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
     if (info->attrs[GTP5G_URR_SEQ])
         urr->seq = nla_get_u64(info->attrs[GTP5G_URR_SEQ]);
 
+    if (info->attrs[GTP5G_URR_VOLUME_THRESHOLD] &&
+        !nla_parse_nested(volume_threshold_param_attrs, GTP5G_URR_VOLUME_THRESHOLD_ATTR_MAX, info->attrs[GTP5G_URR_VOLUME_THRESHOLD], NULL, NULL)) {
+        urr->volumethreshold.flag = nla_get_u8(volume_threshold_param_attrs[GTP5G_URR_VOLUME_THRESHOLD_FLAG]);
+        urr->volumethreshold.tovol_high = nla_get_u32(volume_threshold_param_attrs[GTP5G_URR_VOLUME_THRESHOLD_TOVOL_HIGH32]);
+        urr->volumethreshold.tovol_low  = nla_get_u32(volume_threshold_param_attrs[GTP5G_URR_VOLUME_THRESHOLD_TOVOL_LOW32]);
+        urr->volumethreshold.uvol_high = nla_get_u32(volume_threshold_param_attrs[GTP5G_URR_VOLUME_THRESHOLD_UVOL_HIGH32]);
+        urr->volumethreshold.uvol_low  = nla_get_u32(volume_threshold_param_attrs[GTP5G_URR_VOLUME_THRESHOLD_UVOL_LOW32]);
+        urr->volumethreshold.dvol_high = nla_get_u32(volume_threshold_param_attrs[GTP5G_URR_VOLUME_THRESHOLD_DVOL_HIGH32]);
+        urr->volumethreshold.dvol_low  = nla_get_u32(volume_threshold_param_attrs[GTP5G_URR_VOLUME_THRESHOLD_DVOL_LOW32]);
+    }
+    
+    urr->threshold_tovol = urr->volumethreshold.tovol_low | ((u64)urr->volumethreshold.tovol_high << 32);
+    urr->threshold_uvol = urr->volumethreshold.uvol_low | ((u64)urr->volumethreshold.uvol_high << 32);
+    urr->threshold_dvol = urr->volumethreshold.dvol_low | ((u64)urr->volumethreshold.dvol_high << 32);
+
+    if (info->attrs[GTP5G_URR_VOLUME_QUOTA] &&
+        !nla_parse_nested(volume_quota_param_attrs, GTP5G_URR_VOLUME_QUOTA_ATTR_MAX, info->attrs[GTP5G_URR_VOLUME_QUOTA], NULL, NULL)) {
+        urr->volumethreshold.flag = nla_get_u8(volume_threshold_param_attrs[GTP5G_URR_VOLUME_QUOTA_FLAG]);
+        urr->volumequota.tovol_high = nla_get_u32(volume_quota_param_attrs[GTP5G_URR_VOLUME_QUOTA_TOVOL_HIGH32]);
+        urr->volumequota.tovol_low  = nla_get_u32(volume_quota_param_attrs[GTP5G_URR_VOLUME_QUOTA_TOVOL_LOW32]);
+        urr->volumequota.uvol_high = nla_get_u32(volume_quota_param_attrs[GTP5G_URR_VOLUME_QUOTA_UVOL_HIGH32]);
+        urr->volumequota.uvol_low  = nla_get_u32(volume_quota_param_attrs[GTP5G_URR_VOLUME_QUOTA_UVOL_LOW32]);
+        urr->volumequota.dvol_high = nla_get_u32(volume_quota_param_attrs[GTP5G_URR_VOLUME_QUOTA_DVOL_HIGH32]);
+        urr->volumequota.dvol_low  = nla_get_u32(volume_quota_param_attrs[GTP5G_URR_VOLUME_QUOTA_DVOL_LOW32]);
+    }
     /* Update PDRs which has not linked to this URR */
     urr_update(urr, gtp);
     return 0;

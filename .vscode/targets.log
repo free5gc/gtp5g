@@ -1,0 +1,280 @@
+make all --print-data-base --no-builtin-variables --no-builtin-rules --question
+make: *** No rule to make target 'all'.  Stop.
+
+# GNU Make 4.2.1
+# Built for x86_64-pc-linux-gnu
+# Copyright (C) 1988-2016 Free Software Foundation, Inc.
+# License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+# This is free software: you are free to change and redistribute it.
+# There is NO WARRANTY, to the extent permitted by law.
+
+# Make data base, printed on Tue Jul 12 07:40:44 2022
+
+# Variables
+
+# automatic
+<D = $(patsubst %/,%,$(dir $<))
+# automatic
+?F = $(notdir $?)
+# default
+.SHELLFLAGS := -c
+# environment
+XDG_SESSION_CLASS = user
+# environment
+VSCODE_AGENT_FOLDER = /home/free5gc/.vscode-server
+# environment
+XDG_SESSION_TYPE = tty
+# automatic
+?D = $(patsubst %/,%,$(dir $?))
+# automatic
+@D = $(patsubst %/,%,$(dir $@))
+# automatic
+@F = $(notdir $@)
+# default
+MAKE_VERSION := 4.2.1
+# makefile
+CURDIR := /home/free5gc/free5gc/gtp5g
+# makefile
+SHELL = /bin/sh
+# environment
+VSCODE_NLS_CONFIG = {"locale":"en","availableLanguages":{}}
+# environment
+_ = /home/free5gc/.vscode-server/bin/92d25e35d9bf1a6b16f7d0758f25d48ace11e5b9/node
+# makefile (from 'Makefile', line 1)
+MAKEFILE_LIST :=  Makefile
+# makefile (from 'Makefile', line 24)
+INSTALL := cp gtp5g.ko /lib/modules/5.4.0-121-generic/kernel/drivers/net
+# environment
+GO111MODULE = auto
+# 'override' directive
+GNUMAKEFLAGS := 
+# environment
+XDG_DATA_DIRS = /usr/local/share:/usr/share:/var/lib/snapd/desktop
+# makefile (from 'Makefile', line 9)
+CONFIG_MODULE_SIG = n
+# environment
+DBUS_SESSION_BUS_ADDRESS = unix:path=/run/user/1000/bus
+# makefile (from 'Makefile', line 39)
+obj-m := gtp5g.o
+# environment
+LESSOPEN = | /usr/bin/lesspipe %s
+# environment
+VSCODE_CWD = /home/free5gc
+# environment
+SSH_CONNECTION = 192.168.75.1 50064 192.168.75.128 22
+# environment
+PATH = /home/free5gc/.vscode-server/bin/92d25e35d9bf1a6b16f7d0758f25d48ace11e5b9/bin/remote-cli:/home/free5gc/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin
+# environment
+XDG_RUNTIME_DIR = /run/user/1000
+# environment
+GOPATH = /home/free5gc/go
+# makefile (from 'Makefile', line 34)
+MY_CFLAGS = -g -DDEBUG $(RHEL8FLAG)
+# environment
+ELECTRON_RUN_AS_NODE = 1
+# environment
+VSCODE_IPC_HOOK_CLI = /run/user/1000/vscode-ipc-24a37d2e-ae6e-4f5e-be75-02bffa25f3bf.sock
+# default
+.FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell archives jobserver output-sync check-symlink load
+# makefile (from 'Makefile', line 10)
+MODULE_NAME = gtp5g
+# environment
+LS_COLORS = 
+# automatic
+%F = $(notdir $%)
+# makefile (from 'Makefile', line 7)
+PWD := /home/free5gc/free5gc/gtp5g 
+# default
+.LOADED := 
+# automatic
+*D = $(patsubst %/,%,$(dir $*))
+# makefile (from 'Makefile', line 45)
+gtp5g-y = main.o  api_version.o log.o util.o dev.o genl.o net.o link.o proc.o gtp.o pktinfo.o hash.o seid.o encap.o pdr.o far.o qer.o bar.o urr.o genl.o genl_pdr.o genl_far.o genl_qer.o genl_bar.o genl_urr.o
+# environment
+VSCODE_AMD_ENTRYPOINT = vs/workbench/api/node/extensionHostProcess
+# environment
+HOME = /home/free5gc
+# environment
+LESSCLOSE = /usr/bin/lesspipe %s %s
+# makefile (from 'Makefile', line 29)
+DEPMOD := /sbin/depmod -a
+# environment
+LOGNAME = free5gc
+# environment
+APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = true
+# automatic
++F = $(notdir $+)
+# environment
+VSCODE_HANDLES_UNCAUGHT_ERRORS = true
+# automatic
+^D = $(patsubst %/,%,$(dir $^))
+# makefile (from 'Makefile', line 18)
+KDIR := /lib/modules/5.4.0-121-generic/build
+# makefile (from 'Makefile', line 25)
+RUN_DEPMOD := true
+# environment
+MAKELEVEL := 0
+# default
+MAKE = $(MAKE_COMMAND)
+# default
+MAKECMDGOALS := all
+# environment
+SHLVL = 0
+# makefile (from 'Makefile', line 37)
+CC = ${MY_CFLAGS}
+# environment
+XDG_SESSION_ID = 70
+# environment
+USER = free5gc
+# makefile
+.DEFAULT_GOAL := default
+# makefile (from 'Makefile', line 11)
+MOD_KERNEL_PATH := kernel/drivers/net
+# environment
+GOROOT = /usr/local/go
+# automatic
+%D = $(patsubst %/,%,$(dir $%))
+# default
+MAKE_COMMAND := make
+# environment
+OLDPWD = /home/free5gc/.vscode-server/bin/92d25e35d9bf1a6b16f7d0758f25d48ace11e5b9
+# default
+.VARIABLES := 
+# automatic
+*F = $(notdir $*)
+# makefile
+MAKEFLAGS = pqrR
+# environment
+MFLAGS = -pqrR
+# environment
+SSH_CLIENT = 192.168.75.1 50064 22
+# makefile (from 'Makefile', line 14)
+KVER := 5.4.0-121-generic
+# automatic
++D = $(patsubst %/,%,$(dir $+))
+# environment
+BROWSER = /home/free5gc/.vscode-server/bin/92d25e35d9bf1a6b16f7d0758f25d48ace11e5b9/bin/helpers/browser.sh
+# environment
+VSCODE_HANDLES_SIGPIPE = true
+# 'override' directive
+.SHELLSTATUS := 0
+# default
+MAKEFILES := 
+# makefile (from 'Makefile', line 2)
+RHEL8 := 0
+# automatic
+<F = $(notdir $<)
+# environment
+LC_ALL = C
+# automatic
+^F = $(notdir $^)
+# default
+SUFFIXES := 
+# default
+.INCLUDE_DIRS = /usr/include /usr/local/include /usr/include
+# default
+.RECIPEPREFIX := 
+# makefile (from 'Makefile', line 36)
+EXTRA_CFLAGS = -Wno-misleading-indentation -Wuninitialized
+# default
+MAKE_HOST := x86_64-pc-linux-gnu
+# environment
+LANG = C
+# environment
+MOTD_SHOWN = pam
+# variable set hash-table stats:
+# Load=85/1024=8%, Rehash=0, Collisions=10/147=7%
+
+# Pattern-specific Variable Values
+
+# No pattern-specific variable values.
+
+# Directories
+
+# . (device 64768, inode 421051): 62 files, no impossibilities.
+
+# 62 files, no impossibilities in 1 directories.
+
+# Implicit Rules
+
+# No implicit rules.
+
+# Files
+
+# Not a target:
+all:
+#  Command line target.
+#  Implicit rule search has been done.
+#  File does not exist.
+#  File has not been updated.
+
+uninstall:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 62):
+	rm -f $(DESTDIR)/lib/modules/$(KVER)/$(MOD_KERNEL_PATH)/$(MODULE_NAME).ko
+	$(DEPMOD)
+	sed -zi "s/gtp5g\n//g" /etc/modules
+	rmmod -f  $(MODULE_NAME)
+
+# Not a target:
+Makefile:
+#  Implicit rule search has been done.
+#  Last modified 2022-07-11 14:10:39.25594018
+#  File has been updated.
+#  Successfully updated.
+
+module:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 50):
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
+
+default: module
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
+.DEFAULT:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+clean:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 52):
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
+
+install:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 55):
+	$(INSTALL)
+	modprobe udp_tunnel
+	$(DEPMOD)
+	modprobe $(MODULE_NAME)
+	echo "gtp5g" >> /etc/modules
+
+# files hash-table stats:
+# Load=9/1024=1%, Rehash=0, Collisions=1/21=5%
+# VPATH Search Paths
+
+# No 'vpath' search paths.
+
+# No general ('VPATH' variable) search path.
+
+# strcache buffers: 1 (0) / strings = 72 / storage = 599 B / avg = 8 B
+# current buf: size = 8162 B / used = 599 B / count = 72 / avg = 8 B
+
+# strcache performance: lookups = 82 / hit rate = 12%
+# hash-table stats:
+# Load=72/8192=1%, Rehash=0, Collisions=1/82=1%
+# Finished Make data base on Tue Jul 12 07:40:44 2022
+
+ 

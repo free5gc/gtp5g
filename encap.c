@@ -15,7 +15,11 @@
 #include "pdr.h"
 #include "far.h"
 #include "qer.h"
+#include "urr.h"
+
 #include "genl.h"
+#include "genl_urr.h"
+
 #include "log.h"
 #include "api_version.h"
 #include "pktinfo.h"
@@ -389,6 +393,109 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
 
     rt = sock_sendmsg(pdr->sock_for_buf, &msg);
     kfree(kov);
+
+    return rt;
+}
+
+static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
+{
+    struct msghdr msg;
+    struct iovec *iov;
+    mm_segment_t oldfs;
+    u8 flag;
+    int msg_iovlen;
+    int total_iov_len = 0;
+    int i, rt;
+    u8  type_hdr[1] = {TYPE_URR_REPORT};
+    struct user_report report;
+
+    // 8.2.44 Volume Measurement octet 5
+    // flags are control by GTP5G
+    flag = URR_VOLUME_MEASUREMENT_TOVOL | URR_VOLUME_MEASUREMENT_ULVOL | URR_VOLUME_MEASUREMENT_DLVOL;
+    if (urr->info & URR_INFO_MNOP)
+        flag |= (URR_VOLUME_MEASUREMENT_TONOP | URR_VOLUME_MEASUREMENT_ULNOP | URR_VOLUME_MEASUREMENT_DLNOP);
+    // report[0].volumemeasurement.flags = flag;
+
+    if(urr->time_of_fst_pkt != 0 && urr->time_of_lst_pkt == 0)
+        urr->time_of_lst_pkt = urr->time_of_fst_pkt;
+    urr->end_time = ktime_get_real();
+
+    report = (struct user_report){
+            urr->id,
+            urr->seid,
+            urr->trigger,
+            0, //queryurrreference
+            { // volumemeasurement
+                flag, // flag
+                
+                (pdr->ul_byte_cnt + pdr->dl_byte_cnt),
+                pdr->ul_byte_cnt,
+                pdr->dl_byte_cnt,
+
+                (pdr->ul_pkt_cnt + pdr->ul_pkt_cnt),
+                pdr->ul_pkt_cnt,
+                pdr->dl_pkt_cnt, 
+
+            },
+            urr->start_time,
+            urr->end_time,
+            urr->time_of_fst_pkt,
+            urr->time_of_lst_pkt,
+    };
+    urr->start_time = ktime_get_real();
+    urr->end_time = 0;
+    urr->time_of_fst_pkt = 0;
+    urr->time_of_lst_pkt = 0;
+
+    GTP5G_TRC(NULL,"flags:%d, total_volume_cnt:%lld, uplink_volume_cnt:%lld, downlink_volume_cnt:%lld\n",
+                flag, (((uint64_t)(pdr->ul_byte_cnt + pdr->dl_byte_cnt) >> 32) | ((uint64_t)(pdr->ul_byte_cnt + pdr->dl_byte_cnt))),
+                (((uint64_t)pdr->ul_byte_cnt >> 32) | ((uint64_t)pdr->ul_byte_cnt)),
+                (((uint64_t)pdr->dl_byte_cnt >> 32) | ((uint64_t)pdr->dl_byte_cnt)));
+                
+    // if (!pdr->sock_for_urr) {
+    //     GTP5G_ERR(NULL, "Failed: Socket for URR  is NULL\n");
+    if (!pdr->sock_for_buf) {
+        GTP5G_ERR(NULL, "Failed Socket buffer is NULL\n");
+        return -EINVAL;
+    }
+
+    memset(&msg, 0, sizeof(msg));
+  
+    msg_iovlen = 2;
+    iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
+        GFP_KERNEL);
+
+    memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
+
+    iov[0].iov_base = type_hdr;
+    iov[0].iov_len = sizeof(type_hdr);
+    iov[1].iov_base = &report;
+    iov[1].iov_len = sizeof(report);
+
+    for (i = 0; i < msg_iovlen; i++)
+        total_iov_len += iov[i].iov_len;
+
+    msg.msg_name = 0;
+    msg.msg_namelen = 0;
+    iov_iter_init(&msg.msg_iter, WRITE, iov, msg_iovlen, total_iov_len);
+    msg.msg_control = NULL;
+    msg.msg_controllen = 0;
+    msg.msg_flags = MSG_DONTWAIT;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+    oldfs = force_uaccess_begin();
+#else
+    oldfs = get_fs();
+    set_fs(KERNEL_DS);
+#endif
+
+    rt = sock_sendmsg(pdr->sock_for_buf, &msg);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+    force_uaccess_end(oldfs);
+#else
+    set_fs(oldfs);
+#endif
 
     return rt;
 }

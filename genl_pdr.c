@@ -364,11 +364,19 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
         pdr->role_addr_ipv4.s_addr = nla_get_u32(info->attrs[GTP5G_PDR_ROLE_ADDR_IPV4]);
     }
 
+
     /* Not in 3GPP spec, just used for buffering */
     if (info->attrs[GTP5G_PDR_UNIX_SOCKET_PATH]) {
         str = nla_data(info->attrs[GTP5G_PDR_UNIX_SOCKET_PATH]);
         pdr->addr_unix.sun_family = AF_UNIX;
         strncpy(pdr->addr_unix.sun_path, str, nla_len(info->attrs[GTP5G_PDR_UNIX_SOCKET_PATH]));
+    }
+
+    /* Not in 3GPP spec, just used for buffering */
+    if (info->attrs[PDR_REPORT_UNIX_SOCKET_PATH]) {
+        str = nla_data(info->attrs[PDR_REPORT_UNIX_SOCKET_PATH]);
+        pdr->addr_unix_report.sun_family = AF_UNIX;
+        strncpy(pdr->addr_unix_report.sun_path, str, nla_len(info->attrs[PDR_REPORT_UNIX_SOCKET_PATH]));
     }
 
     if (info->attrs[GTP5G_PDR_FAR_ID]) {
