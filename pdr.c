@@ -63,6 +63,8 @@ static void pdr_context_free(struct rcu_head *head)
     }
 
     unix_sock_client_delete(pdr);
+    unix_sock_report_delete(pdr);
+
     kfree(pdr);
 }
 
@@ -97,6 +99,7 @@ void unix_sock_client_delete(struct pdr *pdr)
 
     pdr->sock_for_buf = NULL;
 }
+
 
 // Create a AF_UNIX client by specific name sent from user space
 int unix_sock_client_new(struct pdr *pdr)
@@ -136,6 +139,49 @@ int unix_sock_client_update(struct pdr *pdr)
         return unix_sock_client_new(pdr);
 
     return 0;
+}
+
+// Delete the AF_UNIX client for report
+void unix_sock_report_delete(struct pdr *pdr)
+{
+    if (pdr->sock_for_report)
+        sock_release(pdr->sock_for_report);
+
+    pdr->sock_for_report = NULL;
+}
+
+// Create a AF_UNIX client for report
+int unix_sock_report_new(struct pdr *pdr)
+{
+    struct socket **psock = &pdr->sock_for_report;
+    struct sockaddr_un *addr = &pdr->addr_unix_report;
+    int err;
+
+    if (strlen(addr->sun_path) == 0){
+        return -EINVAL;
+    }
+
+    err = sock_create(AF_UNIX, SOCK_DGRAM, 0, psock);
+    if (err){
+        return err;
+    }
+
+    err = (*psock)->ops->connect(*psock, (struct sockaddr *)addr,
+            sizeof(addr->sun_family) + strlen(addr->sun_path), 0);
+    if (err) {
+        unix_sock_report_delete(pdr);
+        return err;
+    }
+
+    return 0;
+}
+
+// Handle report
+int unix_sock_report_update(struct pdr *pdr)
+{
+    unix_sock_report_delete(pdr);
+
+    return unix_sock_report_new(pdr);
 }
 
 struct pdr *find_pdr_by_id(struct gtp5g_dev *gtp, u64 seid, u16 pdr_id)

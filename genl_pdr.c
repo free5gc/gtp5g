@@ -372,7 +372,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
         strncpy(pdr->addr_unix.sun_path, str, nla_len(info->attrs[GTP5G_PDR_UNIX_SOCKET_PATH]));
     }
 
-    /* Not in 3GPP spec, just used for buffering */
+    /* Not in 3GPP spec, just used for reporting */
     if (info->attrs[PDR_REPORT_UNIX_SOCKET_PATH]) {
         str = nla_data(info->attrs[PDR_REPORT_UNIX_SOCKET_PATH]);
         pdr->addr_unix_report.sun_family = AF_UNIX;
@@ -402,6 +402,9 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     }
 
     if (unix_sock_client_update(pdr) < 0)
+        return -EINVAL;
+
+    if (unix_sock_report_update(pdr) < 0)
         return -EINVAL;
 
     if (info->attrs[GTP5G_PDR_PDI]) {

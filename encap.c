@@ -425,8 +425,8 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
             urr->seid,
             urr->trigger,
             0, //queryurrreference
-            { // volumemeasurement
-                flag, // flag
+             // volumemeasurement
+            {   flag, // flag
                 
                 (pdr->ul_byte_cnt + pdr->dl_byte_cnt),
                 pdr->ul_byte_cnt,
@@ -452,10 +452,8 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
                 (((uint64_t)pdr->ul_byte_cnt >> 32) | ((uint64_t)pdr->ul_byte_cnt)),
                 (((uint64_t)pdr->dl_byte_cnt >> 32) | ((uint64_t)pdr->dl_byte_cnt)));
                 
-    // if (!pdr->sock_for_urr) {
-    //     GTP5G_ERR(NULL, "Failed: Socket for URR  is NULL\n");
-    if (!pdr->sock_for_buf) {
-        GTP5G_ERR(NULL, "Failed Socket buffer is NULL\n");
+    if (!pdr->sock_for_report) {
+        GTP5G_ERR(NULL, "Failed: Socket for URR  is NULL\n");
         return -EINVAL;
     }
 
@@ -489,7 +487,7 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
     set_fs(KERNEL_DS);
 #endif
 
-    rt = sock_sendmsg(pdr->sock_for_buf, &msg);
+    rt = sock_sendmsg(pdr->sock_for_report, &msg);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
     force_uaccess_end(oldfs);
