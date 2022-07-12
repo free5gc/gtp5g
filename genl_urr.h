@@ -50,13 +50,21 @@ enum gtp5g_urr_volume_quota_attrs {
 #define GTP5G_URR_VOLUME_QUOTA_ATTR_MAX (__GTP5G_URR_VOLUME_QUOTA_ATTR_MAX - 1)
 
 struct user_report {
-    u32 flag;
-    u64 totalVolume;
-    u64 uplinkVolume;
-    u64 downlinkVolume;
-    u64 totalPktNum;
-    u64 uplinkPktNum;
-    u64 downlinkPktNum;
+
+	uint32_t 	urrid; 					/* 8.2.54 URR_ID */
+
+    uint32_t usageReportTrigger;          /* 8.2.40 Measurement Method */
+    uint32_t queryUrrReference;         /* 8.2.43 Measurement Period */
+
+    struct{
+        u64 totalVolume;
+        u64 uplinkVolume;
+        u64 downlinkVolume;
+        u64 totalPktNum;
+        u64 uplinkPktNum;
+        u64 downlinkPktNum;
+    } volumeMeasurement;
+
     u64 start_time;
     u64 end_time;
     u64 time_of_fst_pkt;
