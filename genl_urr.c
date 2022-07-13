@@ -30,13 +30,11 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
-    GTP5G_LOG(NULL,"nla_get_u32(info->attrs[GTP5G_LINK]\n");
 
     if (info->attrs[GTP5G_NET_NS_FD])
         netnsfd = nla_get_u32(info->attrs[GTP5G_NET_NS_FD]);
     else
         netnsfd = -1;
-    GTP5G_LOG(NULL,"GTP5G_NET_NS_FD\n");
 
     rtnl_lock();
     rcu_read_lock();
@@ -47,14 +45,12 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
         rtnl_unlock();
         return -ENODEV;
     }
-    GTP5G_LOG(NULL,"gtp5g_find_dev\n");
 
     if (info->attrs[GTP5G_URR_SEID]) {
         seid = nla_get_u64(info->attrs[GTP5G_URR_SEID]);
     } else {
         seid = 0;
     }
-    GTP5G_LOG(NULL,"GTP5G_URR_SEID\n");
 
     if (info->attrs[GTP5G_URR_ID]) {
         urr_id = nla_get_u32(info->attrs[GTP5G_URR_ID]);
@@ -63,7 +59,6 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
         rtnl_unlock();
         return -ENODEV;
     }
-    GTP5G_LOG(NULL,"GTP5G_URR_ID\n");
 
     urr = find_urr_by_id(gtp, seid, urr_id);
 
@@ -83,6 +78,7 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
             urr_context_delete(urr);
             return err;
         }
+        GTP5G_LOG(NULL,"gtp5g_genl_add_urr success\n");
         return 0;
     }
 
@@ -306,51 +302,43 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
     GTP5G_LOG(NULL,"urr_fill\n");
 
     urr->id = nla_get_u32(info->attrs[GTP5G_URR_ID]);
-    GTP5G_LOG(NULL,"GTP5G_URR_SEID:%d\n",urr->id);
-
 
     if (info->attrs[GTP5G_URR_SEID])
         urr->seid = nla_get_u64(info->attrs[GTP5G_URR_SEID]);
     else
         urr->seid = 0;
-    GTP5G_LOG(NULL,"GTP5G_URR_SEID:%lld\n",urr->seid);
 
     if (info->attrs[GTP5G_URR_MEASUREMENT_METHOD])
         urr->method = nla_get_u64(info->attrs[GTP5G_URR_MEASUREMENT_METHOD]);
 
-    GTP5G_LOG(NULL,"GTP5G_URR_MEASUREMENT_METHOD:%lld\n",urr->method);
 
     if (info->attrs[GTP5G_URR_REPORTING_TRIGGER])
         urr->trigger = nla_get_u64(info->attrs[GTP5G_URR_REPORTING_TRIGGER]);
-    GTP5G_LOG(NULL,"GTP5G_URR_REPORTING_TRIGGER:%lld\n",urr->trigger);
 
     if (info->attrs[GTP5G_URR_MEASUREMENT_PERIOD])
         urr->period = nla_get_u64(info->attrs[GTP5G_URR_MEASUREMENT_PERIOD]);
-    GTP5G_LOG(NULL,"GTP5G_URR_MEASUREMENT_PERIOD:%lld\n",urr->period);
 
     if (info->attrs[GTP5G_URR_MEASUREMENT_INFO])
         urr->info = nla_get_u64(info->attrs[GTP5G_URR_MEASUREMENT_INFO]);
-    GTP5G_LOG(NULL,"GTP5G_URR_MEASUREMENT_INFO:%lld\n",urr->info);
 
     if (info->attrs[GTP5G_URR_SEQ]){
         urr->seq = nla_get_u64(info->attrs[GTP5G_URR_SEQ]);
-        GTP5G_LOG(NULL,"GTP5G_URR_SEQ:%lld\n",urr->seq);
     }
 
     if (info->attrs[GTP5G_URR_VOLUME_THRESHOLD]) {
         parse_volumethreshold(urr,info->attrs[GTP5G_URR_VOLUME_THRESHOLD]);
-        GTP5G_LOG(NULL,"GTP5G_URR_VOLUME_THRESHOLD:%d\n",urr->volumethreshold->flag);
     }
 
 
     if (info->attrs[GTP5G_URR_VOLUME_QUOTA]) {
         parse_volumeqouta(urr,info->attrs[GTP5G_URR_VOLUME_QUOTA]);
-        GTP5G_LOG(NULL,"GTP5G_URR_VOLUME_QUOTA:%d\n",urr->volumequota->flag);
 
     }
 
     /* Update PDRs which has not linked to this URR */
     urr_update(urr, gtp);
+    GTP5G_LOG(NULL,"urr_success\n");
+
     return 0;
 }
 
@@ -477,9 +465,10 @@ static int gtp5g_genl_fill_volume_quota(struct sk_buff *skb, struct VolumeQuota 
 static int gtp5g_genl_fill_urr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         u32 type, struct urr *urr)
 {
-
+    struct gtp5g_dev *gtp = netdev_priv(urr->dev);
     void *genlh;
-    GTP5G_LOG(NULL,"gtp5g_genl_fill_urr\n");
+    u16 *ids;
+    int n;
 
     genlh = genlmsg_put(skb, snd_portid, snd_seq,
             &gtp5g_genl_family, 0, type);
@@ -511,6 +500,18 @@ static int gtp5g_genl_fill_urr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         if(gtp5g_genl_fill_volume_quota(skb,urr->volumequota))
             goto genlmsg_fail;
     }
+
+    ids = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
+    if (!ids)
+        goto genlmsg_fail;
+    n = urr_get_pdr_ids(ids, 0xff, urr, gtp);
+    if (n) {
+        if (nla_put(skb, GTP5G_URR_RELATED_TO_PDR, n * sizeof(u16), ids)) {
+            kfree(ids);
+            goto genlmsg_fail;
+        }
+    }
+    kfree(ids);
 
     genlmsg_end(skb, genlh);
     return 0;
