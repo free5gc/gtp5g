@@ -48,6 +48,22 @@
 #define URR_VOLUME_MEASUREMENT_ULNOP 0x10
 #define URR_VOLUME_MEASUREMENT_DLNOP 0x20
 
+struct VolumeThreshold{        
+    uint8_t flag;
+
+    uint64_t totalVolume;
+    uint64_t uplinkVolume;
+    uint64_t downlinkVolume;
+}; 
+
+struct VolumeQuota{        
+    uint8_t flag;
+
+    uint64_t totalVolume;
+    uint64_t uplinkVolume;
+    uint64_t downlinkVolume;
+}; 
+
 struct urr {
     struct hlist_node hlist_id;
     u64 seid;
@@ -63,27 +79,8 @@ struct urr {
     u64 threshold_uvol;
     u64 threshold_dvol;
 
-    struct{        
-        uint8_t flag;
-
-        uint32_t tovol_high;
-        uint32_t tovol_low;
-        uint32_t uvol_high;
-        uint32_t uvol_low;
-        uint32_t dvol_high;
-        uint32_t dvol_low;
-    }volumethreshold; 
-
-    struct{
-        uint8_t flag;
-
-        uint32_t tovol_high;
-        uint32_t tovol_low;
-        uint32_t uvol_high;
-        uint32_t uvol_low;
-        uint32_t dvol_high;
-        uint32_t dvol_low;
-    }volumequota;      
+    struct VolumeThreshold *volumethreshold; 
+    struct VolumeQuota *volumequota;      
 
     // For usage report time info
     ktime_t  time_of_fst_pkt;

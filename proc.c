@@ -24,6 +24,7 @@ struct proc_gtp5g_pdr {
     
     u32     far_id;
     u32     qer_id;
+    u32     urr_id;
 
     u64     ul_drop_cnt;
     u64     dl_drop_cnt;
@@ -60,11 +61,13 @@ struct proc_dir_entry *proc_gtp5g_qer = NULL;
 struct proc_gtp5g_pdr proc_pdr;
 struct proc_gtp5g_far proc_far;
 struct proc_gtp5g_qer proc_qer;
+struct proc_gtp5g_qer proc_urr;
 
 u64 proc_seid = 0;
 u16 proc_pdr_id = 0;
 u32 proc_far_id = 0;
 u32 proc_qer_id = 0;
+u32 proc_urr_id = 0;
 
 struct list_head * get_proc_gtp5g_dev_list_head(){
     return &proc_gtp5g_dev;
@@ -185,6 +188,21 @@ static int gtp5g_qer_read(struct seq_file *s, void *v)
     return 0;
 }
 
+static int gtp5g_urr_read(struct seq_file *s, void *v) 
+{
+    if (!proc_urr_id) {
+        seq_printf(s, "Given URR ID does not exists\n");
+        return -1;
+    }
+    
+    seq_printf(s, "URR: \n");
+    seq_printf(s, "\t SEID : %llu\n", proc_urr.seid);
+    seq_printf(s, "\t ID : %u\n", proc_urr.id);
+    
+    //TODO: urr attributes
+    return 0;
+}
+
 static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
     size_t len, loff_t *dptr) 
 {
@@ -247,6 +265,9 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
     
     if (pdr->qer_id)
         proc_pdr.qer_id = *pdr->qer_id;
+
+    if (pdr->urr_id)
+        proc_pdr.urr_id = *pdr->urr_id;
 
     proc_pdr.ul_drop_cnt = pdr->ul_drop_cnt;
     proc_pdr.dl_drop_cnt = pdr->dl_drop_cnt;
@@ -366,6 +387,58 @@ err:
     return -1;
 }
 
+static ssize_t proc_urr_write(struct file *filp, const char __user *buffer,
+    size_t len, loff_t *dptr) 
+{
+    char buf[128], dev_name[32];
+    u8 found = 0;
+    unsigned long buf_len = min(sizeof(buf) - 1, len);
+    struct urr *urr;
+    struct gtp5g_dev *gtp;
+    
+    if (copy_from_user(buf, buffer, buf_len)) {
+        GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);
+        goto err;
+    }
+    
+    buf[buf_len] = 0;
+    if (sscanf(buf, "%s %llu %u", dev_name, &proc_seid, &proc_urr_id) != 3) {
+        GTP5G_ERR(NULL, "proc write of URR Dev & ID: %s is not valid\n", buf);
+        goto err;
+    }
+    
+    list_for_each_entry_rcu(gtp, &proc_gtp5g_dev, proc_list) {
+        if (strcmp(dev_name, netdev_name(gtp->dev)) == 0) {
+            found = 1;
+            break;
+        }
+    }
+    if (!found) {
+        GTP5G_ERR(NULL, "Given dev: %s not exists\n", dev_name);
+        goto err;
+    }
+
+    urr = find_urr_by_id(gtp, proc_seid, proc_urr_id);
+    if (!urr) {
+        GTP5G_ERR(NULL, "Given URR ID : %u not exists\n", proc_urr_id);
+        goto err;
+    }
+    
+    memset(&proc_urr, 0, sizeof(proc_urr));
+    proc_urr.id = urr->id;
+    proc_urr.seid = urr->seid;
+
+    return strnlen(buf, buf_len);
+err:
+    proc_urr_id = 0;
+    return -1;
+}
+
+static int proc_urr_read(struct inode *inode, struct file *file)
+{
+    return single_open(file, gtp5g_urr_read, NULL);
+}
+
 static int proc_pdr_read(struct inode *inode, struct file *file)
 {
     return single_open(file, gtp5g_pdr_read, NULL);
@@ -452,6 +525,25 @@ static const struct file_operations proc_gtp5g_qer_ops = {
     .open       = proc_qer_read,
     .read       = seq_read,
     .write      = proc_qer_write,
+    .llseek     = seq_lseek,
+    .release    = single_release,
+};
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+static const struct proc_ops proc_gtp5g_urr_ops = {
+    .proc_open = proc_urr_read,
+    .proc_read = seq_read,
+    .proc_write = proc_urr_write,
+    .proc_lseek = seq_lseek,
+    .proc_release = single_release,
+};
+#else
+static const struct file_operations proc_gtp5g_urr_ops = {
+    .owner      = THIS_MODULE,
+    .open       = proc_urr_read,
+    .read       = seq_read,
+    .write      = proc_urr_write,
     .llseek     = seq_lseek,
     .release    = single_release,
 };

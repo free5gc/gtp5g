@@ -8,7 +8,7 @@ make: *** No rule to make target 'all'.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Tue Jul 12 07:40:44 2022
+# Make data base, printed on Wed Jul 13 06:18:26 2022
 
 # Variables
 
@@ -39,7 +39,7 @@ SHELL = /bin/sh
 # environment
 VSCODE_NLS_CONFIG = {"locale":"en","availableLanguages":{}}
 # environment
-_ = /home/free5gc/.vscode-server/bin/92d25e35d9bf1a6b16f7d0758f25d48ace11e5b9/node
+_ = /home/free5gc/.vscode-server/bin/b06ae3b2d2dbfe28bca3134cc6be65935cdfea6a/node
 # makefile (from 'Makefile', line 1)
 MAKEFILE_LIST :=  Makefile
 # makefile (from 'Makefile', line 24)
@@ -61,9 +61,9 @@ LESSOPEN = | /usr/bin/lesspipe %s
 # environment
 VSCODE_CWD = /home/free5gc
 # environment
-SSH_CONNECTION = 192.168.75.1 50064 192.168.75.128 22
+SSH_CONNECTION = 192.168.75.1 58367 192.168.75.128 22
 # environment
-PATH = /home/free5gc/.vscode-server/bin/92d25e35d9bf1a6b16f7d0758f25d48ace11e5b9/bin/remote-cli:/home/free5gc/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin
+PATH = /home/free5gc/.vscode-server/bin/b06ae3b2d2dbfe28bca3134cc6be65935cdfea6a/bin/remote-cli:/home/free5gc/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin
 # environment
 XDG_RUNTIME_DIR = /run/user/1000
 # environment
@@ -73,7 +73,7 @@ MY_CFLAGS = -g -DDEBUG $(RHEL8FLAG)
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-VSCODE_IPC_HOOK_CLI = /run/user/1000/vscode-ipc-24a37d2e-ae6e-4f5e-be75-02bffa25f3bf.sock
+VSCODE_IPC_HOOK_CLI = /run/user/1000/vscode-ipc-9c83ec06-d794-490a-ae84-6af47f9f5db1.sock
 # default
 .FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell archives jobserver output-sync check-symlink load
 # makefile (from 'Makefile', line 10)
@@ -101,7 +101,7 @@ DEPMOD := /sbin/depmod -a
 # environment
 LOGNAME = free5gc
 # environment
-APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = true
+APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = 1
 # automatic
 +F = $(notdir $+)
 # environment
@@ -123,7 +123,7 @@ SHLVL = 0
 # makefile (from 'Makefile', line 37)
 CC = ${MY_CFLAGS}
 # environment
-XDG_SESSION_ID = 70
+XDG_SESSION_ID = 2
 # environment
 USER = free5gc
 # makefile
@@ -136,8 +136,6 @@ GOROOT = /usr/local/go
 %D = $(patsubst %/,%,$(dir $%))
 # default
 MAKE_COMMAND := make
-# environment
-OLDPWD = /home/free5gc/.vscode-server/bin/92d25e35d9bf1a6b16f7d0758f25d48ace11e5b9
 # default
 .VARIABLES := 
 # automatic
@@ -147,13 +145,13 @@ MAKEFLAGS = pqrR
 # environment
 MFLAGS = -pqrR
 # environment
-SSH_CLIENT = 192.168.75.1 50064 22
+SSH_CLIENT = 192.168.75.1 58367 22
 # makefile (from 'Makefile', line 14)
 KVER := 5.4.0-121-generic
 # automatic
 +D = $(patsubst %/,%,$(dir $+))
 # environment
-BROWSER = /home/free5gc/.vscode-server/bin/92d25e35d9bf1a6b16f7d0758f25d48ace11e5b9/bin/helpers/browser.sh
+BROWSER = /home/free5gc/.vscode-server/bin/b06ae3b2d2dbfe28bca3134cc6be65935cdfea6a/bin/helpers/browser.sh
 # environment
 VSCODE_HANDLES_SIGPIPE = true
 # 'override' directive
@@ -183,7 +181,7 @@ LANG = C
 # environment
 MOTD_SHOWN = pam
 # variable set hash-table stats:
-# Load=85/1024=8%, Rehash=0, Collisions=10/147=7%
+# Load=84/1024=8%, Rehash=0, Collisions=10/146=7%
 
 # Pattern-specific Variable Values
 
@@ -191,9 +189,9 @@ MOTD_SHOWN = pam
 
 # Directories
 
-# . (device 64768, inode 421051): 62 files, no impossibilities.
+# . (device 64768, inode 421051): 117 files, no impossibilities.
 
-# 62 files, no impossibilities in 1 directories.
+# 117 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -269,12 +267,12 @@ install:
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 72 / storage = 599 B / avg = 8 B
-# current buf: size = 8162 B / used = 599 B / count = 72 / avg = 8 B
+# strcache buffers: 1 (0) / strings = 127 / storage = 1200 B / avg = 9 B
+# current buf: size = 8162 B / used = 1200 B / count = 127 / avg = 9 B
 
-# strcache performance: lookups = 82 / hit rate = 12%
+# strcache performance: lookups = 137 / hit rate = 7%
 # hash-table stats:
-# Load=72/8192=1%, Rehash=0, Collisions=1/82=1%
-# Finished Make data base on Tue Jul 12 07:40:44 2022
+# Load=127/8192=2%, Rehash=0, Collisions=3/137=2%
+# Finished Make data base on Wed Jul 13 06:18:26 2022
 
  

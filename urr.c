@@ -5,15 +5,19 @@
 #include "pdr.h"
 #include "seid.h"
 #include "hash.h"
+#include "log.h"
 
 static void seid_urr_id_to_hex_str(u64 seid_int, u32 urr_id, char *buff)
 {
     seid_and_u32id_to_hex_str(seid_int, urr_id, buff);
+    GTP5G_LOG(NULL,"seid_urr_id_to_hex_str\n");
+
 }
 
 static void urr_context_free(struct rcu_head *head)
 {
     struct urr *urr = container_of(head, struct urr, rcu_head);
+    GTP5G_LOG(NULL,"urr_context_free\n");
 
     if (!urr)
         return;
@@ -27,6 +31,9 @@ void urr_context_delete(struct urr *urr)
     struct hlist_head *head;
     struct pdr *pdr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
+
+    GTP5G_LOG(NULL,"urr_context_delete\n");
+
     if (!urr)
         return;
 
@@ -47,9 +54,11 @@ void urr_context_delete(struct urr *urr)
 
 struct urr *find_urr_by_id(struct gtp5g_dev *gtp, u64 seid, u32 urr_id)
 {
+
     struct hlist_head *head;
     struct urr *urr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
+    GTP5G_LOG(NULL,"find_urr_by_id\n");
 
     seid_urr_id_to_hex_str(seid, urr_id, seid_urr_id_hexstr);
     head = &gtp->urr_id_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
@@ -63,14 +72,18 @@ struct urr *find_urr_by_id(struct gtp5g_dev *gtp, u64 seid, u32 urr_id)
 
 void urr_update(struct urr *urr, struct gtp5g_dev *gtp)
 {
+
     struct pdr *pdr;
     struct hlist_head *head;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
+    
     hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
         if (*pdr->urr_id == urr->id) {
+            GTP5G_LOG(NULL,"urr->id:%d\n",urr->id);
+            GTP5G_LOG(NULL,"*pdr->urr_id:%d\n",*pdr->urr_id);
             pdr->urr = urr;
             unix_sock_client_update(pdr);
         }
@@ -79,8 +92,10 @@ void urr_update(struct urr *urr, struct gtp5g_dev *gtp)
 
 void urr_append(u64 seid, u32 urr_id, struct urr *urr, struct gtp5g_dev *gtp)
 {
+
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     u32 i;
+    GTP5G_LOG(NULL,"urr_append\n");
 
     seid_urr_id_to_hex_str(seid, urr_id, seid_urr_id_hexstr);
     i = str_hashfn(seid_urr_id_hexstr) % gtp->hash_size;
@@ -89,10 +104,12 @@ void urr_append(u64 seid, u32 urr_id, struct urr *urr, struct gtp5g_dev *gtp)
 
 int urr_get_pdr_ids(u16 *ids, int n, struct urr *urr, struct gtp5g_dev *gtp)
 {
+
     struct hlist_head *head;
     struct pdr *pdr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     int i;
+    GTP5G_LOG(NULL,"urr_get_pdr_ids\n");
 
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
@@ -108,8 +125,10 @@ int urr_get_pdr_ids(u16 *ids, int n, struct urr *urr, struct gtp5g_dev *gtp)
 
 void urr_set_pdr(u64 seid, u32 urr_id, struct hlist_node *node, struct gtp5g_dev *gtp)
 {
+
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     u32 i;
+    GTP5G_LOG(NULL,"urr_set_pdr\n");
 
     if (!hlist_unhashed(node))
         hlist_del_rcu(node);

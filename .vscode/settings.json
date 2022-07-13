@@ -3,6 +3,8 @@
     "files.associations": {
         "urr.h": "c",
         "genl.h": "c",
-        "genl_urr.h": "c"
+        "genl_urr.h": "c",
+        "hash.h": "c",
+        "log.h": "c"
     }
 }

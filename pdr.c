@@ -38,6 +38,8 @@ static void pdr_context_free(struct rcu_head *head)
             kfree(pdr->far_id);
         if (pdr->qer_id)
             kfree(pdr->qer_id);
+        if (pdr->urr_id)
+            kfree(pdr->urr_id);
 
         sdf = pdi->sdf;
         if (sdf) {
@@ -87,7 +89,9 @@ void pdr_context_delete(struct pdr *pdr)
 
     if (!hlist_unhashed(&pdr->hlist_related_qer))
         hlist_del_rcu(&pdr->hlist_related_qer);
-
+        
+    if (!hlist_unhashed(&pdr->hlist_related_urr))
+        hlist_del_rcu(&pdr->hlist_related_urr);
     call_rcu(&pdr->rcu_head, pdr_context_free);
 }
 

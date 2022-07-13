@@ -15,6 +15,8 @@
 #include <linux/rculist.h>
 #include <net/netns/generic.h>
 #include "net.h"
+#include "log.h"
+
 #include "util.h"
 
 static int pdr_fill(struct pdr *, struct gtp5g_dev *, struct genl_info *);
@@ -399,6 +401,18 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
         *pdr->qer_id = nla_get_u32(info->attrs[GTP5G_PDR_QER_ID]);
         pdr->qer = find_qer_by_id(gtp, pdr->seid, *pdr->qer_id);
         qer_set_pdr(pdr->seid, *pdr->qer_id, &pdr->hlist_related_qer, gtp);
+    }
+
+    if (info->attrs[GTP5G_PDR_URR_ID]) {
+        if (!pdr->urr_id) {
+            pdr->urr_id = kzalloc(sizeof(*pdr->urr_id), GFP_ATOMIC);
+            if (!pdr->urr_id)
+                return -ENOMEM;
+        }
+        *pdr->urr_id = nla_get_u32(info->attrs[GTP5G_PDR_URR_ID]);
+        pdr->urr = find_urr_by_id(gtp, pdr->seid, *pdr->urr_id);
+        urr_set_pdr(pdr->seid, *pdr->urr_id, &pdr->hlist_related_urr, gtp);
+        GTP5G_LOG(NULL,"pdr->urr_id:%d\n",*pdr->urr_id);
     }
 
     if (unix_sock_client_update(pdr) < 0)
@@ -817,6 +831,11 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
             goto genlmsg_fail;
     }
 
+    if (pdr->urr_id) {
+        if (nla_put_u32(skb, GTP5G_PDR_URR_ID, *pdr->urr_id))
+            goto genlmsg_fail;
+    }
+    
     if (pdr->role_addr_ipv4.s_addr) {
         if (nla_put_u32(skb, GTP5G_PDR_ROLE_ADDR_IPV4, pdr->role_addr_ipv4.s_addr))
             goto genlmsg_fail;

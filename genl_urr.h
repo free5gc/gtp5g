@@ -23,12 +23,9 @@ enum gtp5g_urr_attrs {
 enum gtp5g_urr_volume_threshold_attrs {
     GTP5G_URR_VOLUME_THRESHOLD_FLAG = 1,
 
-    GTP5G_URR_VOLUME_THRESHOLD_TOVOL_HIGH32,
-    GTP5G_URR_VOLUME_THRESHOLD_TOVOL_LOW32,
-    GTP5G_URR_VOLUME_THRESHOLD_UVOL_HIGH32,
-    GTP5G_URR_VOLUME_THRESHOLD_UVOL_LOW32,
-    GTP5G_URR_VOLUME_THRESHOLD_DVOL_HIGH32,
-    GTP5G_URR_VOLUME_THRESHOLD_DVOL_LOW32,
+    GTP5G_URR_VOLUME_THRESHOLD_TOVOL,
+    GTP5G_URR_VOLUME_THRESHOLD_UVOL,
+    GTP5G_URR_VOLUME_THRESHOLD_DVOL,
 
     __GTP5G_URR_VOLUME_THRESHOLD_ATTR_MAX,
 };
@@ -38,55 +35,55 @@ enum gtp5g_urr_volume_threshold_attrs {
 enum gtp5g_urr_volume_quota_attrs {
     GTP5G_URR_VOLUME_QUOTA_FLAG = 1,
 
-    GTP5G_URR_VOLUME_QUOTA_TOVOL_HIGH32,
-    GTP5G_URR_VOLUME_QUOTA_TOVOL_LOW32,
-    GTP5G_URR_VOLUME_QUOTA_UVOL_HIGH32,
-    GTP5G_URR_VOLUME_QUOTA_UVOL_LOW32,
-    GTP5G_URR_VOLUME_QUOTA_DVOL_HIGH32,
-    GTP5G_URR_VOLUME_QUOTA_DVOL_LOW32,
+    GTP5G_URR_VOLUME_QUOTA_TOVOL,
+    GTP5G_URR_VOLUME_QUOTA_UVOL,
+    GTP5G_URR_VOLUME_QUOTA_DVOL,
 
     __GTP5G_URR_VOLUME_QUOTA_ATTR_MAX,
 };
 #define GTP5G_URR_VOLUME_QUOTA_ATTR_MAX (__GTP5G_URR_VOLUME_QUOTA_ATTR_MAX - 1)
 
+struct VolumeMeasurement{
+    u8 flag;
+    u64 totalVolume;
+    u64 uplinkVolume;
+    u64 downlinkVolume;
+    u64 totalPktNum;
+    u64 uplinkPktNum;
+    u64 downlinkPktNum;
+};
+
+struct UsageReportTrigger{
+    u8 perio; 
+    u8 volth; 
+    u8 timth;
+    u8 quhti; 
+    u8 start; 
+    u8 stopt; 
+    u8 droth; 
+    u8 immer; 
+    u8 volqu; 
+    u8 timqu; 
+    u8 liusa; 
+    u8 termr; 
+    u8 monit; 
+    u8 envcl; 
+    u8 macar; 
+    u8 eveth; 
+    u8 evequ; 
+    u8 tebur; 
+    u8 ipmjl; 
+    u8 quvti; 
+    u8 emrre; 
+};
+
 struct user_report {
 	uint32_t urrid; 					/* 8.2.54 URR_ID */
     uint32_t uRSEQN;
-    uint32_t queryUrrReference;         
-
-    struct {
-        u8 perio; 
-        u8 volth; 
-        u8 timth;
-        u8 quhti; 
-        u8 start; 
-        u8 stopt; 
-        u8 droth; 
-        u8 immer; 
-        u8 volqu; 
-        u8 timqu; 
-        u8 liusa; 
-        u8 termr; 
-        u8 monit; 
-        u8 envcl; 
-        u8 macar; 
-        u8 eveth; 
-        u8 evequ; 
-        u8 tebur; 
-        u8 ipmjl; 
-        u8 quvti; 
-        u8 emrre; 
-    }UsageReportTrigger;
-
-    struct{
-        u8 flag;
-        u64 totalVolume;
-        u64 uplinkVolume;
-        u64 downlinkVolume;
-        u64 totalPktNum;
-        u64 uplinkPktNum;
-        u64 downlinkPktNum;
-    } volumeMeasurement;
+    uint32_t queryUrrRef;         
+    
+    struct UsageReportTrigger trigger ;
+    struct VolumeMeasurement volmeasurement;
 
     u64 start_time;
     u64 end_time;

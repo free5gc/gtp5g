@@ -410,7 +410,8 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
     u64 self_seid_hdr[1] = {pdr->seid};
     u16 self_hdr[1] = {pdr->far->action};
     struct user_report report;
-
+    struct VolumeMeasurement volmeasurement;
+    struct UsageReportTrigger trigger;
     // 8.2.44 Volume Measurement octet 5
     // flags are control by GTP5G
     flag = URR_VOLUME_MEASUREMENT_TOVOL | URR_VOLUME_MEASUREMENT_ULVOL | URR_VOLUME_MEASUREMENT_DLVOL;
@@ -422,23 +423,31 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
         urr->time_of_lst_pkt = urr->time_of_fst_pkt;
     urr->end_time = ktime_get_real();
 
+
+    trigger = (struct UsageReportTrigger){
+        // TODO: urr trigger transform to user report trigger
+    };
+    volmeasurement = (struct VolumeMeasurement){   
+        flag, // flag
+            
+        (pdr->ul_byte_cnt + pdr->dl_byte_cnt),
+        pdr->ul_byte_cnt,
+        pdr->dl_byte_cnt,
+
+        (pdr->ul_pkt_cnt + pdr->dl_pkt_cnt),
+        pdr->ul_pkt_cnt,
+        pdr->dl_pkt_cnt, 
+    };
+
     report = (struct user_report){
             urr->id,
-            urr->seid,
-            urr->trigger,
+            // TODO: uRSEQN
+            0,
             0, //queryurrreference
-             // volumemeasurement
-            {   flag, // flag
-                
-                (pdr->ul_byte_cnt + pdr->dl_byte_cnt),
-                pdr->ul_byte_cnt,
-                pdr->dl_byte_cnt,
 
-                (pdr->ul_pkt_cnt + pdr->dl_pkt_cnt),
-                pdr->ul_pkt_cnt,
-                pdr->dl_pkt_cnt, 
+            trigger,
+            volmeasurement, // volumemeasurement
 
-            },
             urr->start_time,
             urr->end_time,
             urr->time_of_fst_pkt,
@@ -568,7 +577,7 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
                     GTP5G_TRC(NULL,"URR Volume Threshold Uplink volume:%lld\n",urr->threshold_uvol);
                     GTP5G_TRC(NULL,"URR Volume Threshold Total volume:%lld\n",urr->threshold_tovol);
 
-                    if(urr->threshold_tovol && pdr->ul_byte_cnt + pdr->dl_byte_cnt >= urr->threshold_tovol && (urr->volumethreshold.flag & URR_VOLUME_THRESHOLD_TOVOL)){
+                    if(urr->threshold_tovol && pdr->ul_byte_cnt + pdr->dl_byte_cnt >= urr->threshold_tovol && ((urr->volumethreshold->flag) & URR_VOLUME_THRESHOLD_TOVOL)){
                         urr->time_of_lst_pkt = ktime_get_real();
                         if (gtp5g_send_usage_report(pdr, urr) < 0) {
                             GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
@@ -582,12 +591,12 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
                             pdr->ul_pkt_cnt = 0;
 
                             // re-apply all the thresholds
-                            urr->threshold_tovol = urr->volumethreshold.tovol_low | ((u64)urr->volumethreshold.tovol_high << 32);
-                            urr->threshold_uvol = urr->volumethreshold.uvol_low | ((u64)urr->volumethreshold.uvol_high << 32);
-                            urr->threshold_dvol = urr->volumethreshold.dvol_low | ((u64)urr->volumethreshold.dvol_high << 32);
+                            urr->threshold_tovol = urr->volumethreshold->totalVolume;
+                            urr->threshold_uvol = urr->volumethreshold->uplinkVolume;
+                            urr->threshold_dvol = urr->volumethreshold->downlinkVolume;
                         }
                     }
-                    else if(urr->threshold_uvol && pdr->ul_byte_cnt >= urr->threshold_uvol && (urr->volumethreshold.flag & URR_VOLUME_THRESHOLD_ULVOL)){
+                    else if(urr->threshold_uvol && pdr->ul_byte_cnt >= urr->threshold_uvol && ((urr->volumethreshold->flag) & URR_VOLUME_THRESHOLD_ULVOL)){
                         urr->time_of_lst_pkt = ktime_get_real();
                             // send report
                         if (gtp5g_send_usage_report(pdr, urr) < 0) {
@@ -602,9 +611,9 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
                             pdr->ul_pkt_cnt = 0;
 
                             // re-apply all the thresholds
-                            urr->threshold_tovol = urr->volumethreshold.tovol_low | ((u64)urr->volumethreshold.tovol_high << 32);
-                            urr->threshold_uvol = urr->volumethreshold.uvol_low | ((u64)urr->volumethreshold.uvol_high << 32);
-                            urr->threshold_dvol = urr->volumethreshold.dvol_low | ((u64)urr->volumethreshold.dvol_high << 32);
+                            urr->threshold_tovol = urr->volumethreshold->totalVolume;
+                            urr->threshold_uvol = urr->volumethreshold->uplinkVolume;
+                            urr->threshold_dvol = urr->volumethreshold->downlinkVolume;
                         }
                     }
 
@@ -788,7 +797,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                     GTP5G_TRC(NULL,"URR Volume Threshold Uplink volume:%lld\n", urr->threshold_uvol);
                     GTP5G_TRC(NULL,"URR Volume Threshold Total volume:%lld\n", urr->threshold_tovol);
 
-                    if(urr->threshold_tovol && pdr->ul_byte_cnt + pdr->dl_byte_cnt >= urr->threshold_tovol && (urr->volumethreshold.flag & URR_VOLUME_THRESHOLD_TOVOL)){
+                    if(urr->threshold_tovol && pdr->ul_byte_cnt + pdr->dl_byte_cnt >= urr->threshold_tovol && ((urr->volumethreshold->flag) & URR_VOLUME_THRESHOLD_TOVOL)){
                         urr->time_of_lst_pkt = ktime_get_real();
 
                         if (gtp5g_send_usage_report(pdr, urr) < 0) {
@@ -803,12 +812,12 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                             pdr->ul_pkt_cnt = 0;
 
                             // re-apply all the thresholds
-                            urr->threshold_tovol = urr->volumethreshold.tovol_low | ((u64)urr->volumethreshold.tovol_high << 32);
-                            urr->threshold_uvol = urr->volumethreshold.uvol_low | ((u64)urr->volumethreshold.uvol_high << 32);
-                            urr->threshold_dvol = urr->volumethreshold.dvol_low | ((u64)urr->volumethreshold.dvol_high << 32);
+                            urr->threshold_tovol = urr->volumethreshold->totalVolume;
+                            urr->threshold_uvol = urr->volumethreshold->uplinkVolume;
+                            urr->threshold_dvol = urr->volumethreshold->downlinkVolume;
                         }
                     }
-                    else if(urr->threshold_uvol && pdr->ul_byte_cnt >= urr->threshold_uvol && (urr->volumethreshold.flag & URR_VOLUME_THRESHOLD_ULVOL)){
+                    else if(urr->threshold_uvol && pdr->ul_byte_cnt >= urr->threshold_uvol && ((urr->volumethreshold->flag) & URR_VOLUME_THRESHOLD_ULVOL)){
                         urr->time_of_lst_pkt = ktime_get_real();
                         // send report
                         if (gtp5g_send_usage_report(pdr, urr) < 0) {
@@ -823,9 +832,9 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                             pdr->ul_pkt_cnt = 0;
 
                             // re-apply all the thresholds
-                            urr->threshold_tovol = urr->volumethreshold.tovol_low | ((u64)urr->volumethreshold.tovol_high << 32);
-                            urr->threshold_uvol = urr->volumethreshold.uvol_low | ((u64)urr->volumethreshold.uvol_high << 32);
-                            urr->threshold_dvol = urr->volumethreshold.dvol_low | ((u64)urr->volumethreshold.dvol_high << 32);
+                            urr->threshold_tovol = urr->volumethreshold->totalVolume;
+                            urr->threshold_uvol = urr->volumethreshold->uplinkVolume;
+                            urr->threshold_dvol = urr->volumethreshold->downlinkVolume;
                         }
                     }
 
@@ -953,7 +962,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
                     GTP5G_TRC(NULL,"URR Volume Threshold Downlink volume:%lld\n",urr->threshold_dvol);
                     GTP5G_TRC(NULL,"URR Volume Threshold Total volume:%lld\n",urr->threshold_tovol);
 
-                    if(urr->threshold_tovol && pdr->dl_byte_cnt + pdr->ul_byte_cnt >= urr->threshold_tovol && (urr->volumethreshold.flag & URR_VOLUME_THRESHOLD_TOVOL)){
+                    if(urr->threshold_tovol && pdr->dl_byte_cnt + pdr->ul_byte_cnt >= urr->threshold_tovol && ((urr->volumethreshold->flag) & URR_VOLUME_THRESHOLD_TOVOL)){
                         urr->time_of_lst_pkt = ktime_get_real();
 
                         if (gtp5g_send_usage_report(pdr, urr) < 0) {
@@ -968,12 +977,12 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
                             pdr->ul_pkt_cnt = 0;
 
                             // re-apply all the thresholds
-                            urr->threshold_tovol = urr->volumethreshold.tovol_low | ((u64)urr->volumethreshold.tovol_high << 32);
-                            urr->threshold_uvol = urr->volumethreshold.uvol_low | ((u64)urr->volumethreshold.uvol_high << 32);
-                            urr->threshold_dvol = urr->volumethreshold.dvol_low | ((u64)urr->volumethreshold.dvol_high << 32);
+                            urr->threshold_tovol = urr->volumethreshold->totalVolume;
+                            urr->threshold_uvol = urr->volumethreshold->uplinkVolume;
+                            urr->threshold_dvol = urr->volumethreshold->downlinkVolume;
                         }
                     }
-                    else if(urr->threshold_dvol && pdr->dl_byte_cnt >= urr->threshold_dvol && (urr->volumethreshold.flag & URR_VOLUME_THRESHOLD_DLVOL)){
+                    else if(urr->threshold_dvol && pdr->dl_byte_cnt >= urr->threshold_dvol && ((urr->volumethreshold->flag) & URR_VOLUME_THRESHOLD_DLVOL)){
                         // send report'
                         urr->time_of_lst_pkt = ktime_get_real();
                         if (gtp5g_send_usage_report(pdr, urr) < 0) {
@@ -988,9 +997,9 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
                             pdr->ul_pkt_cnt = 0;
 
                             // re-apply all the thresholds
-                            urr->threshold_tovol = urr->volumethreshold.tovol_low | ((u64)urr->volumethreshold.tovol_high << 32);
-                            urr->threshold_uvol = urr->volumethreshold.uvol_low | ((u64)urr->volumethreshold.uvol_high << 32);
-                            urr->threshold_dvol = urr->volumethreshold.dvol_low | ((u64)urr->volumethreshold.dvol_high << 32);
+                            urr->threshold_tovol = urr->volumethreshold->totalVolume;
+                            urr->threshold_uvol = urr->volumethreshold->uplinkVolume;
+                            urr->threshold_dvol = urr->volumethreshold->downlinkVolume;
                         }
                     }
 
@@ -1094,7 +1103,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
                 if (urr->trigger & URR_TRIGGER_VOLTH) {
                     GTP5G_TRC(NULL,"URR Volume Threshold Downlink volume:%lld\n",urr->threshold_dvol);
                     GTP5G_TRC(NULL,"URR Volume Threshold Total volume:%lld\n",urr->threshold_tovol);
-                    if(urr->threshold_tovol && pdr->dl_byte_cnt + pdr->ul_byte_cnt >= urr->threshold_tovol && (urr->volumethreshold.flag & URR_VOLUME_THRESHOLD_TOVOL)){
+                    if(urr->threshold_tovol && pdr->dl_byte_cnt + pdr->ul_byte_cnt >= urr->threshold_tovol && ((urr->volumethreshold->flag) & URR_VOLUME_THRESHOLD_TOVOL)){
                         urr->time_of_lst_pkt = ktime_get_real();
 
                         if (gtp5g_send_usage_report(pdr, urr) < 0) {
@@ -1109,12 +1118,12 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
                             pdr->ul_pkt_cnt = 0;
 
                             // re-apply all the thresholds
-                            urr->threshold_tovol = urr->volumethreshold.tovol_low | ((u64)urr->volumethreshold.tovol_high << 32);
-                            urr->threshold_uvol = urr->volumethreshold.uvol_low | ((u64)urr->volumethreshold.uvol_high << 32);
-                            urr->threshold_dvol = urr->volumethreshold.dvol_low | ((u64)urr->volumethreshold.dvol_high << 32);
+                            urr->threshold_tovol = urr->volumethreshold->totalVolume;
+                            urr->threshold_uvol = urr->volumethreshold->uplinkVolume;
+                            urr->threshold_dvol = urr->volumethreshold->downlinkVolume;
                         }
                     }
-                    else if(urr->threshold_dvol && pdr->dl_byte_cnt >= urr->threshold_dvol && (urr->volumethreshold.flag & URR_VOLUME_THRESHOLD_DLVOL)){
+                else if(urr->threshold_dvol && pdr->dl_byte_cnt >= urr->threshold_dvol && ((urr->volumethreshold->flag)& URR_VOLUME_THRESHOLD_DLVOL)){
                         urr->time_of_lst_pkt = ktime_get_real();
 
                             // send report
@@ -1130,9 +1139,9 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
                             pdr->ul_pkt_cnt = 0;
 
                             // re-apply all the thresholds
-                            urr->threshold_tovol = urr->volumethreshold.tovol_low | ((u64)urr->volumethreshold.tovol_high << 32);
-                            urr->threshold_uvol = urr->volumethreshold.uvol_low | ((u64)urr->volumethreshold.uvol_high << 32);
-                            urr->threshold_dvol = urr->volumethreshold.dvol_low | ((u64)urr->volumethreshold.dvol_high << 32);
+                            urr->threshold_tovol = urr->volumethreshold->totalVolume;
+                            urr->threshold_uvol = urr->volumethreshold->uplinkVolume;
+                            urr->threshold_dvol = urr->volumethreshold->downlinkVolume;
                         }
                     }
 

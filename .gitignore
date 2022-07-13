@@ -4,5 +4,6 @@
 *.cmd
 *.mod
 *.mod.c
+*.log
 Module.symvers
 modules.order
