@@ -5,6 +5,8 @@
         "genl.h": "c",
         "genl_urr.h": "c",
         "hash.h": "c",
-        "log.h": "c"
+        "log.h": "c",
+        "net.h": "c",
+        "api_version.h": "c"
     }
 }

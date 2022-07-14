@@ -100,8 +100,11 @@ void unix_sock_client_delete(struct pdr *pdr)
 {
     if (pdr->sock_for_buf)
         sock_release(pdr->sock_for_buf);
+    if (pdr->sock_for_report)
+        sock_release(pdr->sock_for_report);
 
     pdr->sock_for_buf = NULL;
+    pdr->sock_for_report = NULL;   
 }
 
 
@@ -142,6 +145,8 @@ int unix_sock_client_update(struct pdr *pdr)
     if (far && (far->action & FAR_ACTION_BUFF))
         return unix_sock_client_new(pdr);
 
+    if (far && (far->action & FAR_ACTION_FORW))
+        return unix_sock_report_new(pdr);
     return 0;
 }
 

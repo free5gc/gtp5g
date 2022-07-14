@@ -8,7 +8,7 @@ make: *** No rule to make target 'all'.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Wed Jul 13 08:21:12 2022
+# Make data base, printed on Thu Jul 14 06:21:43 2022
 
 # Variables
 
@@ -61,7 +61,7 @@ LESSOPEN = | /usr/bin/lesspipe %s
 # environment
 VSCODE_CWD = /home/free5gc
 # environment
-SSH_CONNECTION = 192.168.75.1 53429 192.168.75.128 22
+SSH_CONNECTION = 192.168.75.1 60807 192.168.75.128 22
 # environment
 PATH = /home/free5gc/.vscode-server/bin/b06ae3b2d2dbfe28bca3134cc6be65935cdfea6a/bin/remote-cli:/home/free5gc/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin
 # environment
@@ -73,7 +73,7 @@ MY_CFLAGS = -g -DDEBUG $(RHEL8FLAG)
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-VSCODE_IPC_HOOK_CLI = /run/user/1000/vscode-ipc-29a7793b-1e48-4ff5-8f55-c5212cd617e3.sock
+VSCODE_IPC_HOOK_CLI = /run/user/1000/vscode-ipc-ca91120f-357d-40a5-a7b4-fd3f01196979.sock
 # default
 .FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell archives jobserver output-sync check-symlink load
 # makefile (from 'Makefile', line 10)
@@ -145,7 +145,7 @@ MAKEFLAGS = pqrR
 # environment
 MFLAGS = -pqrR
 # environment
-SSH_CLIENT = 192.168.75.1 53429 22
+SSH_CLIENT = 192.168.75.1 60807 22
 # makefile (from 'Makefile', line 14)
 KVER := 5.4.0-121-generic
 # automatic
@@ -189,9 +189,9 @@ MOTD_SHOWN = pam
 
 # Directories
 
-# . (device 64768, inode 421051): 118 files, no impossibilities.
+# . (device 64768, inode 393528): 119 files, no impossibilities.
 
-# 118 files, no impossibilities in 1 directories.
+# 119 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -219,7 +219,7 @@ uninstall:
 # Not a target:
 Makefile:
 #  Implicit rule search has been done.
-#  Last modified 2022-07-11 14:10:39.25594018
+#  Last modified 2022-07-13 08:25:36.322272163
 #  File has been updated.
 #  Successfully updated.
 
@@ -267,12 +267,12 @@ install:
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 128 / storage = 1203 B / avg = 9 B
-# current buf: size = 8162 B / used = 1203 B / count = 128 / avg = 9 B
+# strcache buffers: 1 (0) / strings = 129 / storage = 1214 B / avg = 9 B
+# current buf: size = 8162 B / used = 1214 B / count = 129 / avg = 9 B
 
-# strcache performance: lookups = 138 / hit rate = 7%
+# strcache performance: lookups = 139 / hit rate = 7%
 # hash-table stats:
-# Load=128/8192=2%, Rehash=0, Collisions=3/138=2%
-# Finished Make data base on Wed Jul 13 08:21:12 2022
+# Load=129/8192=2%, Rehash=0, Collisions=3/139=2%
+# Finished Make data base on Thu Jul 14 06:21:43 2022
 
  

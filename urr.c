@@ -55,7 +55,6 @@ struct urr *find_urr_by_id(struct gtp5g_dev *gtp, u64 seid, u32 urr_id)
     struct hlist_head *head;
     struct urr *urr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    GTP5G_LOG(NULL,"find_urr_by_id\n");
 
     seid_urr_id_to_hex_str(seid, urr_id, seid_urr_id_hexstr);
     head = &gtp->urr_id_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
@@ -79,14 +78,10 @@ void urr_update(struct urr *urr, struct gtp5g_dev *gtp)
     
     hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
         if (*pdr->urr_id == urr->id) {
-            GTP5G_LOG(NULL,"urr_update\n");
-            GTP5G_LOG(NULL,"\turr->id:%d\n",urr->id);
             pdr->urr = urr;
-            GTP5G_LOG(NULL,"\tpdr->urr->id:%d\n",pdr->urr->id);
             unix_sock_client_update(pdr);
         }
     }
-    GTP5G_LOG(NULL,"urr_update success\n");
 }
 
 void urr_append(u64 seid, u32 urr_id, struct urr *urr, struct gtp5g_dev *gtp)
@@ -107,7 +102,6 @@ int urr_get_pdr_ids(u16 *ids, int n, struct urr *urr, struct gtp5g_dev *gtp)
     struct pdr *pdr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     int i;
-    GTP5G_LOG(NULL,"urr_get_pdr_ids\n");
 
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
@@ -126,7 +120,6 @@ void urr_set_pdr(u64 seid, u32 urr_id, struct hlist_node *node, struct gtp5g_dev
 
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     u32 i;
-    GTP5G_LOG(NULL,"urr_set_pdr\n");
 
     if (!hlist_unhashed(node))
         hlist_del_rcu(node);

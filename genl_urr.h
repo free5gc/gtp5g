@@ -83,15 +83,16 @@ struct UsageReportTrigger{
 struct user_report {
 	uint32_t urrid; 					/* 8.2.54 URR_ID */
     uint32_t uRSEQN;
-    uint32_t queryUrrRef;         
     
     struct UsageReportTrigger trigger ;
     struct VolumeMeasurement volmeasurement;
 
-    u64 start_time;
-    u64 end_time;
-    u64 time_of_fst_pkt;
-    u64 time_of_lst_pkt;
+    // u64 start_time;
+    // u64 end_time;
+    // u64 time_of_fst_pkt;
+    // u64 time_of_lst_pkt;
+
+    uint32_t queryUrrRef;
 
 } __attribute__((packed));
 

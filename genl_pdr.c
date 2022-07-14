@@ -412,16 +412,9 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
         *pdr->urr_id = nla_get_u32(info->attrs[GTP5G_PDR_URR_ID]);
         pdr->urr = find_urr_by_id(gtp, pdr->seid, *pdr->urr_id);
         urr_set_pdr(pdr->seid, *pdr->urr_id, &pdr->hlist_related_urr, gtp);
-        
-        GTP5G_LOG(NULL,"PDR_URR\n");
-        GTP5G_LOG(NULL,"\turrid:%d\n",*pdr->urr_id);
-        GTP5G_LOG(NULL,"\tseid:%lld\n",pdr->urr->seid);
     }
 
     if (unix_sock_client_update(pdr) < 0)
-        return -EINVAL;
-
-    if (unix_sock_report_update(pdr) < 0)
         return -EINVAL;
 
     if (info->attrs[GTP5G_PDR_PDI]) {
