@@ -559,25 +559,14 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     if (IS_ERR(rt))
         goto err;
 
-    if (!pdr->qer) {
-        gtp5g_set_pktinfo_ipv4(pktinfo,
+    gtp5g_set_pktinfo_ipv4(pktinfo,
             pdr->sk, 
             iph, 
             hdr_creation,
-            NULL, 
+            pdr->qfi, 
             rt, 
             &fl4, 
             dev);
-    } else {
-        gtp5g_set_pktinfo_ipv4(pktinfo,
-            pdr->sk, 
-            iph, 
-            hdr_creation, 
-            pdr->qer, 
-            rt, 
-            &fl4, 
-            dev);
-    }
 
     pdr->dl_pkt_cnt++;
     pdr->dl_byte_cnt += skb->len;

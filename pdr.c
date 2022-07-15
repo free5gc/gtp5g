@@ -36,8 +36,8 @@ static void pdr_context_free(struct rcu_head *head)
             kfree(pdi->f_teid);
         if (pdr->far_id)
             kfree(pdr->far_id);
-        if (pdr->qer_id)
-            kfree(pdr->qer_id);
+        if (pdr->qer_ids)
+            kfree(pdr->qer_ids);
 
         sdf = pdi->sdf;
         if (sdf) {

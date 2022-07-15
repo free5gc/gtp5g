@@ -23,7 +23,8 @@ struct proc_gtp5g_pdr {
     u32     pdi_gtpu_addr4;
     
     u32     far_id;
-    u32     qer_id;
+    u32     *qer_ids;
+    u32     qer_num;
 
     u64     ul_drop_cnt;
     u64     dl_drop_cnt;
@@ -120,11 +121,21 @@ static int proc_dbg_read(struct inode *inode, struct file *file)
     return single_open(file, gtp5g_dbg_read, NULL);
 }
 
+static void set_pdr_qer_ids(char *pdr_qer_ids, struct proc_gtp5g_pdr *proc_pdr)
+{
+    int i = 0;
+    int idx = 0;
+    for (i = 0; i < proc_pdr->qer_num; i++) {
+        idx += sprintf(&pdr_qer_ids[idx], "%d, ", proc_pdr->qer_ids[i]);
+    }
+}
+
 static int gtp5g_pdr_read(struct seq_file *s, void *v) 
 {
     char role_addr[35];
     char pdi_ue_addr[35];
     char pdu_gtpu_addr[35];
+    char pdr_qer_ids[64];
 
     if (!proc_pdr_id) {
         seq_printf(s, "Given PDR ID does not exists\n");
@@ -144,7 +155,8 @@ static int gtp5g_pdr_read(struct seq_file *s, void *v)
     ip_string(pdu_gtpu_addr, proc_pdr.pdi_gtpu_addr4);
     seq_printf(s, "\t PDU GTPU Addr4: %s(%#08x)\n", pdu_gtpu_addr, ntohl(proc_pdr.pdi_gtpu_addr4));
     seq_printf(s, "\t FAR ID: %u\n", proc_pdr.far_id);
-    seq_printf(s, "\t QER ID: %u\n", proc_pdr.qer_id);
+    set_pdr_qer_ids(pdr_qer_ids, &proc_pdr);
+    seq_printf(s, "\t QER IDs: %s\n", pdr_qer_ids);
     seq_printf(s, "\t UL Drop Count: %#llx\n", proc_pdr.ul_drop_cnt);
     seq_printf(s, "\t DL Drop Count: %#llx\n", proc_pdr.dl_drop_cnt);
     seq_printf(s, "\t UL Packet Count: %llu\n", proc_pdr.ul_pkt_cnt);
@@ -244,9 +256,11 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
 
     if (pdr->far_id)
         proc_pdr.far_id = *pdr->far_id;
-    
-    if (pdr->qer_id)
-        proc_pdr.qer_id = *pdr->qer_id;
+
+    if (pdr->qer_ids) {
+        proc_pdr.qer_ids = pdr->qer_ids;
+        proc_pdr.qer_num = pdr->qer_num;
+    }
 
     proc_pdr.ul_drop_cnt = pdr->ul_drop_cnt;
     proc_pdr.dl_drop_cnt = pdr->dl_drop_cnt;
