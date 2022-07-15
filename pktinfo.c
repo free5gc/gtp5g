@@ -199,7 +199,7 @@ void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
 
 inline void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *pktinfo,
     struct sock *sk, struct iphdr *iph, struct outer_header_creation *hdr_creation,
-    uint8_t qfi, struct rtable *rt, struct flowi4 *fl4,
+    u8 qfi, struct rtable *rt, struct flowi4 *fl4,
     struct net_device *dev)
 {
     pktinfo->sk = sk;
@@ -227,7 +227,7 @@ void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
     /* Suppport for extension header, sequence number and N-PDU.
      * Update the length field if any of them is available.
      */
-    if (pktinfo->qfi >= 0) {
+    if (pktinfo->qfi > 0) {
         ext_flag = 1; 
 
         /* Push PDU Session container information */

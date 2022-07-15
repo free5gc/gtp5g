@@ -123,10 +123,9 @@ static int proc_dbg_read(struct inode *inode, struct file *file)
 
 static void set_pdr_qer_ids(char *pdr_qer_ids, struct proc_gtp5g_pdr *proc_pdr)
 {
-    int i = 0;
-    int idx = 0;
+    int i = 0, len = 0;
     for (i = 0; i < proc_pdr->qer_num; i++) {
-        idx += sprintf(&pdr_qer_ids[idx], "%d, ", proc_pdr->qer_ids[i]);
+        len += sprintf(&pdr_qer_ids[len], "0x%x, ", proc_pdr->qer_ids[i]);
     }
 }
 

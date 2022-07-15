@@ -141,7 +141,6 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
     sock_hold(gtp->sk1u);
     pdr->sk = gtp->sk1u;
     pdr->dev = gtp->dev;
-    pdr->qer_num = 0;
 
     err = pdr_fill(pdr, gtp, info);
     if (err) {
@@ -332,11 +331,11 @@ out:
     return skb->len;
 }  
 
-static int qer_id_already_exist(struct pdr *pdr, u32 qer_id)
+int find_qer_id_in_pdr(struct pdr *pdr, u32 qer_id)
 {
-    int idx = 0;
-    for (idx = 0; idx < pdr->qer_num; idx++) {   
-        if (pdr->qer_ids[idx] == qer_id)
+    int i = 0;
+    for (i = 0; i < pdr->qer_num; i++) {
+        if (pdr->qer_ids[i] == qer_id)
             return 1;
     }
     return 0;
@@ -347,10 +346,9 @@ static void set_pdr_qfi(struct pdr *pdr, struct gtp5g_dev *gtp){
     struct qer *qer;
 
     // TS 38.415 QFI range {0..2^6-1}
-    pdr->qfi = -1;
     for (i = 0; i < pdr->qer_num; i++){   
         qer = find_qer_by_id(gtp, pdr->seid, pdr->qer_ids[i]);
-        if (qer && qer->qfi >= 0){
+        if (qer && qer->qfi > 0){
             pdr->qfi = qer->qfi;
             break;
         }
@@ -361,7 +359,7 @@ static int set_pdr_qer_ids(struct pdr *pdr, u32 qer_id)
 {
     u32 *new_qer_ids;
 
-    if (qer_id_already_exist(pdr, qer_id))
+    if (find_qer_id_in_pdr(pdr, qer_id))
         return 0;
 
     new_qer_ids = kzalloc((++pdr->qer_num) * QER_ID_SIZE, GFP_ATOMIC);
@@ -369,11 +367,11 @@ static int set_pdr_qer_ids(struct pdr *pdr, u32 qer_id)
         return -ENOMEM;
     
     if (pdr->qer_ids) {
-        memcpy(new_qer_ids, pdr->qer_ids, pdr->qer_num*QER_ID_SIZE);
+        memcpy(new_qer_ids, pdr->qer_ids, (pdr->qer_num - 1) * QER_ID_SIZE);
         kfree(pdr->qer_ids);
     }
 
-    new_qer_ids[pdr->qer_num-1] = qer_id;
+    new_qer_ids[pdr->qer_num - 1] = qer_id;
     pdr->qer_ids = new_qer_ids;
 
     return 0;
@@ -383,7 +381,6 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
 {
     char *str;
     int err;
-
     struct nlattr *hdr = nlmsg_attrdata(info->nlhdr, 0);
     int remaining = nlmsg_attrlen(info->nlhdr, 0);
 
@@ -436,7 +433,6 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
                 err = parse_pdi(pdr, hdr);
                 if (err)
                     return err;
-
                 break;
         }
         hdr = nla_next(hdr, &remaining);
@@ -446,10 +442,8 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
         return -EINVAL;
 
     pdr->af = AF_INET;
-
     pdr->far = find_far_by_id(gtp, pdr->seid, *pdr->far_id);
     far_set_pdr(pdr->seid, *pdr->far_id, &pdr->hlist_related_far, gtp);
-    
     set_pdr_qfi(pdr, gtp);
 
     if (unix_sock_client_update(pdr) < 0)
@@ -828,7 +822,7 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         u32 type, struct pdr *pdr)
 {
     void *genlh;
-    int idx;
+    int i;
 
     genlh = genlmsg_put(skb, snd_portid, snd_seq, &gtp5g_genl_family, 0, type);
     if (!genlh)
@@ -855,8 +849,8 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
             goto genlmsg_fail;
     }
 
-    for (idx = 0; idx < pdr->qer_num; idx++) {
-        if (nla_put_u32(skb, GTP5G_PDR_QER_ID, pdr->qer_ids[idx]))
+    for (i = 0; i < pdr->qer_num; i++) {
+        if (nla_put_u32(skb, GTP5G_PDR_QER_ID, pdr->qer_ids[i]))
             goto genlmsg_fail;
     }
 

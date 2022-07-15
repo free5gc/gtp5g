@@ -66,7 +66,7 @@ struct pdr {
     struct far *far;
     u32 *qer_ids; 
     u32 qer_num;
-    uint8_t qfi;
+    u8  qfi;
     u32 *urr_id;
     struct urr *urr;
     
@@ -97,6 +97,7 @@ extern struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *, struct sk_buff *,
         unsigned int, u32);
 extern struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *, struct sk_buff *,
         unsigned int, __be32);
+extern int find_qer_id_in_pdr(struct pdr *, u32);
 
 extern void pdr_append(u64, u16, struct pdr *, struct gtp5g_dev *);
 extern void pdr_update_hlist_table(struct pdr *, struct gtp5g_dev *);

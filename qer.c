@@ -27,7 +27,6 @@ void qer_context_delete(struct qer *qer)
     struct hlist_head *head;
     struct pdr *pdr;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    int idx = 0;
 
     if (!qer)
         return;
@@ -38,9 +37,8 @@ void qer_context_delete(struct qer *qer)
     seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
-        for (idx = 0; idx < pdr->qer_num; idx++) {
-            if (pdr->qer_ids[idx] == qer->id)
-                unix_sock_client_delete(pdr);
+        if (find_qer_id_in_pdr(pdr, qer->id)) {
+            unix_sock_client_delete(pdr);
         }
     }
 
@@ -68,14 +66,12 @@ void qer_update(struct qer *qer, struct gtp5g_dev *gtp)
     struct pdr *pdr;
     struct hlist_head *head;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    int idx = 0;
 
     seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
-        for (idx = 0; idx < pdr->qer_num; idx++) { 
-            if (pdr->qer_ids[idx] == qer->id)
-                unix_sock_client_update(pdr);
+        if (find_qer_id_in_pdr(pdr, qer->id)) {
+            unix_sock_client_update(pdr);
         }
     }
 }
@@ -96,7 +92,6 @@ int qer_get_pdr_ids(u16 *ids, int n, struct qer *qer, struct gtp5g_dev *gtp)
     struct pdr *pdr;
     int i;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    int idx = 0;
 
     seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
@@ -104,9 +99,8 @@ int qer_get_pdr_ids(u16 *ids, int n, struct qer *qer, struct gtp5g_dev *gtp)
     hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
         if (i >= n)
             break;
-        for (idx = 0; idx < pdr->qer_num; idx++) {   
-            if (pdr->qer_ids[idx] == qer->id)
-                ids[i++] = pdr->id;
+        if (find_qer_id_in_pdr(pdr, qer->id)) {
+            ids[i++] = pdr->id;
         }
     }
     return i;
