@@ -8,8 +8,8 @@
 struct gtp5g_dev {
     struct list_head list;
     struct sock *sk1u;
-    struct net_device *dev;
     unsigned int role;
+    struct net_device *dev;
     unsigned int hash_size;
     struct hlist_head *pdr_id_hash;
     struct hlist_head *far_id_hash;

@@ -8,6 +8,7 @@
 #include "seid.h"
 #include "hash.h"
 #include "genl.h"
+#include "log.h"
 
 static void seid_pdr_id_to_hex_str(u64 seid_int, u16 pdr_id, char *buff)
 {
@@ -207,6 +208,24 @@ struct pdr *find_pdr_by_id(struct gtp5g_dev *gtp, u64 seid, u16 pdr_id)
     }
 
     return NULL;
+}
+
+int iter_pdr(struct pdr *pdr)
+{
+
+    struct pdr *iterpdr;
+    struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
+    struct hlist_head *head;
+    char seid_pdr_id[SEID_U32ID_HEX_STR_LEN] = {0};
+
+    seid_pdr_id_to_hex_str(pdr->seid, pdr->id, seid_pdr_id);
+    head = &gtp->pdr_id_hash[str_hashfn(seid_pdr_id) % gtp->hash_size];
+        
+    hlist_for_each_entry_rcu(iterpdr, head, hlist_i_teid) {
+        GTP5G_LOG(NULL,"iterpdr id: %d",iterpdr->id);
+    }
+
+    return 0;
 }
 
 static int ipv4_match(__be32 target_addr, __be32 ifa_addr, __be32 ifa_mask)

@@ -8,7 +8,7 @@ make: *** No rule to make target 'all'.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Thu Jul 14 06:21:43 2022
+# Make data base, printed on Tue Jul 19 08:14:25 2022
 
 # Variables
 
@@ -43,7 +43,7 @@ _ = /home/free5gc/.vscode-server/bin/b06ae3b2d2dbfe28bca3134cc6be65935cdfea6a/no
 # makefile (from 'Makefile', line 1)
 MAKEFILE_LIST :=  Makefile
 # makefile (from 'Makefile', line 24)
-INSTALL := cp gtp5g.ko /lib/modules/5.4.0-121-generic/kernel/drivers/net
+INSTALL := cp gtp5g.ko /lib/modules/5.4.0-122-generic/kernel/drivers/net
 # environment
 GO111MODULE = auto
 # 'override' directive
@@ -61,7 +61,7 @@ LESSOPEN = | /usr/bin/lesspipe %s
 # environment
 VSCODE_CWD = /home/free5gc
 # environment
-SSH_CONNECTION = 192.168.75.1 60807 192.168.75.128 22
+SSH_CONNECTION = 192.168.2.1 52059 192.168.2.128 22
 # environment
 PATH = /home/free5gc/.vscode-server/bin/b06ae3b2d2dbfe28bca3134cc6be65935cdfea6a/bin/remote-cli:/home/free5gc/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin
 # environment
@@ -73,7 +73,7 @@ MY_CFLAGS = -g -DDEBUG $(RHEL8FLAG)
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-VSCODE_IPC_HOOK_CLI = /run/user/1000/vscode-ipc-ca91120f-357d-40a5-a7b4-fd3f01196979.sock
+VSCODE_IPC_HOOK_CLI = /run/user/1000/vscode-ipc-1c5e5887-fb21-4358-9303-404997a68496.sock
 # default
 .FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell archives jobserver output-sync check-symlink load
 # makefile (from 'Makefile', line 10)
@@ -109,7 +109,7 @@ VSCODE_HANDLES_UNCAUGHT_ERRORS = true
 # automatic
 ^D = $(patsubst %/,%,$(dir $^))
 # makefile (from 'Makefile', line 18)
-KDIR := /lib/modules/5.4.0-121-generic/build
+KDIR := /lib/modules/5.4.0-122-generic/build
 # makefile (from 'Makefile', line 25)
 RUN_DEPMOD := true
 # environment
@@ -123,7 +123,7 @@ SHLVL = 0
 # makefile (from 'Makefile', line 37)
 CC = ${MY_CFLAGS}
 # environment
-XDG_SESSION_ID = 2
+XDG_SESSION_ID = 85
 # environment
 USER = free5gc
 # makefile
@@ -145,9 +145,9 @@ MAKEFLAGS = pqrR
 # environment
 MFLAGS = -pqrR
 # environment
-SSH_CLIENT = 192.168.75.1 60807 22
+SSH_CLIENT = 192.168.2.1 52059 22
 # makefile (from 'Makefile', line 14)
-KVER := 5.4.0-121-generic
+KVER := 5.4.0-122-generic
 # automatic
 +D = $(patsubst %/,%,$(dir $+))
 # environment
@@ -189,9 +189,9 @@ MOTD_SHOWN = pam
 
 # Directories
 
-# . (device 64768, inode 393528): 119 files, no impossibilities.
+# . (device 64768, inode 393528): 122 files, no impossibilities.
 
-# 119 files, no impossibilities in 1 directories.
+# 122 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -267,12 +267,12 @@ install:
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 129 / storage = 1214 B / avg = 9 B
-# current buf: size = 8162 B / used = 1214 B / count = 129 / avg = 9 B
+# strcache buffers: 1 (0) / strings = 132 / storage = 1231 B / avg = 9 B
+# current buf: size = 8162 B / used = 1231 B / count = 132 / avg = 9 B
 
-# strcache performance: lookups = 139 / hit rate = 7%
+# strcache performance: lookups = 142 / hit rate = 7%
 # hash-table stats:
-# Load=129/8192=2%, Rehash=0, Collisions=3/139=2%
-# Finished Make data base on Thu Jul 14 06:21:43 2022
+# Load=132/8192=2%, Rehash=0, Collisions=3/142=2%
+# Finished Make data base on Tue Jul 19 08:14:25 2022
 
  

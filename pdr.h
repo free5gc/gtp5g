@@ -102,7 +102,7 @@ extern struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *, struct sk_buff *,
 
 extern void pdr_append(u64, u16, struct pdr *, struct gtp5g_dev *);
 extern void pdr_update_hlist_table(struct pdr *, struct gtp5g_dev *);
-
+extern int iter_pdr(struct pdr *pdr);
 extern void unix_sock_client_delete(struct pdr *);
 extern int unix_sock_client_new(struct pdr *);
 extern int unix_sock_client_update(struct pdr *);
