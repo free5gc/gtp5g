@@ -13,13 +13,6 @@
 #define URR_METHOD_VOLUM 0x2 
 #define URR_METHOD_EVENT 0x4 // not use temporarily
 
-// REPORTING TRIGGER 3GPP TS 29.244 8.2.41 Usage Report Trigger
-#define URR_TRIGGER_PERIO 0x1
-#define URR_TRIGGER_VOLTH 0x2
-#define URR_TRIGGER_QUHTI 0x8
-#define URR_TRIGGER_IMMER 0x80
-#define URR_TRIGGER_VOLQU 0x100
-
 // GTP5G_URR_VOLUME_QUOTA_FLAGS 8.2.50
 #define URR_VOLUME_QUOTA_TOVOL 0x1
 #define URR_VOLUME_QUOTA_ULVOL 0x2
@@ -40,13 +33,7 @@
 #define URR_INFO_ASPOC  0100
 #define URR_INFO_CIAM   0200
 
-// VOLUME MEASUREMENT
-#define URR_VOLUME_MEASUREMENT_TOVOL 0x1
-#define URR_VOLUME_MEASUREMENT_ULVOL 0x2
-#define URR_VOLUME_MEASUREMENT_DLVOL 0x4
-#define URR_VOLUME_MEASUREMENT_TONOP 0x8
-#define URR_VOLUME_MEASUREMENT_ULNOP 0x10
-#define URR_VOLUME_MEASUREMENT_DLNOP 0x20
+
 
 struct VolumeThreshold{        
     uint8_t flag;
@@ -98,5 +85,5 @@ extern void urr_update(struct urr *, struct gtp5g_dev *);
 extern void urr_append(u64, u32, struct urr *, struct gtp5g_dev *);
 extern int urr_get_pdr_ids(u16 *, int, struct urr *, struct gtp5g_dev *);
 extern void urr_set_pdr(u64, u32, struct hlist_node *, struct gtp5g_dev *);
-
+void seid_urr_id_to_hex_str(u64 seid_int, u32 urr_id, char *buff);
 #endif // __URR_H__

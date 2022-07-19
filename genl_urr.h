@@ -46,57 +46,6 @@ enum gtp5g_urr_volume_quota_attrs {
 };
 #define GTP5G_URR_VOLUME_QUOTA_ATTR_MAX (__GTP5G_URR_VOLUME_QUOTA_ATTR_MAX - 1)
 
-struct VolumeMeasurement{
-    u8 flag;
-    u64 totalVolume;
-    u64 uplinkVolume;
-    u64 downlinkVolume;
-    u64 totalPktNum;
-    u64 uplinkPktNum;
-    u64 downlinkPktNum;
-};
-
-struct UsageReportTrigger{
-    u8 perio; 
-    u8 volth; 
-    u8 timth;
-    u8 quhti; 
-    u8 start; 
-    u8 stopt; 
-    u8 droth; 
-    u8 immer; 
-    u8 volqu; 
-    u8 timqu; 
-    u8 liusa; 
-    u8 termr; 
-    u8 monit; 
-    u8 envcl; 
-    u8 macar; 
-    u8 eveth; 
-    u8 evequ; 
-    u8 tebur; 
-    u8 ipmjl; 
-    u8 quvti; 
-    u8 emrre; 
-};
-
-struct user_report {
-	uint32_t urrid; 					/* 8.2.54 URR_ID */
-    uint32_t uRSEQN;
-    
-    struct UsageReportTrigger trigger ;
-    struct VolumeMeasurement volmeasurement;
-
-    // u64 start_time;
-    // u64 end_time;
-    // u64 time_of_fst_pkt;
-    // u64 time_of_lst_pkt;
-
-    uint32_t queryUrrRef;
-
-} __attribute__((packed));
-
-
 extern int gtp5g_genl_add_urr(struct sk_buff *, struct genl_info *);
 extern int gtp5g_genl_del_urr(struct sk_buff *, struct genl_info *);
 extern int gtp5g_genl_get_urr(struct sk_buff *, struct genl_info *);

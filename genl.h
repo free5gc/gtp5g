@@ -28,7 +28,7 @@ enum gtp5g_cmd {
      * for compatability with older version of
      * free5GC's UPF or libgtp5gnl
      * */
-
+    GTP5G_CMD_GET_REPORT,
     __GTP5G_CMD_MAX,
 };
 #define GTP5G_CMD_MAX (__GTP5G_CMD_MAX - 1)

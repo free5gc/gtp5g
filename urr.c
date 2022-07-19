@@ -7,7 +7,7 @@
 #include "hash.h"
 #include "log.h"
 
-static void seid_urr_id_to_hex_str(u64 seid_int, u32 urr_id, char *buff)
+void seid_urr_id_to_hex_str(u64 seid_int, u32 urr_id, char *buff)
 {
     seid_and_u32id_to_hex_str(seid_int, urr_id, buff);
 

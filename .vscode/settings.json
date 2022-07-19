@@ -7,6 +7,10 @@
         "hash.h": "c",
         "log.h": "c",
         "net.h": "c",
-        "api_version.h": "c"
+        "api_version.h": "c",
+        "genl_report.h": "c",
+        "pktinfo.h": "c",
+        "report.h": "c",
+        "pdr.h": "c"
     }
 }

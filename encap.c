@@ -16,9 +16,10 @@
 #include "far.h"
 #include "qer.h"
 #include "urr.h"
+#include "report.h"
 
 #include "genl.h"
-#include "genl_urr.h"
+#include "genl_report.h"
 
 #include "log.h"
 #include "api_version.h"
@@ -412,25 +413,22 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
     u16 self_hdr[1] = {pdr->far->action};
     struct user_report report;
     struct VolumeMeasurement volmeasurement;
-    struct UsageReportTrigger trigger;
+    u64 trigger;
     // 8.2.44 Volume Measurement octet 5
     // flags are control by GTP5G
-    flag = URR_VOLUME_MEASUREMENT_TOVOL | URR_VOLUME_MEASUREMENT_ULVOL | URR_VOLUME_MEASUREMENT_DLVOL;
+    flag = REPORT_VOLUME_MEASUREMENT_TOVOL | REPORT_VOLUME_MEASUREMENT_UVOL | REPORT_VOLUME_MEASUREMENT_DVOL;
     if (urr->info & URR_INFO_MNOP)
-        flag |= (URR_VOLUME_MEASUREMENT_TONOP | URR_VOLUME_MEASUREMENT_ULNOP | URR_VOLUME_MEASUREMENT_DLNOP);
+        flag |= (REPORT_VOLUME_MEASUREMENT_TONOL | REPORT_VOLUME_MEASUREMENT_UNOP | REPORT_VOLUME_MEASUREMENT_DNOP);
     // report[0].volumemeasurement.flags = flag;
 
     if(urr->time_of_fst_pkt != 0 && urr->time_of_lst_pkt == 0)
         urr->time_of_lst_pkt = urr->time_of_fst_pkt;
     urr->end_time = ktime_get_real();
-
-
-    trigger = (struct UsageReportTrigger){};
-
+    
     if(urr->trigger & 1){
-        trigger.volqu = true;
+        trigger = TRIGGER_VOLQU;
     } else{
-        trigger.volth = true;
+        trigger = TRIGGER_VOLTH;
     }
 
     volmeasurement = (struct VolumeMeasurement){   
