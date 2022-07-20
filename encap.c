@@ -29,6 +29,10 @@
 #define MSG_SEID_KOV_LEN 3
 #define MSG_NO_SEID_KOV_LEN 2
 
+int cnt = 0;
+int ul_vol = 0;
+// struct workqueue_struct *workqueue_sending;
+
 enum msg_type {
     TYPE_BUFFER = 1,
     TYPE_URR_REPORT,
@@ -399,9 +403,42 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
     return rt;
 }
 
+struct my_work_t {
+    struct pdr *pdr;
+    
+    struct msghdr *ptr_msg;
+    int cnt;
+
+    struct work_struct work;         
+};
+
+void thread_send_report(struct work_struct *work) {
+    struct my_work_t *my_work = container_of(work, struct my_work_t, work);
+    int ret;
+    // mutex_lock(&(my_work->mutex));
+    // mutex_lock(my_work->ptr_mutex);
+
+    // struct socket *sock = my_work->sock;
+    // struct msghdr *ptr_msg = my_work->ptr_msg;
+    // GTP5G_LOG(NULL, "thread_send_report sock");
+    // printk("________________________________________________________________________________\n");
+
+    // GTP5G_LOG(NULL, "thread_send_report sock: %p msghdr: %p", my_work->sock, my_work->ptr_msg);
+    struct pdr *pdr = my_work->pdr;
+    
+    printk("thread_send_report sock: %p msghdr: %p cnt:%d", pdr->sock_for_report, my_work->ptr_msg, my_work->cnt);
+
+    // ret = sock_sendmsg(my_work->pdr->sock_for_report, my_work->ptr_msg);
+
+    printk("thread_send_report end (ret: %d)\n", ret);
+    // mutex_unlock(&(my_work->mutex));
+    // ndelay(50);
+    // kfree(my_work->ptr_msg);
+}
+
 static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
 {
-    struct msghdr msg;
+    struct msghdr *msg;
     struct iovec *iov;
     mm_segment_t oldfs;
     u8 flag;
@@ -411,9 +448,15 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
     // u8  type_hdr[1] = {TYPE_URR_REPORT};
     u64 self_seid_hdr[1] = {pdr->seid};
     u16 self_hdr[1] = {pdr->far->action};
-    struct user_report report;
+    struct user_report *report;
     struct VolumeMeasurement volmeasurement;
     u64 trigger;
+    struct my_work_t *my_work;
+
+    msg = kzalloc(sizeof(*msg), GFP_ATOMIC);
+    report = kzalloc(sizeof(*report), GFP_ATOMIC);
+    my_work = kzalloc(sizeof(*my_work), GFP_ATOMIC);
+
     // 8.2.44 Volume Measurement octet 5
     // flags are control by GTP5G
     flag = REPORT_VOLUME_MEASUREMENT_TOVOL | REPORT_VOLUME_MEASUREMENT_UVOL | REPORT_VOLUME_MEASUREMENT_DVOL;
@@ -443,7 +486,7 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
         pdr->dl_pkt_cnt, 
     };
 
-    report = (struct user_report){
+    report = &(struct user_report){
             urr->id,
             // TODO: uRSEQN
             0,
@@ -457,7 +500,7 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
             // urr->time_of_lst_pkt
     };
 
-    GTP5G_LOG(NULL,"flags:%d, total_volume_cnt:%lld, ul_byte_cnt:%lld, dl_byte_cnt:%lld\n",
+    printk("flags:%d, total_volume_cnt:%lld, ul_byte_cnt:%lld, dl_byte_cnt:%lld\n",
                 volmeasurement.flag,volmeasurement.totalVolume,volmeasurement.uplinkVolume,volmeasurement.downlinkVolume);
 
     if (!pdr->sock_for_report) {
@@ -465,7 +508,7 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
         return -EINVAL;
     }
 
-    memset(&msg, 0, sizeof(msg));
+    // memset(&msg, 0, sizeof(msg));
   
     msg_iovlen = 3;
     iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
@@ -477,18 +520,18 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
     iov[0].iov_len = sizeof(self_seid_hdr);
     iov[1].iov_base = self_hdr;
     iov[1].iov_len = sizeof(self_hdr);
-    iov[2].iov_base = &report;
-    iov[2].iov_len = sizeof(report);
+    iov[2].iov_base = report;
+    iov[2].iov_len = sizeof(*report);
 
     for (i = 0; i < msg_iovlen; i++)
         total_iov_len += iov[i].iov_len;
 
-    msg.msg_name = 0;
-    msg.msg_namelen = 0;
-    iov_iter_init(&msg.msg_iter, WRITE, iov, msg_iovlen, total_iov_len);
-    msg.msg_control = NULL;
-    msg.msg_controllen = 0;
-    msg.msg_flags = MSG_DONTWAIT;
+    msg->msg_name = 0;
+    msg->msg_namelen = 0;
+    iov_iter_init(&(msg->msg_iter), WRITE, iov, msg_iovlen, total_iov_len);
+    msg->msg_control = NULL;
+    msg->msg_controllen = 0;
+    msg->msg_flags = MSG_DONTWAIT;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
     oldfs = force_uaccess_begin();
@@ -497,7 +540,16 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
     set_fs(KERNEL_DS);
 #endif
 
-    rt = sock_sendmsg(pdr->sock_for_report, &msg);
+    printk("sock_sendmsg in urr start sock: %p msghdr: %p\n", pdr->sock_for_report, msg);
+    my_work->pdr = pdr;
+    my_work->ptr_msg = msg;
+    my_work->cnt = cnt++;
+    INIT_WORK(&(my_work->work), thread_send_report);
+    // queue_work(pdr->workqueue_sending, &(my_work->work));
+    rt = sock_sendmsg(pdr->sock_for_report, msg);
+    // rt = 0;
+    // diff = ktime_get_ns()- start;
+    printk("sock_sendmsg in urr end\n");
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
     force_uaccess_end(oldfs);
@@ -525,6 +577,8 @@ int resetThresholdandCount(struct pdr *pdr, struct urr *urr){
     urr->time_of_fst_pkt = 0;
     urr->time_of_lst_pkt = 0;
 
+    // printk("reset urr->threshold_tovol: %lld urr->threshold_uvol: %lld", urr->threshold_tovol, urr->threshold_uvol);
+
     return 0 ;
 }
 // URR uplink URR_INFO_MBQE = 0
@@ -533,7 +587,7 @@ int check_urr(struct pdr *pdr, u64 volume){
     struct far *far = pdr->far;
     bool send_tol_report = false, send_ul_report = false, send_dl_report = false;
     // bool inactive = false
-    u64 tol_byte_cnt = pdr->ul_byte_cnt + pdr->dl_byte_cnt;
+    u64 tol_byte_cnt;
 
     // if (urr && !(urr->info & URR_INFO_MBQE)) {
     // if ((urr->info & URR_INFO_ASPOC) && (urr->info & URR_INFO_CIAM) && (urr->info & URR_INFO_INAM))
@@ -544,6 +598,7 @@ int check_urr(struct pdr *pdr, u64 volume){
                 ++pdr->ul_pkt_cnt; 
             }
             pdr->ul_byte_cnt += volume; 
+            tol_byte_cnt = pdr->ul_byte_cnt + pdr->dl_byte_cnt;
 
             // Check threshold/quata
             if (urr->trigger & 0x200) {
@@ -557,7 +612,7 @@ int check_urr(struct pdr *pdr, u64 volume){
                 if(send_tol_report || send_ul_report || send_dl_report){
                     urr->time_of_lst_pkt = ktime_get_real();
                     GTP5G_LOG(NULL,"Send report since reach threshold\n");
-
+                    // printk("reach threshold\n");
                     if (gtp5g_send_usage_report(pdr, urr) < 0) {
                         GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
                         return -1;
@@ -761,9 +816,9 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     stats->rx_bytes += skb->len;
     u64_stats_update_end(&stats->syncp);
 
-    pdr->ul_pkt_cnt++;
-    pdr->ul_byte_cnt += skb->len; /* length without GTP header */
-    GTP5G_INF(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);
+    // pdr->ul_pkt_cnt++;
+    // pdr->ul_byte_cnt += skb->len; /* length without GTP header */
+    // // GTP5G_INF(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);
 
     ret = netif_rx(skb);
     if (ret != NET_RX_SUCCESS) {
@@ -799,6 +854,9 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
         }
     }
+
+    // ul_vol += volume;
+    // printk("ul_vol: %d pdr->ul_byte_cnt: %lld", ul_vol, pdr->ul_byte_cnt);
 
     return 0;
 }
@@ -865,7 +923,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
 
     pdr->dl_pkt_cnt++;
     pdr->dl_byte_cnt += skb->len;
-    GTP5G_INF(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
+    // GTP5G_INF(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
 
     volume = skb->len;
     gtp5g_push_header(skb, pktinfo);
@@ -893,9 +951,9 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     // urr URR_INFO_MBQE=0
 
     if(pdr->urr){
-        if(check_urr(pdr,volume) < 0){
-            GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
-        }
+        // if(check_urr(pdr,volume) < 0){
+        //     GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
+        // }
     }
 
     return FAR_ACTION_FORW;

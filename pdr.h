@@ -91,6 +91,8 @@ struct pdr {
     u64                     dl_pkt_cnt;
     u64                     ul_byte_cnt;
     u64                     dl_byte_cnt;
+
+    struct workqueue_struct *workqueue_sending;
 };
 
 extern void pdr_context_delete(struct pdr *);
@@ -110,5 +112,6 @@ extern int unix_sock_client_update(struct pdr *);
 extern void unix_sock_report_delete(struct pdr *);
 extern int unix_sock_report_new(struct pdr *);
 extern int unix_sock_report_update(struct pdr *);
+
 
 #endif // __PDR_H__
