@@ -69,19 +69,19 @@ struct urr *find_urr_by_id(struct gtp5g_dev *gtp, u64 seid, u32 urr_id)
 void urr_update(struct urr *urr, struct gtp5g_dev *gtp)
 {
 
-    struct pdr *pdr;
-    struct hlist_head *head;
-    char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
+    // struct pdr *pdr;
+    // struct hlist_head *head;
+    // char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
-    seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
-    head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
+    // seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
+    // head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
     
-    hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
-        if (*pdr->urr_id == urr->id) {
-            pdr->urr = urr;
-            unix_sock_client_update(pdr);
-        }
-    }
+    // hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
+    //     if (*pdr->urr_id == urr->id) {
+    //         pdr->urr = urr;
+    //         unix_sock_client_update(pdr);
+    //     }
+    // }
 }
 
 void urr_append(u64 seid, u32 urr_id, struct urr *urr, struct gtp5g_dev *gtp)

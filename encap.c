@@ -413,6 +413,8 @@ struct my_work_t {
 };
 
 void thread_send_report(struct work_struct *work) {
+    mm_segment_t oldfs;
+
     struct my_work_t *my_work = container_of(work, struct my_work_t, work);
     int ret;
     // mutex_lock(&(my_work->mutex));
@@ -427,13 +429,24 @@ void thread_send_report(struct work_struct *work) {
     struct pdr *pdr = my_work->pdr;
     
     printk("thread_send_report sock: %p msghdr: %p cnt:%d", pdr->sock_for_report, my_work->ptr_msg, my_work->cnt);
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+    oldfs = force_uaccess_begin();
+    #else
+        oldfs = get_fs();
+        set_fs(KERNEL_DS);
+    #endif
 
-    // ret = sock_sendmsg(my_work->pdr->sock_for_report, my_work->ptr_msg);
+    ret = sock_sendmsg(my_work->pdr->sock_for_report, my_work->ptr_msg);
 
     printk("thread_send_report end (ret: %d)\n", ret);
     // mutex_unlock(&(my_work->mutex));
     // ndelay(50);
     // kfree(my_work->ptr_msg);
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+    force_uaccess_end(oldfs);
+    #else
+        set_fs(oldfs);
+    #endif
 }
 
 static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
@@ -533,29 +546,23 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
     msg->msg_controllen = 0;
     msg->msg_flags = MSG_DONTWAIT;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-    oldfs = force_uaccess_begin();
-#else
-    oldfs = get_fs();
-    set_fs(KERNEL_DS);
-#endif
+// #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+//     oldfs = force_uaccess_begin();
+// #else
+//     oldfs = get_fs();
+//     set_fs(KERNEL_DS);
+// #endif
 
     printk("sock_sendmsg in urr start sock: %p msghdr: %p\n", pdr->sock_for_report, msg);
     my_work->pdr = pdr;
     my_work->ptr_msg = msg;
     my_work->cnt = cnt++;
     INIT_WORK(&(my_work->work), thread_send_report);
-    // queue_work(pdr->workqueue_sending, &(my_work->work));
-    rt = sock_sendmsg(pdr->sock_for_report, msg);
-    // rt = 0;
+    queue_work(pdr->workqueue_sending, &(my_work->work));
+    // rt = sock_sendmsg(pdr->sock_for_report, msg);
+    rt = 0;
     // diff = ktime_get_ns()- start;
     printk("sock_sendmsg in urr end\n");
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-    force_uaccess_end(oldfs);
-#else
-    set_fs(oldfs);
-#endif
 
     return rt;
 }
