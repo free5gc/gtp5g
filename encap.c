@@ -457,8 +457,8 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
             // urr->time_of_lst_pkt
     };
 
-    // GTP5G_LOG(NULL,"flags:%d, total_volume_cnt:%lld, ul_byte_cnt:%lld, dl_byte_cnt:%lld\n",
-    //             volmeasurement.flag,volmeasurement.totalVolume,volmeasurement.uplinkVolume,volmeasurement.downlinkVolume);
+    GTP5G_LOG(NULL,"flags:%d, total_volume_cnt:%lld, ul_byte_cnt:%lld, dl_byte_cnt:%lld\n",
+                volmeasurement.flag,volmeasurement.totalVolume,volmeasurement.uplinkVolume,volmeasurement.downlinkVolume);
 
     if (!pdr->sock_for_report) {
         GTP5G_ERR(NULL, "Failed: Socket for Report is NULL\n");
@@ -556,6 +556,7 @@ int check_urr(struct pdr *pdr, u64 volume){
 
                 if(send_tol_report || send_ul_report || send_dl_report){
                     urr->time_of_lst_pkt = ktime_get_real();
+                    GTP5G_LOG(NULL,"Send report since reach threshold\n");
 
                     if (gtp5g_send_usage_report(pdr, urr) < 0) {
                         GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
@@ -579,6 +580,8 @@ int check_urr(struct pdr *pdr, u64 volume){
                     urr->info = URR_INFO_INAM;
                     far->action = FAR_ACTION_DROP;
                     urr->time_of_lst_pkt = ktime_get_real();
+                    GTP5G_LOG(NULL,"Send report since reach threshold\n");
+
                     if (gtp5g_send_usage_report(pdr, urr) < 0) {
                         GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
                         return -1;

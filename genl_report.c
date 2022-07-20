@@ -117,28 +117,25 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
 
     if (nla_put_u8(skb, GTP5G_UR_VOLUME_MEASUREMENT_FLAGS, flag))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOVOL, pdr->ul_pkt_cnt + pdr->ul_pkt_cnt, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOVOL, (pdr->ul_pkt_cnt + pdr->ul_pkt_cnt), 0))
         return -EMSGSIZE;
     if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UVOL, pdr->ul_pkt_cnt, 0))
         return -EMSGSIZE;
     if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DPACKET, pdr->dl_byte_cnt, 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOPACKET, pdr->ul_pkt_cnt + pdr->dl_pkt_cnt, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOPACKET, (pdr->ul_pkt_cnt + pdr->dl_pkt_cnt), 0))
         return -EMSGSIZE;
     if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UPACKET, pdr->ul_pkt_cnt, 0))
         return -EMSGSIZE;
     if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DPACKET, pdr->dl_pkt_cnt, 0))
         return -EMSGSIZE;
-
-    GTP5G_LOG(NULL,"flag %d\n",flag);
-    GTP5G_LOG(NULL,"GTP5G_UR_VOLUME_MEASUREMENT_TOVOL %lld\n",pdr->ul_pkt_cnt + pdr->ul_pkt_cnt);
+    nla_nest_end(skb, nest_volume_measurement);
 
     pdr->ul_pkt_cnt = 0;
     pdr->dl_byte_cnt = 0;
     pdr->ul_pkt_cnt = 0;
     pdr->dl_pkt_cnt = 0;
 
-    nla_nest_end(skb, nest_volume_measurement);
     return 0;
 }
 
@@ -160,8 +157,8 @@ static int gtp5g_genl_fill_usage_report(struct sk_buff *skb, u32 snd_portid, u32
         goto genlmsg_fail;
     if(nla_put_u32(skb, GTP5G_UR_QUERY_URR_REFERENCE, 0))
         goto genlmsg_fail;
-    // if(gtp5g_genl_fill_volume_measurement(skb,urr))
-    //     goto genlmsg_fail;
+    if(gtp5g_genl_fill_volume_measurement(skb,urr))
+        goto genlmsg_fail;
 
     genlmsg_end(skb, genlh);
     return 0;

@@ -8,7 +8,7 @@ make: *** No rule to make target 'all'.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Tue Jul 19 17:56:05 2022
+# Make data base, printed on Wed Jul 20 01:20:18 2022
 
 # Variables
 
@@ -61,7 +61,7 @@ LESSOPEN = | /usr/bin/lesspipe %s
 # environment
 VSCODE_CWD = /home/free5gc
 # environment
-SSH_CONNECTION = 192.168.2.1 52206 192.168.2.128 22
+SSH_CONNECTION = 192.168.2.1 59570 192.168.2.128 22
 # environment
 PATH = /home/free5gc/.vscode-server/bin/3b889b090b5ad5793f524b5d1d39fda662b96a2a/bin/remote-cli:/home/free5gc/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin:/home/free5gc/go/bin:/usr/local/go/bin
 # environment
@@ -73,7 +73,7 @@ MY_CFLAGS = -g -DDEBUG $(RHEL8FLAG)
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-VSCODE_IPC_HOOK_CLI = /run/user/1000/vscode-ipc-4977931e-5b27-4a3f-86ea-d9dfc92dd1bd.sock
+VSCODE_IPC_HOOK_CLI = /run/user/1000/vscode-ipc-95d16850-f727-4af1-8502-178acd309d18.sock
 # default
 .FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell archives jobserver output-sync check-symlink load
 # makefile (from 'Makefile', line 10)
@@ -123,7 +123,7 @@ SHLVL = 0
 # makefile (from 'Makefile', line 37)
 CC = ${MY_CFLAGS}
 # environment
-XDG_SESSION_ID = 89
+XDG_SESSION_ID = 158
 # environment
 USER = free5gc
 # makefile
@@ -136,8 +136,6 @@ GOROOT = /usr/local/go
 %D = $(patsubst %/,%,$(dir $%))
 # default
 MAKE_COMMAND := make
-# environment
-OLDPWD = /home/free5gc/.vscode-server/bin/3b889b090b5ad5793f524b5d1d39fda662b96a2a
 # default
 .VARIABLES := 
 # automatic
@@ -147,7 +145,7 @@ MAKEFLAGS = pqrR
 # environment
 MFLAGS = -pqrR
 # environment
-SSH_CLIENT = 192.168.2.1 52206 22
+SSH_CLIENT = 192.168.2.1 59570 22
 # makefile (from 'Makefile', line 14)
 KVER := 5.4.0-122-generic
 # automatic
@@ -183,7 +181,7 @@ LANG = C
 # environment
 MOTD_SHOWN = pam
 # variable set hash-table stats:
-# Load=85/1024=8%, Rehash=0, Collisions=10/147=7%
+# Load=84/1024=8%, Rehash=0, Collisions=10/146=7%
 
 # Pattern-specific Variable Values
 
@@ -191,9 +189,9 @@ MOTD_SHOWN = pam
 
 # Directories
 
-# . (device 64768, inode 393528): 128 files, no impossibilities.
+# . (device 64768, inode 393528): 125 files, no impossibilities.
 
-# 128 files, no impossibilities in 1 directories.
+# 125 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -269,12 +267,12 @@ install:
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 138 / storage = 1323 B / avg = 9 B
-# current buf: size = 8162 B / used = 1323 B / count = 138 / avg = 9 B
+# strcache buffers: 1 (0) / strings = 135 / storage = 1291 B / avg = 9 B
+# current buf: size = 8162 B / used = 1291 B / count = 135 / avg = 9 B
 
-# strcache performance: lookups = 148 / hit rate = 6%
+# strcache performance: lookups = 145 / hit rate = 6%
 # hash-table stats:
-# Load=138/8192=2%, Rehash=0, Collisions=3/148=2%
-# Finished Make data base on Tue Jul 19 17:56:05 2022
+# Load=135/8192=2%, Rehash=0, Collisions=3/145=2%
+# Finished Make data base on Wed Jul 20 01:20:18 2022
 
  
