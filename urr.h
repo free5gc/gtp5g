@@ -6,6 +6,7 @@
 #include <linux/net.h>
 
 #include "dev.h"
+#include "report.h"
 
 #define SEID_U32ID_HEX_STR_LEN 24
 // Measurement Method
@@ -32,8 +33,6 @@
 #define URR_INFO_SSPOC  040
 #define URR_INFO_ASPOC  0100
 #define URR_INFO_CIAM   0200
-
-
 
 struct VolumeThreshold{        
     uint8_t flag;
@@ -75,6 +74,9 @@ struct urr {
     ktime_t  start_time;
     ktime_t  end_time;
 
+    // For usage report volume measurement
+    struct VolumeMeasurement volmeasurement;
+    
     struct net_device *dev;
     struct rcu_head rcu_head;
 };

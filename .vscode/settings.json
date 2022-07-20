@@ -11,6 +11,7 @@
         "genl_report.h": "c",
         "pktinfo.h": "c",
         "report.h": "c",
-        "pdr.h": "c"
+        "pdr.h": "c",
+        "dev.h": "c"
     }
 }
