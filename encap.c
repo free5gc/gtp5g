@@ -234,7 +234,6 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     struct gtpv1_hdr *gtpv1;
     struct pdr *pdr;
     int gtpv1_hdr_len;
-
     if (!pskb_may_pull(skb, hdrlen)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
         return -1;
@@ -284,7 +283,6 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(gtpv1->tid));
         return -1;
     }
-
     return gtp5g_rx(pdr, skb, hdrlen, gtp->role);
 }
 
@@ -476,10 +474,6 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
         flag |= (REPORT_VOLUME_MEASUREMENT_TONOL | REPORT_VOLUME_MEASUREMENT_UNOP | REPORT_VOLUME_MEASUREMENT_DNOP);
     // report[0].volumemeasurement.flags = flag;
 
-    if(urr->time_of_fst_pkt != 0 && urr->time_of_lst_pkt == 0)
-        urr->time_of_lst_pkt = urr->time_of_fst_pkt;
-    urr->end_time = ktime_get_real();
-    
     if(urr->trigger & 1){
         trigger = TRIGGER_VOLQU;
     } else{
@@ -494,16 +488,9 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
             0,
             trigger,
             urr->volmeasurement, 
-            0 
-
-            // urr->start_time,
-            // urr->end_time,
-            // urr->time_of_fst_pkt,
-            // urr->time_of_lst_pkt
+            0
     };
-
-    printk("flags:%d, total_volume_cnt:%lld, ul_byte_cnt:%lld, dl_byte_cnt:%lld, total_pkt_cnt:%lld, ul_pkt_cnt:%lld, dl_pkt_cnt:%lld\n",
-                urr->volmeasurement.flag,urr->volmeasurement.totalVolume,urr->volmeasurement.uplinkVolume,urr->volmeasurement.downlinkVolume, urr->volmeasurement.totalPktNum,urr->volmeasurement.uplinkPktNum,urr->volmeasurement.downlinkPktNum);
+    
 
     if (!pdr->sock_for_report) {
         GTP5G_ERR(NULL, "Failed: Socket for Report is NULL\n");
@@ -555,29 +542,6 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
 
     return rt;
 }
-int resetThresholdandCount(struct pdr *pdr, struct urr *urr){
-    // Reset
-    pdr->ul_byte_cnt = 0;
-    pdr->dl_byte_cnt = 0;
-
-    pdr->dl_pkt_cnt = 0;
-    pdr->ul_pkt_cnt = 0;
-
-    // re-apply all the thresholds
-    urr->threshold_tovol = urr->volumethreshold->totalVolume;
-    urr->threshold_uvol = urr->volumethreshold->uplinkVolume;
-    urr->threshold_dvol = urr->volumethreshold->downlinkVolume;
-
-    urr->volmeasurement = (struct VolumeMeasurement){};
-    urr->start_time = ktime_get_real();
-    urr->end_time = 0;
-    urr->time_of_fst_pkt = 0;
-    urr->time_of_lst_pkt = 0;
-
-    // printk("reset urr->threshold_tovol: %lld urr->threshold_uvol: %lld", urr->threshold_tovol, urr->threshold_uvol);
-
-    return 0 ;
-}
 // URR uplink URR_INFO_MBQE = 0
 int check_urr(struct pdr *pdr, u64 volume, bool uplink){
     struct urr *urr = pdr->urr;
@@ -588,31 +552,33 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
     // if (urr && !(urr->info & URR_INFO_MBQE)) {
     // if ((urr->info & URR_INFO_ASPOC) && (urr->info & URR_INFO_CIAM) && (urr->info & URR_INFO_INAM))
     //     inactive = true;
+    
     if (!(urr->info & URR_INFO_INAM)) {
         if (urr->method & URR_METHOD_VOLUM) {
             if (urr->info & URR_INFO_MNOP) { 
                 if(uplink){
                     pdr->ul_pkt_cnt++; 
-                    urr->volmeasurement.uplinkPktNum = pdr->ul_pkt_cnt;
+                    urr->volmeasurement.uplinkPktNum++;
                 }
                 else{
                     pdr->dl_pkt_cnt++;
-                    urr->volmeasurement.downlinkPktNum = pdr->dl_pkt_cnt;
+                    urr->volmeasurement.downlinkPktNum++;
                 }
                 urr->volmeasurement.totalPktNum = urr->volmeasurement.uplinkPktNum + urr->volmeasurement.downlinkPktNum;
             }
 
             if(uplink){
                 pdr->ul_byte_cnt += volume; 
-                urr->volmeasurement.uplinkVolume = pdr->ul_byte_cnt;
+                urr->volmeasurement.uplinkVolume += volume;
             }
             else{
                 pdr->dl_byte_cnt += volume;  
-                urr->volmeasurement.downlinkVolume = pdr->dl_byte_cnt;
+                urr->volmeasurement.downlinkVolume += volume;
             }
 
             urr->volmeasurement.totalVolume = urr->volmeasurement.uplinkVolume + urr->volmeasurement.downlinkVolume;
-
+            GTP5G_TRC(pdr->dev,"flags:%d, total_volume_cnt:%lld, ul_byte_cnt:%lld, dl_byte_cnt:%lld, total_pkt_cnt:%lld, ul_pkt_cnt:%lld, dl_pkt_cnt:%lld\n",
+                urr->volmeasurement.flag,urr->volmeasurement.totalVolume,urr->volmeasurement.uplinkVolume,urr->volmeasurement.downlinkVolume, urr->volmeasurement.totalPktNum,urr->volmeasurement.uplinkPktNum,urr->volmeasurement.downlinkPktNum);
             // Check threshold/quata
             if (urr->trigger & 0x200) {
                 if (urr->threshold_tovol && (urr->volmeasurement.totalVolume >= urr->threshold_tovol) && (urr->volumethreshold->flag & URR_VOLUME_THRESHOLD_TOVOL))
@@ -623,15 +589,13 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
                     send_dl_report = true;
 
                 if(send_tol_report || send_ul_report || send_dl_report){
-                    urr->time_of_lst_pkt = ktime_get_real();
-                    GTP5G_LOG(NULL,"Send report since reach threshold\n");
-                    // printk("reach threshold\n");
                     if (gtp5g_send_usage_report(pdr, urr) < 0) {
                         GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
                         return -1;
                     }
-                    resetThresholdandCount(pdr, urr);
-                }        
+                    resetCount(pdr,urr);
+                    resetThreshold(urr);
+                }
             }
             else if(urr->trigger & 1){
 
@@ -646,14 +610,14 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
                     //stop the measurement since out of quota
                     urr->info = URR_INFO_INAM;
                     far->action = FAR_ACTION_DROP;
-                    urr->time_of_lst_pkt = ktime_get_real();
                     GTP5G_LOG(NULL,"Send report since reach threshold\n");
 
                     if (gtp5g_send_usage_report(pdr, urr) < 0) {
                         GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
                         return -1;
                     }
-                    
+                    resetCount(pdr,urr);
+                    resetThreshold(urr);
                     GTP5G_LOG(pdr->dev, "FAR change to FAR_ACTION_DROP due to quota exhaust");
                 }      
             }
@@ -986,7 +950,6 @@ static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     return FAR_ACTION_BUFF;
 }
 int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
-
     struct gtp5g_pktinfo *pktinfo)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
@@ -996,7 +959,6 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct iphdr *iph;
     u64 volume;
     struct tcphdr *tcp; 
-
 
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.

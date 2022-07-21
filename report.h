@@ -37,7 +37,7 @@ struct VolumeMeasurement{
     u64 totalPktNum;
     u64 uplinkPktNum;
     u64 downlinkPktNum;
-};
+}__attribute__((packed));
 
 struct user_report {
 	uint32_t urrid; 					/* 8.2.54 URR_ID */
@@ -45,11 +45,6 @@ struct user_report {
     
     uint64_t trigger ;
     struct VolumeMeasurement volmeasurement;
-
-    // u64 start_time;
-    // u64 end_time;
-    // u64 time_of_fst_pkt;
-    // u64 time_of_lst_pkt;
 
     uint32_t queryUrrRef;
 

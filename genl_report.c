@@ -18,6 +18,28 @@
 static int gtp5g_genl_fill_usage_report(struct sk_buff *, u32, u32, u32, struct urr *);
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *urr);
 
+void resetCount(struct pdr *pdr, struct urr *urr){
+    pdr->ul_pkt_cnt = 0;
+    pdr->dl_byte_cnt = 0;
+    pdr->ul_pkt_cnt = 0;
+    pdr->dl_pkt_cnt = 0;
+    urr->volmeasurement = (struct VolumeMeasurement){
+        urr->volmeasurement.flag,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    };
+}
+
+void resetThreshold(struct urr *urr){
+    urr->threshold_tovol = urr->volumethreshold->totalVolume;
+    urr->threshold_uvol = urr->volumethreshold->uplinkVolume;
+    urr->threshold_dvol = urr->volumethreshold->downlinkVolume;
+}
+
 int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
 {
 
@@ -117,24 +139,26 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
 
     if (nla_put_u8(skb, GTP5G_UR_VOLUME_MEASUREMENT_FLAGS, flag))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOVOL, (pdr->ul_pkt_cnt + pdr->ul_pkt_cnt), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOVOL, urr->volmeasurement.totalVolume , 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UVOL, pdr->ul_pkt_cnt, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UVOL, urr->volmeasurement.uplinkVolume, 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DPACKET, pdr->dl_byte_cnt, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DPACKET, urr->volmeasurement.downlinkVolume, 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOPACKET, (pdr->ul_pkt_cnt + pdr->dl_pkt_cnt), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOPACKET, urr->volmeasurement.totalPktNum, 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UPACKET, pdr->ul_pkt_cnt, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UPACKET, urr->volmeasurement.uplinkPktNum, 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DPACKET, pdr->dl_pkt_cnt, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DPACKET, urr->volmeasurement.downlinkPktNum, 0))
         return -EMSGSIZE;
     nla_nest_end(skb, nest_volume_measurement);
 
-    pdr->ul_pkt_cnt = 0;
-    pdr->dl_byte_cnt = 0;
-    pdr->ul_pkt_cnt = 0;
-    pdr->dl_pkt_cnt = 0;
+    resetCount(pdr,urr);
+
+    urr->threshold_tovol -= urr->volmeasurement.totalVolume;
+    urr->threshold_uvol -= urr->volmeasurement.uplinkVolume;
+    urr->threshold_dvol -= urr->volmeasurement.downlinkVolume;
+
 
     return 0;
 }

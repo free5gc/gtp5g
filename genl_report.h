@@ -2,6 +2,8 @@
 #define __GENL_REPORT_H__
 
 #include "genl.h"
+#include "urr.h"
+#include "pdr.h"
 
 // VOLUME MEASUREMENT
 #define REPORT_VOLUME_MEASUREMENT_TOVOL 0x1
@@ -40,16 +42,14 @@ enum gtp5g_usage_report_attrs {
     GTP5G_UR_URSEQN,
     GTP5G_UR_VOLUME_MEASUREMENT,
     GTP5G_UR_QUERY_URR_REFERENCE,
-    // GTP5G_UR_START_TIME,
-    // GTP5G_UR_END_TIME,
-    // GTP5G_UR_TIME_OF_FIRST_PACKET,
-    // GTP5G_UR_TIME_OF_LAST_PACKET,
 
     __GTP5G_UR_ATTR_MAX,
 };
 #define GTP5G_UR_ATTR_MAX (__GTP5G_UR_ATTR_MAX - 1)
 
 extern int gtp5g_genl_get_usage_report(struct sk_buff *, struct genl_info *);
+extern void resetCount(struct pdr *pdr, struct urr *urr);
+extern void resetThreshold(struct urr *urr);
 
 #endif // __GENL_URR_H__
 

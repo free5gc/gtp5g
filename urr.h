@@ -7,6 +7,7 @@
 
 #include "dev.h"
 #include "report.h"
+#include "far.h"
 
 #define SEID_U32ID_HEX_STR_LEN 24
 // Measurement Method
@@ -66,13 +67,7 @@ struct urr {
     u64 threshold_dvol;
 
     struct VolumeThreshold *volumethreshold; 
-    struct VolumeQuota *volumequota;      
-
-    // For usage report time info
-    ktime_t  time_of_fst_pkt;
-    ktime_t  time_of_lst_pkt;
-    ktime_t  start_time;
-    ktime_t  end_time;
+    struct VolumeQuota *volumequota;    
 
     // For usage report volume measurement
     struct VolumeMeasurement volmeasurement;
