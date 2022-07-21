@@ -34,6 +34,8 @@ enum gtp5g_cmd {
 
     GTP5G_CMD_GET_REPORT,
 
+    GTP5G_CMD_BUFFER_GTPU,
+
     __GTP5G_CMD_MAX,
 };
 #define GTP5G_CMD_MAX (__GTP5G_CMD_MAX - 1)
@@ -46,6 +48,10 @@ enum gtp5g_cmd {
 enum gtp5g_device_attrs {
     GTP5G_LINK = 1,
     GTP5G_NET_NS_FD,
+};
+
+enum gtp5g_multicast_groups {
+	GTP5G_GENL_MCGRP,
 };
 
 extern struct genl_family gtp5g_genl_family;
