@@ -84,6 +84,27 @@ void urr_update(struct urr *urr, struct gtp5g_dev *gtp)
     }
 }
 
+void urr_quota_exhaust_action(struct urr *urr)
+{
+
+    struct hlist_head *head;
+    struct pdr *pdr;
+    char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
+    struct gtp5g_dev *gtp = netdev_priv(urr->dev);
+    
+    // urr stop measurement
+    urr->info = URR_INFO_INAM;
+
+    seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
+    head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
+    
+    //each pdr that associate with the urr drop pkt
+    hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
+        if (*pdr->urr_id == urr->id) {
+            pdr->far->action = FAR_ACTION_DROP;
+        }
+    }
+}
 void urr_append(u64 seid, u32 urr_id, struct urr *urr, struct gtp5g_dev *gtp)
 {
 
