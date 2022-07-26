@@ -377,6 +377,38 @@ static int set_pdr_qer_ids(struct pdr *pdr, u32 qer_id)
     return 0;
 }
 
+int find_urr_id_in_pdr(struct pdr *pdr, u32 urr_id)
+{
+    int i = 0;
+    for (i = 0; i < pdr->urr_num; i++) {
+        if (pdr->urr_ids[i] == urr_id)
+            return 1;
+    }
+    return 0;
+}
+
+static int set_pdr_urr_ids(struct pdr *pdr, u32 urr_id)
+{
+    u32 *new_urr_ids;
+
+    if (find_urr_id_in_pdr(pdr, urr_id))
+        return 0;
+
+    new_urr_ids = kzalloc((++pdr->urr_num) * URR_ID_SIZE, GFP_ATOMIC);
+    if (!new_urr_ids)
+        return -ENOMEM;
+    
+    if (pdr->urr_ids) {
+        memcpy(new_urr_ids, pdr->urr_ids, (pdr->urr_num - 1) * URR_ID_SIZE);
+        kfree(pdr->urr_ids);
+    }
+
+    new_urr_ids[pdr->urr_num - 1] = urr_id;
+    pdr->urr_ids = new_urr_ids;
+
+    return 0;
+}
+
 static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *info)
 {
     char *str;
@@ -431,6 +463,11 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
                 break;
             case GTP5G_PDR_PDI:
                 err = parse_pdi(pdr, hdr);
+                if (err)
+                    return err;
+                break;
+            case GTP5G_PDR_URR_ID:
+                err = set_pdr_urr_ids(pdr, nla_get_u32(hdr));
                 if (err)
                     return err;
                 break;
