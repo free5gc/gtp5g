@@ -8,6 +8,9 @@
 #include "seid.h"
 #include "hash.h"
 #include "genl.h"
+#include "log.h"
+#include <stdbool.h>
+
 
 static void seid_pdr_id_to_hex_str(u64 seid_int, u16 pdr_id, char *buff)
 {
@@ -159,18 +162,18 @@ static int ipv4_match(__be32 target_addr, __be32 ifa_addr, __be32 ifa_mask)
     return !((target_addr ^ ifa_addr) & ifa_mask);
 }
 
-static int ports_match(struct range *match_list, int list_len, __be16 port)
+static bool ports_match(struct range *match_list, int list_len, __be16 port)
 {
     int i;
 
     if (!list_len)
-        return 1;
+        return true;
 
     for (i = 0; i < list_len; i++) {
         if (match_list[i].start <= port && match_list[i].end >= port)
-            return 1;
+            return true;
     }
-    return 0;
+    return false;
 }
 
 static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb,
@@ -286,6 +289,8 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
         if (pdi->sdf)
             if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT))
                 continue;
+        
+        GTP5G_INF(NULL, "Match PDR ID:%d\n", pdr->id);
 
         return pdr;
     }
