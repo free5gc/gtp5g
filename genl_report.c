@@ -18,27 +18,21 @@
 static int gtp5g_genl_fill_usage_report(struct sk_buff *, u32, u32, u32, struct urr *);
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *urr);
 
-void resetCount(struct pdr *pdr){
+void resetCount(struct pdr *pdr, struct urr *urr){
 
     pdr->ul_byte_cnt = 0;
     pdr->dl_byte_cnt = 0;
     pdr->ul_pkt_cnt = 0;
     pdr->dl_pkt_cnt = 0;
-    pdr->urr->volmeasurement = (struct VolumeMeasurement){
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
+    urr->volmeasurement = (struct VolumeMeasurement){
+        urr->volmeasurement.flag,0,0,0,0,0,0
     };
 }
 
-void resetThreshold(struct pdr *pdr){
-    pdr->urr->threshold_tovol = pdr->urr->volumethreshold->totalVolume;
-    pdr->urr->threshold_uvol = pdr->urr->volumethreshold->uplinkVolume;
-    pdr->urr->threshold_dvol = pdr->urr->volumethreshold->downlinkVolume;
+void resetThreshold(struct urr *urr){
+    urr->threshold_tovol = urr->volumethreshold->totalVolume;
+    urr->threshold_uvol = urr->volumethreshold->uplinkVolume;
+    urr->threshold_dvol = urr->volumethreshold->downlinkVolume;
 }
 
 int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
@@ -144,7 +138,7 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
         return -EMSGSIZE;
     if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UVOL, urr->volmeasurement.uplinkVolume, 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DPACKET, urr->volmeasurement.downlinkVolume, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DVOL, urr->volmeasurement.downlinkVolume, 0))
         return -EMSGSIZE;
     if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOPACKET, urr->volmeasurement.totalPktNum, 0))
         return -EMSGSIZE;
@@ -154,11 +148,11 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
         return -EMSGSIZE;
     nla_nest_end(skb, nest_volume_measurement);
 
-    resetCount(pdr);
+    resetCount(pdr,urr);
 
-    // pdr->urr->threshold_tovol -= pdr->urr->volmeasurement.totalVolume;
-    // pdr->urr->threshold_uvol -= pdr->urr->volmeasurement.uplinkVolume;
-    // pdr->urr->threshold_dvol -= pdr->urr->volmeasurement.downlinkVolume;
+    urr->threshold_tovol -= urr->volmeasurement.totalVolume;
+    urr->threshold_uvol -= urr->volmeasurement.uplinkVolume;
+    urr->threshold_dvol -= urr->volmeasurement.downlinkVolume;
 
 
     return 0;
