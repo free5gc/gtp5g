@@ -20,7 +20,7 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
 
 void resetCount(struct pdr *pdr){
 
-    pdr->ul_pkt_cnt = 0;
+    pdr->ul_byte_cnt = 0;
     pdr->dl_byte_cnt = 0;
     pdr->ul_pkt_cnt = 0;
     pdr->dl_pkt_cnt = 0;
