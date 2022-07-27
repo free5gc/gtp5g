@@ -25,7 +25,7 @@ void resetCount(struct pdr *pdr){
     pdr->ul_pkt_cnt = 0;
     pdr->dl_pkt_cnt = 0;
     pdr->urr->volmeasurement = (struct VolumeMeasurement){
-        pdr->urr->volmeasurement.flag,
+        0,
         0,
         0,
         0,
@@ -156,9 +156,9 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
 
     resetCount(pdr);
 
-    pdr->urr->threshold_tovol -= pdr->urr->volmeasurement.totalVolume;
-    pdr->urr->threshold_uvol -= pdr->urr->volmeasurement.uplinkVolume;
-    pdr->urr->threshold_dvol -= pdr->urr->volmeasurement.downlinkVolume;
+    // pdr->urr->threshold_tovol -= pdr->urr->volmeasurement.totalVolume;
+    // pdr->urr->threshold_uvol -= pdr->urr->volmeasurement.uplinkVolume;
+    // pdr->urr->threshold_dvol -= pdr->urr->volmeasurement.downlinkVolume;
 
 
     return 0;
