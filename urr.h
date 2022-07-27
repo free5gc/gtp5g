@@ -35,6 +35,8 @@
 #define URR_INFO_ASPOC  0100
 #define URR_INFO_CIAM   0200
 
+#define URR_TRIGGER_VOLQU 0x1
+#define URR_TRIGGER_VOLTH 0x200
 struct VolumeThreshold{        
     uint8_t flag;
 
@@ -56,7 +58,7 @@ struct urr {
     u64 seid;
     u32 id;
     uint64_t method;
-    uint64_t trigger;
+    uint32_t trigger;
     uint64_t period;
     uint64_t info;
     uint64_t seq;

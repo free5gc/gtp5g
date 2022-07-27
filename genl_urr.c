@@ -493,7 +493,6 @@ static int gtp5g_genl_fill_urr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         if(gtp5g_genl_fill_volume_quota(skb,urr->volumequota))
             goto genlmsg_fail;
     }
-
     ids = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
     if (!ids)
         goto genlmsg_fail;

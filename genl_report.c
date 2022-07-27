@@ -177,8 +177,6 @@ static int gtp5g_genl_fill_usage_report(struct sk_buff *skb, u32 snd_portid, u32
         goto genlmsg_fail;
     if (nla_put_u32(skb, GTP5G_UR_URSEQN, 0))
         goto genlmsg_fail;
-    if(nla_put_u32(skb, GTP5G_UR_USAGE_REPORT_TRIGGER, REPORT_TRIGGER_IMMER))
-        goto genlmsg_fail;
     if(nla_put_u32(skb, GTP5G_UR_QUERY_URR_REFERENCE, 0))
         goto genlmsg_fail;
     if(gtp5g_genl_fill_volume_measurement(skb,urr))

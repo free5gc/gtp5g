@@ -543,6 +543,8 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
     return rt;
 }
 // URR uplink URR_INFO_MBQE = 0
+int err_num;
+int tol_num;
 int check_urr(struct pdr *pdr, u64 volume, bool uplink){
     struct urr *urr = pdr->urr;
     bool send_tol_report = false, send_ul_report = false, send_dl_report = false;
@@ -578,7 +580,7 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
             urr->volmeasurement.totalVolume = urr->volmeasurement.uplinkVolume + urr->volmeasurement.downlinkVolume;
            
             // Check threshold/quata
-            if (urr->trigger & 0x200) {
+            if (urr->trigger & URR_TRIGGER_VOLTH) {
                 GTP5G_TRC(pdr->dev,"flags:%d, total_volume_cnt:%lld, ul_byte_cnt:%lld, dl_byte_cnt:%lld, total_pkt_cnt:%lld, ul_pkt_cnt:%lld, dl_pkt_cnt:%lld\n",
                 urr->volmeasurement.flag,urr->volmeasurement.totalVolume,urr->volmeasurement.uplinkVolume,urr->volmeasurement.downlinkVolume, urr->volmeasurement.totalPktNum,urr->volmeasurement.uplinkPktNum,urr->volmeasurement.downlinkPktNum);
 
@@ -590,15 +592,16 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
                     send_dl_report = true;
 
                 if(send_tol_report || send_ul_report || send_dl_report){
+                    tol_num++;
                     if (gtp5g_send_usage_report(pdr, urr) < 0) {
-                        GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
+                        GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u), , tol num:%d, err num:%d", pdr->id,tol_num,++err_num);
                         return -1;
                     }
                     resetCount(pdr,urr);
                     resetThreshold(urr);
                 }
             }
-            else if(urr->trigger & 1){
+            else if(urr->trigger & URR_TRIGGER_VOLQU){
                 GTP5G_TRC(pdr->dev,"flags:%d, total_volume_cnt:%lld, ul_byte_cnt:%lld, dl_byte_cnt:%lld, total_pkt_cnt:%lld, ul_pkt_cnt:%lld, dl_pkt_cnt:%lld\n",
                 urr->volmeasurement.flag,urr->volmeasurement.totalVolume,urr->volmeasurement.uplinkVolume,urr->volmeasurement.downlinkVolume, urr->volmeasurement.totalPktNum,urr->volmeasurement.uplinkPktNum,urr->volmeasurement.downlinkPktNum);
                 
@@ -611,7 +614,7 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
 
                 if(send_tol_report || send_ul_report || send_dl_report){
                     urr_quota_exhaust_action(urr);
-                    GTP5G_TRC(NULL,"reach quota volume\n");
+                    GTP5G_LOG(NULL,"Quota Exhaust\n");
 
                     if (gtp5g_send_usage_report(pdr, urr) < 0) {
                         GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);

@@ -152,7 +152,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
         return err;
     }
 
-    printk("alloc_workqueue\n");
+    // printk("alloc_workqueue\n");
     pdr->workqueue_sending = alloc_workqueue("workqueue_sending", WQ_UNBOUND, 0);
     // pdr->workqueue_sending = create_singlethread_workqueue("workqueue_sending");
 
