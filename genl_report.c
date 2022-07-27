@@ -18,13 +18,14 @@
 static int gtp5g_genl_fill_usage_report(struct sk_buff *, u32, u32, u32, struct urr *);
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *urr);
 
-void resetCount(struct pdr *pdr, struct urr *urr){
+void resetCount(struct pdr *pdr){
+
     pdr->ul_pkt_cnt = 0;
     pdr->dl_byte_cnt = 0;
     pdr->ul_pkt_cnt = 0;
     pdr->dl_pkt_cnt = 0;
-    urr->volmeasurement = (struct VolumeMeasurement){
-        urr->volmeasurement.flag,
+    pdr->urr->volmeasurement = (struct VolumeMeasurement){
+        pdr->urr->volmeasurement.flag,
         0,
         0,
         0,
@@ -34,10 +35,10 @@ void resetCount(struct pdr *pdr, struct urr *urr){
     };
 }
 
-void resetThreshold(struct urr *urr){
-    urr->threshold_tovol = urr->volumethreshold->totalVolume;
-    urr->threshold_uvol = urr->volumethreshold->uplinkVolume;
-    urr->threshold_dvol = urr->volumethreshold->downlinkVolume;
+void resetThreshold(struct pdr *pdr){
+    pdr->urr->threshold_tovol = pdr->urr->volumethreshold->totalVolume;
+    pdr->urr->threshold_uvol = pdr->urr->volumethreshold->uplinkVolume;
+    pdr->urr->threshold_dvol = pdr->urr->volumethreshold->downlinkVolume;
 }
 
 int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
@@ -153,11 +154,11 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
         return -EMSGSIZE;
     nla_nest_end(skb, nest_volume_measurement);
 
-    resetCount(pdr,urr);
+    resetCount(pdr);
 
-    urr->threshold_tovol -= urr->volmeasurement.totalVolume;
-    urr->threshold_uvol -= urr->volmeasurement.uplinkVolume;
-    urr->threshold_dvol -= urr->volmeasurement.downlinkVolume;
+    pdr->urr->threshold_tovol -= pdr->urr->volmeasurement.totalVolume;
+    pdr->urr->threshold_uvol -= pdr->urr->volmeasurement.uplinkVolume;
+    pdr->urr->threshold_dvol -= pdr->urr->volmeasurement.downlinkVolume;
 
 
     return 0;

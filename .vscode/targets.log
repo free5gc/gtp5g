@@ -8,7 +8,7 @@ make: *** No rule to make target 'all'.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Wed Jul 27 02:52:16 2022
+# Make data base, printed on Wed Jul 27 04:06:10 2022
 
 # Variables
 
@@ -73,7 +73,7 @@ MY_CFLAGS = -g -DDEBUG $(RHEL8FLAG)
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-VSCODE_IPC_HOOK_CLI = /run/user/1000/vscode-ipc-f1c2faf4-0331-4e6a-86cc-2066c2b850f1.sock
+VSCODE_IPC_HOOK_CLI = /run/user/1000/vscode-ipc-e3bbe5fe-3af6-4e63-80ab-c17e5f20fd88.sock
 # default
 .FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell archives jobserver output-sync check-symlink load
 # makefile (from 'Makefile', line 10)
@@ -189,9 +189,9 @@ MOTD_SHOWN = pam
 
 # Directories
 
-# . (device 64768, inode 393528): 125 files, no impossibilities.
+# . (device 64768, inode 393528): 128 files, no impossibilities.
 
-# 125 files, no impossibilities in 1 directories.
+# 128 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -267,12 +267,12 @@ install:
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 135 / storage = 1287 B / avg = 9 B
-# current buf: size = 8162 B / used = 1287 B / count = 135 / avg = 9 B
+# strcache buffers: 1 (0) / strings = 138 / storage = 1333 B / avg = 9 B
+# current buf: size = 8162 B / used = 1333 B / count = 138 / avg = 9 B
 
-# strcache performance: lookups = 145 / hit rate = 6%
+# strcache performance: lookups = 148 / hit rate = 6%
 # hash-table stats:
-# Load=135/8192=2%, Rehash=0, Collisions=3/145=2%
-# Finished Make data base on Wed Jul 27 02:52:16 2022
+# Load=138/8192=2%, Rehash=0, Collisions=3/148=2%
+# Finished Make data base on Wed Jul 27 04:06:10 2022
 
  
