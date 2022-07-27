@@ -446,7 +446,8 @@ void thread_send_report(struct work_struct *work) {
         set_fs(oldfs);
     #endif
 }
-u64 tol_ul_urr = 0;
+u64 urr_actual_send = 0;
+u64 urr_ur_vol = 0;
 
 static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
 {
@@ -482,7 +483,7 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct urr *urr)
     }
 
     urr->volmeasurement.flag = flag;
-    tol_ul_urr += urr->volmeasurement.uplinkVolume;
+    urr_ur_vol += urr->volmeasurement.uplinkVolume;
 
     report = &(struct user_report){
             urr->id,
@@ -596,13 +597,13 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
                 if(send_tol_report || send_ul_report || send_dl_report){
                     tol_num++;
                     if (gtp5g_send_usage_report(pdr, urr) < 0) {
-                        tol_ul_urr -= urr->volmeasurement.uplinkVolume;
-
                         resetCount(pdr);
                         resetThreshold(pdr);
                         GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u), , tol num:%d, err num:%d", pdr->id,tol_num,++err_num);
                         return -1;
                     }
+                    urr_actual_send += urr->volmeasurement.uplinkVolume;
+
                     resetCount(pdr);
                     resetThreshold(pdr);
                 }
@@ -844,7 +845,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
     ul_vol += volume;
     printk("ul_vol: %d pdr->ul_byte_cnt: %lld", ul_vol, pdr->ul_byte_cnt);
-    printk("ul_vol_URR:%lld", tol_ul_urr);
+    printk("urr_actual_send: %lld, urr_ur_vol: %lld", urr_actual_send, urr_ur_vol);
 
     return 0;
 }
