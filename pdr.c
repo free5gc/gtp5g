@@ -289,7 +289,7 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
         if (pdi->sdf)
             if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT))
                 continue;
-        
+
         GTP5G_INF(NULL, "Match PDR ID:%d\n", pdr->id);
 
         return pdr;
