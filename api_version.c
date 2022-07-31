@@ -1,4 +1,4 @@
-#include <stdbool.h>
+#include <linux/types.h>
 #include "api_version.h"
 
 bool api_with_seid = false;

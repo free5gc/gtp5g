@@ -199,13 +199,13 @@ void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
 
 inline void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *pktinfo,
     struct sock *sk, struct iphdr *iph, struct outer_header_creation *hdr_creation,
-    struct qer *qer, struct rtable *rt, struct flowi4 *fl4,
+    u8 qfi, struct rtable *rt, struct flowi4 *fl4,
     struct net_device *dev)
 {
     pktinfo->sk = sk;
     pktinfo->iph = iph;
     pktinfo->hdr_creation = hdr_creation;
-    pktinfo->qer = qer;
+    pktinfo->qfi = qfi;
     pktinfo->rt = rt;
     pktinfo->fl4 = *fl4;
     pktinfo->dev = dev;
@@ -227,7 +227,7 @@ void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
     /* Suppport for extension header, sequence number and N-PDU.
      * Update the length field if any of them is available.
      */
-    if (pktinfo->qer) {
+    if (pktinfo->qfi > 0) {
         ext_flag = 1; 
 
         /* Push PDU Session container information */
@@ -235,7 +235,7 @@ void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
         /* Multiple of 4 (TODO include PPI) */
         dl_pdu_sess->length = 1;
         dl_pdu_sess->pdu_sess_ctr.type_spare = 0; /* For DL */
-        dl_pdu_sess->pdu_sess_ctr.u.dl.ppp_rqi_qfi = pktinfo->qer->qfi;
+        dl_pdu_sess->pdu_sess_ctr.u.dl.ppp_rqi_qfi = pktinfo->qfi;
         //TODO: PPI
         dl_pdu_sess->next_ehdr_type = 0; /* No more extension Header */
         
@@ -262,6 +262,6 @@ void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
     gtp1->tid = pktinfo->hdr_creation->teid;
     gtp1->length = htons(payload_len);       /* Excluded the header length of gtpv1 */
 
-    // GTP5G_TRC(NULL, "QER Found GTP-U Flg(%u) GTPU-L(%u) SkbLen(%u)\n", 
-    //     gtp1->flags, ntohs(gtp1->length), skb->len);
+    GTP5G_TRC(NULL, "QER Found GTP-U Flg(%u) GTPU-L(%u) SkbLen(%u)\n", 
+        gtp1->flags, ntohs(gtp1->length), skb->len);
 }

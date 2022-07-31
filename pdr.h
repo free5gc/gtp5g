@@ -48,6 +48,8 @@ struct pdi {
     struct sdf_filter *sdf;
 };
 
+#define QER_ID_SIZE sizeof(u32)
+#define URR_ID_SIZE sizeof(u32)
 struct pdr {
     struct hlist_node hlist_id;
     struct hlist_node hlist_i_teid;
@@ -63,9 +65,11 @@ struct pdr {
     struct pdi *pdi;
     u32 *far_id;
     struct far *far;
-    u32 *qer_id;
-    struct qer *qer;
-    u32 *urr_id;
+    u32 *qer_ids; 
+    u32 qer_num;
+    u8  qfi;
+    u32 *urr_ids;
+    u32 urr_num;
     struct urr *urr;
     
     /* deprecated: AF_UNIX socket for buffer */
@@ -101,6 +105,8 @@ extern struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *, struct sk_buff *,
         unsigned int, u32);
 extern struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *, struct sk_buff *,
         unsigned int, __be32);
+extern int find_qer_id_in_pdr(struct pdr *, u32);
+extern int find_urr_id_in_pdr(struct pdr *, u32);
 
 extern void pdr_append(u64, u16, struct pdr *, struct gtp5g_dev *);
 extern void pdr_update_hlist_table(struct pdr *, struct gtp5g_dev *);

@@ -37,11 +37,11 @@ static void pdr_context_free(struct rcu_head *head)
             kfree(pdi->f_teid);
         if (pdr->far_id)
             kfree(pdr->far_id);
-        if (pdr->qer_id)
-            kfree(pdr->qer_id);
-        if (pdr->urr_id)
-            kfree(pdr->urr_id);
-
+        if (pdr->qer_ids)
+            kfree(pdr->qer_ids);
+        if (pdr->urr_ids)
+            kfree(pdr->urr_ids);
+            
         sdf = pdi->sdf;
         if (sdf) {
             if (sdf->rule) {
@@ -233,18 +233,18 @@ static int ipv4_match(__be32 target_addr, __be32 ifa_addr, __be32 ifa_mask)
     return !((target_addr ^ ifa_addr) & ifa_mask);
 }
 
-static int ports_match(struct range *match_list, int list_len, __be16 port)
+static bool ports_match(struct range *match_list, int list_len, __be16 port)
 {
     int i;
 
     if (!list_len)
-        return 1;
+        return true;
 
     for (i = 0; i < list_len; i++) {
         if (match_list[i].start <= port && match_list[i].end >= port)
-            return 1;
+            return true;
     }
-    return 0;
+    return false;
 }
 
 static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb,
@@ -360,6 +360,8 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
         if (pdi->sdf)
             if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT))
                 continue;
+
+        GTP5G_INF(NULL, "Match PDR ID:%d\n", pdr->id);
 
         return pdr;
     }
