@@ -98,7 +98,7 @@ void urr_quota_exhaust_action(struct urr *urr)
     
     //each pdr that associate with the urr drop pkt
     hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
-        if (*pdr->urr_id == urr->id) {
+        if (find_urr_id_in_pdr(pdr, urr->id)) {
             pdr->far->action = FAR_ACTION_DROP;
         }
     }

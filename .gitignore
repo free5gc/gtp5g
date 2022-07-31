@@ -7,6 +7,6 @@
 *.log
 *.d
 log
-.vscode
+.vscode/
 Module.symvers
 modules.order
