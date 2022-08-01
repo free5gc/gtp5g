@@ -386,17 +386,19 @@ static int set_pdr_qer_ids(struct pdr *pdr, u32 qer_id)
 int find_urr_id_in_pdr(struct pdr *pdr, u32 urr_id)
 {
     int i = 0;
+
     for (i = 0; i < pdr->urr_num; i++) {
+
         if (pdr->urr_ids[i] == urr_id)
             return 1;
     }
+
     return 0;
 }
 
 static int set_pdr_urr_ids(struct pdr *pdr, u32 urr_id)
 {
     u32 *new_urr_ids;
-
     if (find_urr_id_in_pdr(pdr, urr_id))
         return 0;
 
@@ -411,6 +413,7 @@ static int set_pdr_urr_ids(struct pdr *pdr, u32 urr_id)
 
     new_urr_ids[pdr->urr_num - 1] = urr_id;
     pdr->urr_ids = new_urr_ids;
+
 
     return 0;
 }

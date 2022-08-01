@@ -450,7 +450,7 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct user_report *report,u
 {
     struct msghdr *msg;
     struct iovec *iov;
-    // mm_segment_t oldfs;
+    mm_segment_t oldfs;
     int msg_iovlen;
     int total_iov_len = 0;
     int i, rt;
@@ -501,12 +501,12 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct user_report *report,u
     msg->msg_controllen = 0;
     msg->msg_flags = MSG_DONTWAIT;
 
-// #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-//     oldfs = force_uaccess_begin();
-// #else
-//     oldfs = get_fs();
-//     set_fs(KERNEL_DS);
-// #endif
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+        oldfs = force_uaccess_begin();
+    #else
+        oldfs = get_fs();
+        set_fs(KERNEL_DS);
+    #endif
 
     
     rt = sock_sendmsg(pdr->sock_for_report, msg);
@@ -523,6 +523,11 @@ static int gtp5g_send_usage_report(struct pdr *pdr, struct user_report *report,u
     // rt = 0;
     // // diff = ktime_get_ns()- start;
     // printk("sock_sendmsg in urr end\n");
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+        force_uaccess_end(oldfs);
+    #else
+        set_fs(oldfs);
+    #endif
 
     return rt;
 }
