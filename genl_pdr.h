@@ -17,7 +17,6 @@ enum gtp5g_pdr_attrs {
 
     /* Not in 3GPP spec, just used for buffering */
     GTP5G_PDR_UNIX_SOCKET_PATH,
-    PDR_REPORT_UNIX_SOCKET_PATH,
     GTP5G_PDR_QER_ID,
 
     GTP5G_PDR_SEID,

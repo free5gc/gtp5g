@@ -77,10 +77,10 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
      * it means that user use the API which support 
      * URR and BAR feature. Otherwise, use the older API. 
      */
-    if (info->attrs[GTP5G_PDR_URR_ID])
-        set_api_with_urr_bar(true);
-    else
-        set_api_with_urr_bar(false);
+    // if (info->attrs[GTP5G_PDR_URR_ID])
+    //     set_api_with_urr_bar(true);
+    // else
+    //     set_api_with_urr_bar(true);
 
     if (info->attrs[GTP5G_PDR_ID]) {
         pdr_id = nla_get_u32(info->attrs[GTP5G_PDR_ID]);
@@ -457,11 +457,6 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
                 pdr->addr_unix.sun_family = AF_UNIX;
                 strncpy(pdr->addr_unix.sun_path, str, nla_len(hdr));
                 break;
-            case PDR_REPORT_UNIX_SOCKET_PATH:
-                str = nla_data(hdr);
-                pdr->addr_unix_report.sun_family = AF_UNIX;
-                strncpy(pdr->addr_unix_report.sun_path, str, nla_len(hdr));
-                break;            
             case GTP5G_PDR_FAR_ID:
                 if (!pdr->far_id) {
                     pdr->far_id = kzalloc(sizeof(*pdr->far_id), GFP_ATOMIC);
@@ -481,6 +476,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
                     return err;
                 break;
             case GTP5G_PDR_URR_ID:
+                set_api_with_urr_bar(true);
                 err = set_pdr_urr_ids(pdr, nla_get_u32(hdr));
                 if (err)
                     return err;

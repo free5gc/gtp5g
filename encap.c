@@ -25,6 +25,7 @@
 #include "api_version.h"
 #include "pktinfo.h"
 /* used to compatible with api with/without seid */
+#define MSG_URR_BAR_USAR_KOV_LEN 5
 #define MSG_URR_BAR_KOV_LEN 4
 #define MSG_SEID_KOV_LEN 3
 #define MSG_NO_SEID_KOV_LEN 2
@@ -44,7 +45,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *, struct sk_buff *);
 static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, unsigned int);
 static int gtp5g_fwd_skb_encap(struct sk_buff *, struct net_device *,
         unsigned int, struct pdr *);
-static int unix_sock_send(struct pdr *, void *, u32);
+static int unix_sock_send(struct pdr *, void *, u32, u16);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
     struct net_device *, struct gtp5g_pktinfo *, 
     struct pdr *);
@@ -307,7 +308,7 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
         return -1;
     }
 
-    if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0) {
+    if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
         GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
         ++pdr->ul_drop_cnt;
     }
@@ -318,7 +319,7 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
 /* Function unix_sock_{...} are used to handle buffering */
 // Send PDR ID, FAR action and buffered packet to user space
-static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
+static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
 {
     struct msghdr msg;
     struct kvec *kov;
@@ -329,15 +330,23 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
     u8  type_hdr[1] = {TYPE_BUFFER};
     u64 self_seid_hdr[1] = {pdr->seid};
     u16 self_hdr[2] = {pdr->id, pdr->far->action};
+    u16 self_num_hdr[1] = {report_num};
 
     if (!pdr->sock_for_buf) {
         GTP5G_ERR(NULL, "Failed Socket buffer is NULL\n");
         return -EINVAL;
     }
-
+    
     memset(&msg, 0, sizeof(msg));
-        if (get_api_with_seid() && get_api_with_urr_bar()) {    
-        msg_kovlen = MSG_URR_BAR_KOV_LEN;
+    if (get_api_with_seid() && get_api_with_urr_bar()) {    
+        if(report_num > 0){
+            msg_kovlen = MSG_URR_BAR_USAR_KOV_LEN;
+            type_hdr[0] = TYPE_URR_REPORT;
+        }
+        else{
+            msg_kovlen = MSG_URR_BAR_KOV_LEN;
+        }
+
         kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
             GFP_KERNEL);
         if (kov == NULL)
@@ -345,14 +354,25 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
 
         memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
 
-        kov[0].iov_len = sizeof(type_hdr);
         kov[0].iov_base = type_hdr;
+        kov[0].iov_len = sizeof(type_hdr);
         kov[1].iov_base = self_seid_hdr;
         kov[1].iov_len = sizeof(self_seid_hdr);
         kov[2].iov_base = self_hdr;
         kov[2].iov_len = sizeof(self_hdr);
-        kov[3].iov_base = buf;
-        kov[3].iov_len = len;
+
+        //buf is report in this case
+        if(report_num > 0){
+            kov[3].iov_base = self_num_hdr;
+            kov[3].iov_len = sizeof(self_num_hdr);
+            kov[4].iov_base = buf;
+            kov[4].iov_len = len;
+        }
+        else{
+            kov[3].iov_base = buf;
+            kov[3].iov_len = len;
+        }
+
     } else if (get_api_with_seid()) {
         msg_kovlen = MSG_SEID_KOV_LEN;
         kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
@@ -409,128 +429,128 @@ struct my_work_t {
     struct work_struct work;         
 };
 
-void thread_send_report(struct work_struct *work) {
-    mm_segment_t oldfs;
+// void thread_send_report(struct work_struct *work) {
+//     mm_segment_t oldfs;
 
-    struct my_work_t *my_work = container_of(work, struct my_work_t, work);
-    int ret;
-    // mutex_lock(&(my_work->mutex));
-    // mutex_lock(my_work->ptr_mutex);
+//     struct my_work_t *my_work = container_of(work, struct my_work_t, work);
+//     int ret;
+//     // mutex_lock(&(my_work->mutex));
+//     // mutex_lock(my_work->ptr_mutex);
 
-    // struct socket *sock = my_work->sock;
-    // struct msghdr *ptr_msg = my_work->ptr_msg;
-    // GTP5G_LOG(NULL, "thread_send_report sock");
-    // printk("________________________________________________________________________________\n");
+//     // struct socket *sock = my_work->sock;
+//     // struct msghdr *ptr_msg = my_work->ptr_msg;
+//     // GTP5G_LOG(NULL, "thread_send_report sock");
+//     // printk("________________________________________________________________________________\n");
 
-    // GTP5G_LOG(NULL, "thread_send_report sock: %p msghdr: %p", my_work->sock, my_work->ptr_msg);
-    struct pdr *pdr = my_work->pdr;
+//     // GTP5G_LOG(NULL, "thread_send_report sock: %p msghdr: %p", my_work->sock, my_work->ptr_msg);
+//     struct pdr *pdr = my_work->pdr;
     
-    printk("thread_send_report sock: %p msghdr: %p cnt:%d", pdr->sock_for_report, my_work->ptr_msg, my_work->cnt);
-    #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-    oldfs = force_uaccess_begin();
-    #else
-        oldfs = get_fs();
-        set_fs(KERNEL_DS);
-    #endif
+//     // printk("thread_send_report sock: %p msghdr: %p cnt:%d", pdr->sock_for_report, my_work->ptr_msg, my_work->cnt);
+//     #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+//     oldfs = force_uaccess_begin();
+//     #else
+//         oldfs = get_fs();
+//         set_fs(KERNEL_DS);
+//     #endif
 
-    ret = sock_sendmsg(my_work->pdr->sock_for_report, my_work->ptr_msg);
+//     ret = sock_sendmsg(my_work->pdr->sock_for_buf, my_work->ptr_msg);
 
-    printk("thread_send_report end (ret: %d)\n", ret);
-    // mutex_unlock(&(my_work->mutex));
-    // ndelay(50);
-    // kfree(my_work->ptr_msg);
-    #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-    force_uaccess_end(oldfs);
-    #else
-        set_fs(oldfs);
-    #endif
-}
+//     printk("thread_send_report end (ret: %d)\n", ret);
+//     // mutex_unlock(&(my_work->mutex));
+//     // ndelay(50);
+//     // kfree(my_work->ptr_msg);
+//     #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+//     force_uaccess_end(oldfs);
+//     #else
+//         set_fs(oldfs);
+//     #endif
+// }
 
-static int gtp5g_send_usage_report(struct pdr *pdr, struct user_report *report,u16 report_len, int report_num)
-{
-    struct msghdr *msg;
-    struct iovec *iov;
-    mm_segment_t oldfs;
-    int msg_iovlen;
-    int total_iov_len = 0;
-    int i, rt;
-    // u8  type_hdr[1] = {TYPE_URR_REPORT};
-    u64 self_seid_hdr[1] = {pdr->seid};
-    u16 self_hdr[1] = {pdr->far->action};
-    int self_len_hdr[1] = {report_num};
+// static int gtp5g_send_usage_report(struct pdr *pdr, struct user_report *report,u16 report_len, int report_num)
+// {
+//     struct msghdr *msg;
+//     struct iovec *iov;
+//     mm_segment_t oldfs;
+//     int msg_iovlen;
+//     int total_iov_len = 0;
+//     int i, rt;
+//     u8  type_hdr[1] = {TYPE_URR_REPORT};
+//     u64 self_seid_hdr[1] = {pdr->seid};
+//     u16 self_hdr[1] = {pdr->far->action};
+//     int self_len_hdr[1] = {report_num};
 
-    // struct my_work_t *my_work;
+//     // struct my_work_t *my_work;
 
-    msg = kzalloc(sizeof(*msg), GFP_ATOMIC);
-    // my_work = kzalloc(sizeof(*my_work), GFP_ATOMIC);
+//     msg = kzalloc(sizeof(*msg), GFP_ATOMIC);
+//     // my_work = kzalloc(sizeof(*my_work), GFP_ATOMIC);
 
-    // 8.2.44 Volume Measurement octet 5
-    // flags are control by GTP5G
-    
+//     // 8.2.44 Volume Measurement octet 5
+//     // flags are control by GTP5G
 
+//     if (!pdr->sock_for_buf) {
+//         GTP5G_ERR(NULL, "Failed: Socket for Report is NULL\n");
+//         return -EINVAL;
+//     }
 
-    if (!pdr->sock_for_report) {
-        GTP5G_ERR(NULL, "Failed: Socket for Report is NULL\n");
-        return -EINVAL;
-    }
-
-    // memset(&msg, 0, sizeof(msg));
+//     // memset(&msg, 0, sizeof(msg));
   
-    msg_iovlen = 4;
-    iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
-        GFP_KERNEL);
+//     msg_iovlen = 5;
+//     iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
+//         GFP_KERNEL);
 
-    memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
+//     memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
 
-    iov[0].iov_base = self_seid_hdr;
-    iov[0].iov_len = sizeof(self_seid_hdr);
-    iov[1].iov_base = self_hdr;
-    iov[1].iov_len = sizeof(self_hdr);
-    iov[2].iov_base = self_len_hdr;
-    iov[2].iov_len = sizeof(self_len_hdr);
-    iov[3].iov_base = report;
-    iov[3].iov_len = report_len;
+//     iov[0].iov_base = type_hdr;
+//     iov[0].iov_len = sizeof(type_hdr);
+//     iov[1].iov_base = self_seid_hdr;
+//     iov[1].iov_len = sizeof(self_seid_hdr);
+//     iov[2].iov_base = self_hdr;
+//     iov[2].iov_len = sizeof(self_hdr);
+//     iov[3].iov_base = self_len_hdr;
+//     iov[3].iov_len = sizeof(self_len_hdr);
+//     iov[4].iov_base = report;
+//     iov[4].iov_len = report_len;
 
-    for (i = 0; i < msg_iovlen; i++)
-        total_iov_len += iov[i].iov_len;
+//     for (i = 0; i < msg_iovlen; i++)
+//         total_iov_len += iov[i].iov_len;
 
-    msg->msg_name = 0;
-    msg->msg_namelen = 0;
-    iov_iter_init(&(msg->msg_iter), WRITE, iov, msg_iovlen, total_iov_len);
-    msg->msg_control = NULL;
-    msg->msg_controllen = 0;
-    msg->msg_flags = MSG_DONTWAIT;
+//     msg->msg_name = 0;
+//     msg->msg_namelen = 0;
+//     iov_iter_init(&(msg->msg_iter), WRITE, iov, msg_iovlen, total_iov_len);
+//     msg->msg_control = NULL;
+//     msg->msg_controllen = 0;
+//     msg->msg_flags = MSG_DONTWAIT;
 
-    #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-        oldfs = force_uaccess_begin();
-    #else
-        oldfs = get_fs();
-        set_fs(KERNEL_DS);
-    #endif
+//     #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+//         oldfs = force_uaccess_begin();
+//     #else
+//         oldfs = get_fs();
+//         set_fs(KERNEL_DS);
+//     #endif
 
     
-    rt = sock_sendmsg(pdr->sock_for_report, msg);
+//     rt = sock_sendmsg(pdr->sock_for_buf, msg);
 
-    kfree(iov);
-    kfree(msg);
-    // printk("sock_sendmsg in urr start sock: %p msghdr: %p\n", pdr->sock_for_report, msg);
-    // my_work->pdr = pdr;
-    // my_work->ptr_msg = msg;
-    // my_work->cnt = cnt++;
-    // INIT_WORK(&(my_work->work), thread_send_report);
-    // queue_work(pdr->workqueue_sending, &(my_work->work));
-    // // rt = sock_sendmsg(pdr->sock_for_report, msg);
-    // rt = 0;
-    // // diff = ktime_get_ns()- start;
-    // printk("sock_sendmsg in urr end\n");
-    #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-        force_uaccess_end(oldfs);
-    #else
-        set_fs(oldfs);
-    #endif
+//     kfree(iov);
+//     kfree(msg);
+//     // printk("sock_sendmsg in urr start sock: %p msghdr: %p\n", pdr->sock_for_report, msg);
+//     // my_work->pdr = pdr;
+//     // my_work->ptr_msg = msg;
+//     // my_work->cnt = cnt++;
+//     // INIT_WORK(&(my_work->work), thread_send_report);
+//     // queue_work(pdr->workqueue_sending, &(my_work->work));
+//     // // rt = sock_sendmsg(pdr->sock_for_report, msg);
+//     // rt = 0;
+//     // // diff = ktime_get_ns()- start;
+//     // printk("sock_sendmsg in urr end\n");
+//     #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+//         force_uaccess_end(oldfs);
+//     #else
+//         set_fs(oldfs);
+//     #endif
 
-    return rt;
-}
+//     return rt;
+// }
 // URR uplink URR_INFO_MBQE = 0
 int err_num= 0;
 int tol_num = 0;
@@ -656,7 +676,7 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
             resetURR(urr);      
         }
 
-        if (gtp5g_send_usage_report(pdr, report, len, report_num) < 0) {
+        if (unix_sock_send(pdr, report, len, report_num) < 0) {
             GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
             return -1;
         }
@@ -961,7 +981,7 @@ static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct pdr *pdr)
 {
     // TODO: handle nonlinear part
-    if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0) {
+    if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
         GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
         ++pdr->dl_drop_cnt;
     }
