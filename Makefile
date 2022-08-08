@@ -42,7 +42,7 @@ gtp5g-y += api_version.o
 gtp5g-y += log.o util.o
 gtp5g-y += dev.o genl.o net.o link.o proc.o
 gtp5g-y += gtp.o pktinfo.o hash.o seid.o encap.o
-gtp5g-y += pdr.o far.o qer.o bar.o urr.o genl.o genl_pdr.o genl_far.o genl_qer.o genl_bar.o genl_urr.o
+gtp5g-y += pdr.o far.o qer.o bar.o urr.o genl.o genl_pdr.o genl_far.o genl_qer.o genl_bar.o genl_urr.o genl_version.o
 
 default: module
 
