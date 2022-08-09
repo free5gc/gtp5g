@@ -333,7 +333,7 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
 
     }
 
-    urr->volmeasurement = (struct VolumeMeasurement){};
+    // urr->volmeasurement = (struct VolumeMeasurement){};
     /* Update PDRs which has not linked to this URR */
     urr_update(urr, gtp);
 

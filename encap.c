@@ -552,8 +552,6 @@ struct my_work_t {
 //     return rt;
 // }
 // URR uplink URR_INFO_MBQE = 0
-int err_num= 0;
-int tol_num = 0;
 int check_urr(struct pdr *pdr, u64 volume, bool uplink){
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i ;
@@ -565,7 +563,6 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
     struct user_report *report;
     bool send_tol_report = false, send_ul_report = false, send_dl_report = false;
     // bool inactive = false
-
     // if (urr && !(urr->info & URR_INFO_MBQE)) {
     // if ((urr->info & URR_INFO_ASPOC) && (urr->info & URR_INFO_CIAM) && (urr->info & URR_INFO_INAM))
     //     inactive = true;
@@ -595,7 +592,6 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
                     urr->volmeasurement.downlinkVolume += volume;
                 }
                 urr->volmeasurement.totalVolume = urr->volmeasurement.uplinkVolume + urr->volmeasurement.downlinkVolume;
-        
                 // Check threshold/quata
                 if (urr->trigger & URR_TRIGGER_VOLTH) {
                     GTP5G_TRC(pdr->dev,"flags:%d, total_volume_cnt:%lld, ul_byte_cnt:%lld, dl_byte_cnt:%lld, total_pkt_cnt:%lld, ul_pkt_cnt:%lld, dl_pkt_cnt:%lld\n",
@@ -673,7 +669,7 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
                     urr->volmeasurement, 
                     0
             };
-            resetURR(urr);      
+            resetURR(urr);
         }
 
         if (unix_sock_send(pdr, report, len, report_num) < 0) {
