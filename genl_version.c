@@ -14,6 +14,7 @@ static int gtp5g_genl_fill_ver(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
    
     genlmsg_end(skb, genlh);
     return 0;
+    
 genlmsg_fail:
     genlmsg_cancel(skb, genlh);
     return -EMSGSIZE;
