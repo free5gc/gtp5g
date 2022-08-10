@@ -27,7 +27,6 @@ int gtp5g_genl_get_version(struct sk_buff *skb, struct genl_info *info)
 
     skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
     if (!skb_ack) {
-        rcu_read_unlock();
         return -ENOMEM;
     }
 
@@ -37,11 +36,8 @@ int gtp5g_genl_get_version(struct sk_buff *skb, struct genl_info *info)
             info->nlhdr->nlmsg_type);
     if (err) {
         kfree_skb(skb_ack);
-        rcu_read_unlock();
         return err;
     }
-
-    rcu_read_unlock();
 
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 }  
