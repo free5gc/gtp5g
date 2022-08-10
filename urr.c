@@ -74,7 +74,7 @@ void urr_update(struct urr *urr, struct gtp5g_dev *gtp)
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
-        if (find_urr_id_in_pdr(pdr, urr->id)) {       
+        if (find_urr_id_in_pdr(pdr, urr->id)) {
             unix_sock_client_update(pdr);
         }
     }
@@ -126,7 +126,7 @@ int urr_get_pdr_ids(u16 *ids, int n, struct urr *urr, struct gtp5g_dev *gtp)
     hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
         if (i >= n)
             break;
-
+            
         if (find_urr_id_in_pdr(pdr, urr->id)) {
             ids[i++] = pdr->id;
         }

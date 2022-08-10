@@ -388,11 +388,9 @@ int find_urr_id_in_pdr(struct pdr *pdr, u32 urr_id)
     int i = 0;
 
     for (i = 0; i < pdr->urr_num; i++) {
-
         if (pdr->urr_ids[i] == urr_id)
             return 1;
     }
-
     return 0;
 }
 
@@ -413,7 +411,6 @@ static int set_pdr_urr_ids(struct pdr *pdr, u32 urr_id)
 
     new_urr_ids[pdr->urr_num - 1] = urr_id;
     pdr->urr_ids = new_urr_ids;
-
 
     return 0;
 }
@@ -476,8 +473,8 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
                     return err;
                 break;
             case GTP5G_PDR_URR_ID:
-                set_api_with_urr_bar(true);
                 err = set_pdr_urr_ids(pdr, nla_get_u32(hdr));
+                set_api_with_urr_bar(true);
                 if (err)
                     return err;
                 break;

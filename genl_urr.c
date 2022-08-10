@@ -7,6 +7,8 @@
 #include "genl.h"
 #include "urr.h"
 #include "genl_urr.h"
+#include "genl_report.h"
+
 #include "net.h"
 #include "log.h"
 
@@ -127,6 +129,8 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
     int netnsfd;
     u64 seid;
     u32 urr_id;
+    struct sk_buff *skb_ack;
+    int err;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -164,10 +168,28 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
         return -ENOENT;
     }
 
+    skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
+    if (!skb_ack) {
+        rcu_read_unlock();
+        return -ENOMEM;
+    }
+
+    err = gtp5g_genl_fill_usage_report(skb_ack,
+            NETLINK_CB(skb).portid,
+            info->snd_seq,
+            info->nlhdr->nlmsg_type,
+            urr);
+
+    if (err) {
+        kfree_skb(skb_ack);
+        rcu_read_unlock();
+        return err;
+    }
+
     urr_context_delete(urr);
     rcu_read_unlock();
 
-    return 0;
+    return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid); 
 }
 
 int gtp5g_genl_get_urr(struct sk_buff *skb, struct genl_info *info)

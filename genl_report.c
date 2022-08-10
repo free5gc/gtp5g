@@ -15,7 +15,6 @@
 #include "pdr.h"
 #include "urr.h"
 
-static int gtp5g_genl_fill_usage_report(struct sk_buff *, u32, u32, u32, struct urr *);
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *urr);
 
 void resetPDRCnt(struct pdr *pdr){
@@ -155,7 +154,7 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
     return 0;
 }
 
-static int gtp5g_genl_fill_usage_report(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
+int gtp5g_genl_fill_usage_report(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     u32 type, struct urr *urr)
 {
     void *genlh;

@@ -9,6 +9,7 @@
 #include "hash.h"
 #include "genl.h"
 #include "log.h"
+#include <linux/types.h>
 
 static void seid_pdr_id_to_hex_str(u64 seid_int, u16 pdr_id, char *buff)
 {

@@ -42,6 +42,8 @@ enum gtp5g_usage_report_attrs {
 #define GTP5G_UR_ATTR_MAX (__GTP5G_UR_ATTR_MAX - 1)
 
 extern int gtp5g_genl_get_usage_report(struct sk_buff *, struct genl_info *);
+extern int gtp5g_genl_fill_usage_report(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,u32 type, struct urr *urr);
+
 extern void resetPDRCnt(struct pdr *pdr);
 extern void resetURR(struct urr *urr);
 
