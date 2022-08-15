@@ -601,6 +601,8 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
                         send_dl_report = true;
 
                     if(send_tol_report || send_ul_report || send_dl_report){
+                        trigger = TRIGGER_VOLTH;
+
                         urrids[report_num] = urr->id;
                         report_num++;
                     }
@@ -617,6 +619,7 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
                         send_dl_report = true;
 
                     if(send_tol_report || send_ul_report || send_dl_report){
+                        trigger = TRIGGER_VOLQU;
 
                         urr_quota_exhaust_action(urr);
                         GTP5G_LOG(NULL,"Quota Exhaust\n");
@@ -648,12 +651,6 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
             if (urr->info & URR_INFO_MNOP)
                 flag |= (REPORT_VOLUME_MEASUREMENT_TONOL | REPORT_VOLUME_MEASUREMENT_UNOP | REPORT_VOLUME_MEASUREMENT_DNOP);
             // report[0].volumemeasurement.flags = flag;
-
-            if(urr->trigger & URR_TRIGGER_VOLQU){
-                trigger = TRIGGER_VOLQU;
-            } else{
-                trigger = TRIGGER_VOLTH;
-            }
 
             urr->volmeasurement.flag = flag;
 
