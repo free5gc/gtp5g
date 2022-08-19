@@ -24,13 +24,13 @@ enum gtp5g_cmd {
     GTP5G_CMD_DEL_BAR,
     GTP5G_CMD_GET_URR,
     GTP5G_CMD_GET_BAR,
+    GTP5G_CMD_GET_REPORT,
+
     /* Add newly supported feature ON ABOVE
      * for compatability with older version of
      * free5GC's UPF or libgtp5gnl
      * */
-    GTP5G_CMD_GET_REPORT,
     GTP5G_CMD_GET_VERSION,
-
     __GTP5G_CMD_MAX,
 };
 #define GTP5G_CMD_MAX (__GTP5G_CMD_MAX - 1)

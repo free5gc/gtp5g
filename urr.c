@@ -126,7 +126,6 @@ int urr_get_pdr_ids(u16 *ids, int n, struct urr *urr, struct gtp5g_dev *gtp)
     hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
         if (i >= n)
             break;
-            
         if (find_urr_id_in_pdr(pdr, urr->id)) {
             ids[i++] = pdr->id;
         }
