@@ -63,10 +63,6 @@ struct urr {
     uint64_t info;
     uint64_t seq;
 
-// threasholds after adjusting
-    u64 threshold_tovol;
-    u64 threshold_uvol;
-    u64 threshold_dvol;
 
     struct VolumeThreshold *volumethreshold; 
     struct VolumeQuota *volumequota;    
@@ -74,10 +70,21 @@ struct urr {
     // For usage report volume measurement
     struct VolumeMeasurement volmeasurement;
     
+    // threasholds after adjusting
+    u64 threshold_tovol;
+    u64 threshold_uvol;
+    u64 threshold_dvol;
+
+    // for quota exhausted
+    bool quota_exhausted;
+    u16 *pdrids;
+    u8 *actions;
     struct net_device *dev;
     struct rcu_head rcu_head;
 };
-extern void urr_quota_exhaust_action(struct urr *urr);
+
+extern void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp);
+extern void reverse_urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp);
 
 extern void urr_context_delete(struct urr *);
 extern struct urr *find_urr_by_id(struct gtp5g_dev *, u64, u32);

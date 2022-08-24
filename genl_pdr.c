@@ -473,6 +473,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
                 break;
             case GTP5G_PDR_URR_ID:
                 err = set_pdr_urr_ids(pdr, nla_get_u32(hdr));
+                urr_set_pdr(pdr->seid, pdr->urr_ids[pdr->urr_num - 1], &pdr->hlist_related_urr, gtp);
                 set_api_with_urr_bar(true);
                 if (err)
                     return err;

@@ -353,6 +353,8 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
     if (info->attrs[GTP5G_URR_VOLUME_QUOTA]) {
         parse_volumeqouta(urr,info->attrs[GTP5G_URR_VOLUME_QUOTA]);
 
+        if(urr->quota_exhausted)
+            reverse_urr_quota_exhaust_action(urr, gtp);
     }
 
     // urr->volmeasurement = (struct VolumeMeasurement){};
