@@ -80,13 +80,11 @@ void urr_update(struct urr *urr, struct gtp5g_dev *gtp)
     }
 }
 
-void urr_quota_exhaust_action(struct urr *urr)
+void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
 {
-
     struct hlist_head *head;
     struct pdr *pdr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    struct gtp5g_dev *gtp = netdev_priv(urr->dev);
     int i;
     // urr stop measurement
     urr->info = URR_INFO_INAM;
@@ -94,10 +92,9 @@ void urr_quota_exhaust_action(struct urr *urr)
     urr->pdrids = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
     urr->actions = kzalloc(0xff * sizeof(u8), GFP_KERNEL);
 
+    GTP5G_TRC(NULL,"Quota Exhaust Action\n");
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
-    GTP5G_LOG(NULL,"Quota Exhaust Action\n");
-
     //each pdr that associate with the urr drop pkt
     hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
         if (find_urr_id_in_pdr(pdr, urr->id)) {
@@ -108,12 +105,11 @@ void urr_quota_exhaust_action(struct urr *urr)
         }
     }
 }
-void reverse_urr_quota_exhaust_action(struct urr *urr){
+void reverse_urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp){
     
     struct hlist_head *head;
     struct pdr *pdr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    struct gtp5g_dev *gtp = netdev_priv(urr->dev);
     int i;
     urr->quota_exhausted = false;
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
@@ -123,11 +119,9 @@ void reverse_urr_quota_exhaust_action(struct urr *urr){
     //each pdr that associate with the urr resume it's normal action
     hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
         if (find_urr_id_in_pdr(pdr, urr->id)) {
-            for (i=0; i < sizeof(urr->pdrids);i++){
-                if (urr->pdrids[i] == pdr->id){
+            for (i = 0; i < sizeof(urr->pdrids);i++)
+                if (urr->pdrids[i] == pdr->id)
                     pdr->far->action = urr->actions[i];
-                }
-            }
         }
     }
 

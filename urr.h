@@ -83,8 +83,8 @@ struct urr {
     struct rcu_head rcu_head;
 };
 
-extern void urr_quota_exhaust_action(struct urr *urr);
-extern void reverse_urr_quota_exhaust_action(struct urr *urr);
+extern void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp);
+extern void reverse_urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp);
 
 extern void urr_context_delete(struct urr *);
 extern struct urr *find_urr_by_id(struct gtp5g_dev *, u64, u32);

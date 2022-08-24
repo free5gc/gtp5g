@@ -557,13 +557,15 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
     int *urrids,len;
     struct urr *urr;
     struct user_report *report;
-    bool send_tol_report = false, send_ul_report = false, send_dl_report = false;
+    bool send_tol_report, send_ul_report, send_dl_report;
     // bool inactive = false
     // if (urr && !(urr->info & URR_INFO_MBQE)) {
     // if ((urr->info & URR_INFO_ASPOC) && (urr->info & URR_INFO_CIAM) && (urr->info & URR_INFO_INAM))
     //     inactive = true;
     urrids = kzalloc(sizeof(URR_ID_SIZE) * pdr->urr_num , GFP_ATOMIC);
     for (i = 0; i < pdr->urr_num; i++){  
+        send_tol_report = false, send_ul_report = false, send_dl_report = false;
+
         urr = find_urr_by_id(gtp, pdr->seid,  pdr->urr_ids[i]);
         if (!(urr->info & URR_INFO_INAM)) {
             if (urr->method & URR_METHOD_VOLUM) {
@@ -592,17 +594,6 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
                 GTP5G_TRC(pdr->dev,"flags:%d, total_volume_cnt:%lld, ul_byte_cnt:%lld, dl_byte_cnt:%lld, total_pkt_cnt:%lld, ul_pkt_cnt:%lld, dl_pkt_cnt:%lld\n",
                     urr->volmeasurement.flag,urr->volmeasurement.totalVolume,urr->volmeasurement.uplinkVolume,urr->volmeasurement.downlinkVolume, urr->volmeasurement.totalPktNum,urr->volmeasurement.uplinkPktNum,urr->volmeasurement.downlinkPktNum);
 
-                if (urr->trigger & URR_TRIGGER_VOLTH) {
-                    if (urr->threshold_tovol && (urr->volmeasurement.totalVolume >= urr->threshold_tovol) && (urr->volumethreshold->flag & URR_VOLUME_THRESHOLD_TOVOL))
-                        send_tol_report = true;
-                    else if(urr->threshold_uvol && (urr->volmeasurement.uplinkVolume >= urr->threshold_uvol) && ((urr->volumethreshold->flag) & URR_VOLUME_THRESHOLD_ULVOL))
-                        send_ul_report = true;
-                    else if(urr->threshold_dvol && (urr->volmeasurement.downlinkVolume >= urr->threshold_dvol) && ((urr->volumethreshold->flag) & URR_VOLUME_THRESHOLD_DLVOL)) 
-                        send_dl_report = true;
-
-                    if(send_tol_report || send_ul_report || send_dl_report)
-                        trigger = TRIGGER_VOLTH;
-                }
                 if(urr->trigger & URR_TRIGGER_VOLQU){
                     if ((urr->volmeasurement.totalVolume >= urr->volumequota->totalVolume) && (urr->volumethreshold->flag & URR_VOLUME_QUOTA_TOVOL))
                         send_tol_report = true;
@@ -613,20 +604,30 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
 
                     if(send_tol_report || send_ul_report || send_dl_report){
                         trigger = TRIGGER_VOLQU;
-                        urr_quota_exhaust_action(urr);
+                        urrids[report_num++] = urr->id;
+                        urr_quota_exhaust_action(urr, gtp);
+                        continue;
                     }      
                 }
-                else {
+                if (urr->trigger & URR_TRIGGER_VOLTH) {
+                    if (urr->threshold_tovol && (urr->volmeasurement.totalVolume >= urr->threshold_tovol) && (urr->volumethreshold->flag & URR_VOLUME_THRESHOLD_TOVOL))
+                        send_tol_report = true;
+                    else if(urr->threshold_uvol && (urr->volmeasurement.uplinkVolume >= urr->threshold_uvol) && ((urr->volumethreshold->flag) & URR_VOLUME_THRESHOLD_ULVOL))
+                        send_ul_report = true;
+                    else if(urr->threshold_dvol && (urr->volmeasurement.downlinkVolume >= urr->threshold_dvol) && ((urr->volumethreshold->flag) & URR_VOLUME_THRESHOLD_DLVOL)) 
+                        send_dl_report = true;
+
+                    if(send_tol_report || send_ul_report || send_dl_report){
+                        trigger = TRIGGER_VOLTH;
+                        urrids[report_num++] = urr->id;
+                    }
+                }
+
+                if (!(urr->trigger & URR_TRIGGER_VOLQU) && !(urr->trigger & URR_TRIGGER_VOLTH)){
                     GTP5G_ERR(pdr->dev, "method is not volume based(%llu) in URR(%u) and related to PDR(%u)",
                         urr->method, urr->id, pdr->id);
                     return 0;
                 }
-
-                if(send_tol_report || send_ul_report || send_dl_report){
-                    urrids[report_num] = urr->id;
-                    report_num++;
-                }
-
             }
         } else{
             GTP5G_TRC(pdr->dev, "URR stop measurement");
