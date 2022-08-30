@@ -353,6 +353,13 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
     if (info->attrs[GTP5G_URR_VOLUME_QUOTA]) {
         parse_volumeqouta(urr,info->attrs[GTP5G_URR_VOLUME_QUOTA]);
 
+        if(urr->volumequota->totalVolume == 0){
+            urr_quota_exhaust_action(urr,gtp);
+            GTP5G_LOG(NULL, "Receive zero quota\n");
+        }
+        
+        // if(urr->quota_exhausted)
+        //     reverse_urr_quota_exhaust_action(urr, gtp);
     }
 
     // urr->volmeasurement = (struct VolumeMeasurement){};
@@ -414,7 +421,6 @@ static int parse_volumeqouta(struct urr *urr, struct nlattr *a){
     }
     volumequota = urr->volumequota;
 
-    
     if (attrs[GTP5G_URR_VOLUME_QUOTA_FLAG]) {
         volumequota->flag = nla_get_u8(attrs[GTP5G_URR_VOLUME_QUOTA_FLAG]);
     }
