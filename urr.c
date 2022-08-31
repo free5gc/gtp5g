@@ -87,7 +87,7 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     int i;
     // urr stop measurement
-    urr->info = URR_INFO_INAM;
+    urr->info |= URR_INFO_INAM;
     urr->quota_exhausted = true;
     urr->pdrids = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
     urr->actions = kzalloc(0xff * sizeof(u8), GFP_KERNEL);
@@ -99,7 +99,7 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
         if (find_urr_id_in_pdr(pdr, urr->id)) {
             urr->pdrids[i] = pdr->id;
-            urr->actions[i++] =  pdr->far->action;
+            urr->actions[i++] = pdr->far->action;
 
             pdr->far->action = FAR_ACTION_DROP;
         }
@@ -111,10 +111,10 @@ void reverse_urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp){
     struct pdr *pdr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     int i;
+    urr->info -= URR_INFO_INAM;
     urr->quota_exhausted = false;
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
-    GTP5G_LOG(NULL,"Reverse Quota Exhaust Action\n");
 
     //each pdr that associate with the urr resume it's normal action
     hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {

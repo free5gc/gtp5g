@@ -548,7 +548,7 @@ struct my_work_t {
 //     return rt;
 // }
 // URR uplink URR_INFO_MBQE = 0
-int check_urr(struct pdr *pdr, u64 volume, bool uplink){
+int check_urr(struct pdr *pdr, u64 vol, bool uplink){
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i ;
     u8 flag;
@@ -569,27 +569,31 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
         urr = find_urr_by_id(gtp, pdr->seid,  pdr->urr_ids[i]);
         if (!(urr->info & URR_INFO_INAM)) {
             if (urr->method & URR_METHOD_VOLUM) {
-                if (urr->info & URR_INFO_MNOP) { 
+                if(urr->info & URR_INFO_MBQE){
+                        if(uplink){
+                            if (urr->info & URR_INFO_MNOP)
+                                urr->volmeasurement.uplinkPktNum++;
+                            urr->volmeasurement.uplinkVolume += vol;
+                        } else{
+                            if (urr->info & URR_INFO_MNOP)
+                                urr->volmeasurement.downlinkPktNum++;
+                            urr->volmeasurement.downlinkVolume += vol;
+                        }
+                } else{
                     if(uplink){
-                        pdr->ul_pkt_cnt++; 
-                        urr->volmeasurement.uplinkPktNum++;
+                        if (urr->info & URR_INFO_MNOP)
+                            urr->volmeasurement.uplinkPktNum++;
+                        urr->volmeasurement.uplinkVolume += vol;
+                    } else{
+                        if (urr->info & URR_INFO_MNOP)
+                            urr->volmeasurement.downlinkPktNum++;
+                        urr->volmeasurement.downlinkVolume += vol;
                     }
-                    else{
-                        pdr->dl_pkt_cnt++;
-                        urr->volmeasurement.downlinkPktNum++;
-                    }
+                }
+                if (urr->info & URR_INFO_MNOP)
                     urr->volmeasurement.totalPktNum = urr->volmeasurement.uplinkPktNum + urr->volmeasurement.downlinkPktNum;
-                }
-
-                if(uplink){
-                    pdr->ul_byte_cnt += volume; 
-                    urr->volmeasurement.uplinkVolume += volume;
-                }
-                else{
-                    pdr->dl_byte_cnt += volume;  
-                    urr->volmeasurement.downlinkVolume += volume;
-                }
                 urr->volmeasurement.totalVolume = urr->volmeasurement.uplinkVolume + urr->volmeasurement.downlinkVolume;
+
                 // Check threshold/quata
                 GTP5G_TRC(pdr->dev,"flags:%d, total_volume_cnt:%lld, ul_byte_cnt:%lld, dl_byte_cnt:%lld, total_pkt_cnt:%lld, ul_pkt_cnt:%lld, dl_pkt_cnt:%lld\n",
                     urr->volmeasurement.flag,urr->volmeasurement.totalVolume,urr->volmeasurement.uplinkVolume,urr->volmeasurement.downlinkVolume, urr->volmeasurement.totalPktNum,urr->volmeasurement.uplinkPktNum,urr->volmeasurement.downlinkPktNum);
@@ -606,6 +610,8 @@ int check_urr(struct pdr *pdr, u64 volume, bool uplink){
                         trigger = TRIGGER_VOLQU;
                         urrids[report_num++] = urr->id;
                         urr_quota_exhaust_action(urr, gtp);
+                        GTP5G_LOG(NULL, "Quota Exhaust, stop measure");
+
                         continue;
                     }      
                 }

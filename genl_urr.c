@@ -355,11 +355,12 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
 
         if(urr->volumequota->totalVolume == 0){
             urr_quota_exhaust_action(urr,gtp);
-            GTP5G_LOG(NULL, "Receive zero quota\n");
+            GTP5G_LOG(NULL, "Receive zero quota, stop measure");
+        } 
+        else if(urr->quota_exhausted){
+            reverse_urr_quota_exhaust_action(urr, gtp);
+            GTP5G_LOG(NULL, "Receive New quota, continue measure");
         }
-        
-        // if(urr->quota_exhausted)
-        //     reverse_urr_quota_exhaust_action(urr, gtp);
     }
 
     // urr->volmeasurement = (struct VolumeMeasurement){};
