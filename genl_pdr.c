@@ -15,8 +15,6 @@
 #include <linux/rculist.h>
 #include <net/netns/generic.h>
 #include "net.h"
-#include "log.h"
-
 #include "util.h"
 
 static int pdr_fill(struct pdr *, struct gtp5g_dev *, struct genl_info *);
@@ -396,7 +394,7 @@ int find_urr_id_in_pdr(struct pdr *pdr, u32 urr_id)
 static int set_pdr_urr_ids(struct pdr *pdr, u32 urr_id)
 {
     u32 *new_urr_ids;
-    
+
     if (find_urr_id_in_pdr(pdr, urr_id))
         return 0;
 

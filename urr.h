@@ -7,7 +7,6 @@
 
 #include "dev.h"
 #include "report.h"
-#include "far.h"
 
 #define SEID_U32ID_HEX_STR_LEN 24
 // Measurement Method
@@ -26,14 +25,14 @@
 #define URR_VOLUME_THRESHOLD_DLVOL 0x4
 
 // Measurement Information
-#define URR_INFO_MBQE   01
-#define URR_INFO_INAM   02
-#define URR_INFO_RADI   04
-#define URR_INFO_ISTM   010
-#define URR_INFO_MNOP   020
-#define URR_INFO_SSPOC  040
-#define URR_INFO_ASPOC  0100
-#define URR_INFO_CIAM   0200
+#define URR_INFO_MBQE   0x1
+#define URR_INFO_INAM   0x2
+#define URR_INFO_RADI   0x4
+#define URR_INFO_ISTM   0x10
+#define URR_INFO_MNOP   0x20
+#define URR_INFO_SSPOC  0x40
+#define URR_INFO_ASPOC  0x100
+#define URR_INFO_CIAM   0x200
 
 #define URR_TRIGGER_VOLQU 0x1
 #define URR_TRIGGER_VOLTH 0x200

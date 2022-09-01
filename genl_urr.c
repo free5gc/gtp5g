@@ -303,8 +303,8 @@ int gtp5g_genl_dump_urr(struct sk_buff *skb, struct netlink_callback *cb)
             }
         }
     }
-    cb->args[5] = 1;
 
+    cb->args[5] = 1;
 out:
     return skb->len;
 }

@@ -5,7 +5,6 @@
 #include "pdr.h"
 #include "seid.h"
 #include "hash.h"
-#include "log.h"
 
 void seid_urr_id_to_hex_str(u64 seid_int, u32 urr_id, char *buff)
 {
@@ -28,8 +27,6 @@ void urr_context_delete(struct urr *urr)
     struct hlist_head *head;
     struct pdr *pdr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-
-
     if (!urr)
         return;
 
@@ -90,7 +87,6 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     urr->pdrids = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
     urr->actions = kzalloc(0xff * sizeof(u8), GFP_KERNEL);
 
-    GTP5G_TRC(NULL,"Quota Exhaust Action\n");
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
     //each pdr that associate with the urr drop pkt
