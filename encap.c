@@ -33,8 +33,8 @@ int cnt = 0;
 // struct workqueue_struct *workqueue_sending;
 
 enum msg_type {
-    TYPE_URR_REPORT = 1,
-    TYPE_BUFFER,
+    TYPE_BUFFER = 1,
+    TYPE_URR_REPORT,
     TYPE_BAR_INFO,
 };
 
