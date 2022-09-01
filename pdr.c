@@ -11,6 +11,7 @@
 #include "log.h"
 #include <linux/types.h>
 
+
 static void seid_pdr_id_to_hex_str(u64 seid_int, u16 pdr_id, char *buff)
 {
     seid_and_u32id_to_hex_str(seid_int, (u32)(pdr_id), buff);
@@ -42,7 +43,7 @@ static void pdr_context_free(struct rcu_head *head)
             kfree(pdr->qer_ids);
         if (pdr->urr_ids)
             kfree(pdr->urr_ids);
-            
+
         sdf = pdi->sdf;
         if (sdf) {
             if (sdf->rule) {
@@ -67,7 +68,6 @@ static void pdr_context_free(struct rcu_head *head)
     }
 
     unix_sock_client_delete(pdr);
-
     kfree(pdr);
 }
 
@@ -90,7 +90,7 @@ void pdr_context_delete(struct pdr *pdr)
 
     if (!hlist_unhashed(&pdr->hlist_related_qer))
         hlist_del_rcu(&pdr->hlist_related_qer);
-        
+
     if (!hlist_unhashed(&pdr->hlist_related_urr))
         hlist_del_rcu(&pdr->hlist_related_urr);
     call_rcu(&pdr->rcu_head, pdr_context_free);
@@ -105,13 +105,13 @@ void unix_sock_client_delete(struct pdr *pdr)
     pdr->sock_for_buf = NULL;
 }
 
-
 // Create a AF_UNIX client by specific name sent from user space
 int unix_sock_client_new(struct pdr *pdr)
 {
     struct socket **psock = &pdr->sock_for_buf;
     struct sockaddr_un *addr = &pdr->addr_unix;
     int err;
+
     if (strlen(addr->sun_path) == 0){
         return -EINVAL;
     }
@@ -141,6 +141,7 @@ int unix_sock_client_update(struct pdr *pdr)
 
     if ((far && (far->action & FAR_ACTION_BUFF)) || pdr->urr_num > 0)
         return unix_sock_client_new(pdr);
+
     return 0;
 }
 
@@ -158,24 +159,6 @@ struct pdr *find_pdr_by_id(struct gtp5g_dev *gtp, u64 seid, u16 pdr_id)
     }
 
     return NULL;
-}
-
-int iter_pdr(struct pdr *pdr)
-{
-
-    struct pdr *iterpdr;
-    struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
-    struct hlist_head *head;
-    char seid_pdr_id[SEID_U32ID_HEX_STR_LEN] = {0};
-
-    seid_pdr_id_to_hex_str(pdr->seid, pdr->id, seid_pdr_id);
-    head = &gtp->pdr_id_hash[str_hashfn(seid_pdr_id) % gtp->hash_size];
-        
-    hlist_for_each_entry_rcu(iterpdr, head, hlist_i_teid) {
-        GTP5G_LOG(NULL,"iterpdr id: %d",iterpdr->id);
-    }
-
-    return 0;
 }
 
 static int ipv4_match(__be32 target_addr, __be32 ifa_addr, __be32 ifa_mask)

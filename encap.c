@@ -29,7 +29,6 @@
 #define MSG_SEID_KOV_LEN 3
 #define MSG_NO_SEID_KOV_LEN 2
 
-int cnt = 0;
 // struct workqueue_struct *workqueue_sending;
 
 enum msg_type {
@@ -233,6 +232,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     struct gtpv1_hdr *gtpv1;
     struct pdr *pdr;
     int gtpv1_hdr_len;
+
     if (!pskb_may_pull(skb, hdrlen)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
         return -1;
@@ -282,6 +282,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(gtpv1->tid));
         return -1;
     }
+
     return gtp5g_rx(pdr, skb, hdrlen, gtp->role);
 }
 
@@ -290,7 +291,6 @@ static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev,
 {
     pdr->ul_drop_cnt++;
     GTP5G_TRC(NULL, "drop packet:%lld",pdr->ul_drop_cnt);
-
     dev_kfree_skb(skb);
     return 0;
 }
@@ -335,7 +335,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
         GTP5G_ERR(NULL, "Failed Socket buffer is NULL\n");
         return -EINVAL;
     }
-    
+
     memset(&msg, 0, sizeof(msg));
     if (get_api_with_seid() && get_api_with_urr_bar()) {    
         if(report_num > 0){
@@ -343,7 +343,6 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
         }
 
         msg_kovlen = MSG_URR_BAR_KOV_LEN;
-
         kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
             GFP_KERNEL);
         if (kov == NULL)
@@ -368,7 +367,6 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
 
         kov[3].iov_base = buf;
         kov[3].iov_len = len;
-
     } else if (get_api_with_seid()) {
         msg_kovlen = MSG_SEID_KOV_LEN;
         kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
@@ -878,10 +876,8 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev, 
     struct pdr *pdr)
 {
-
     ++pdr->dl_drop_cnt;
     GTP5G_LOG(NULL, "drop packet:%lld",pdr->dl_drop_cnt);
-
     dev_kfree_skb(skb);
     return FAR_ACTION_DROP;
 }

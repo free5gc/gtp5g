@@ -235,7 +235,6 @@ void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
             pdr_context_delete(pdr);
         hlist_for_each_entry_rcu(bar, &gtp->bar_id_hash[i], hlist_id)
             bar_context_delete(bar);
-
     }
 
     synchronize_rcu();

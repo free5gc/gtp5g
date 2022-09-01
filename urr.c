@@ -49,7 +49,6 @@ void urr_context_delete(struct urr *urr)
 
 struct urr *find_urr_by_id(struct gtp5g_dev *gtp, u64 seid, u32 urr_id)
 {
-
     struct hlist_head *head;
     struct urr *urr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
@@ -66,7 +65,6 @@ struct urr *find_urr_by_id(struct gtp5g_dev *gtp, u64 seid, u32 urr_id)
 
 void urr_update(struct urr *urr, struct gtp5g_dev *gtp)
 {
-
     struct pdr *pdr;
     struct hlist_head *head;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
@@ -105,8 +103,8 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
         }
     }
 }
-void reverse_urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp){
-    
+void reverse_urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
+{
     struct hlist_head *head;
     struct pdr *pdr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
@@ -130,7 +128,6 @@ void reverse_urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp){
 }
 void urr_append(u64 seid, u32 urr_id, struct urr *urr, struct gtp5g_dev *gtp)
 {
-
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     u32 i;
 
@@ -141,7 +138,6 @@ void urr_append(u64 seid, u32 urr_id, struct urr *urr, struct gtp5g_dev *gtp)
 
 int urr_get_pdr_ids(u16 *ids, int n, struct urr *urr, struct gtp5g_dev *gtp)
 {
-
     struct hlist_head *head;
     struct pdr *pdr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
@@ -162,7 +158,6 @@ int urr_get_pdr_ids(u16 *ids, int n, struct urr *urr, struct gtp5g_dev *gtp)
 
 void urr_set_pdr(u64 seid, u32 urr_id, struct hlist_node *node, struct gtp5g_dev *gtp)
 {
-
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     u32 i;
 

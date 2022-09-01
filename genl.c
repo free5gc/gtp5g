@@ -153,7 +153,7 @@ static const struct genl_ops gtp5g_genl_ops[] = {
     {
         .cmd = GTP5G_CMD_GET_REPORT,
         .doit = gtp5g_genl_get_usage_report,
-        // .dumpit = gtp5g_genl_dump_urr,
+        .flags = GENL_ADMIN_PERM,
     },
     {
         .cmd = GTP5G_CMD_GET_VERSION,

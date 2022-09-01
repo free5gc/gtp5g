@@ -77,10 +77,10 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
      * it means that user use the API which support 
      * URR and BAR feature. Otherwise, use the older API. 
      */
-    // if (info->attrs[GTP5G_PDR_URR_ID])
-    //     set_api_with_urr_bar(true);
+    if (info->attrs[GTP5G_PDR_URR_ID])
+        set_api_with_urr_bar(true);
     // else
-    //     set_api_with_urr_bar(true);
+    //     set_api_with_urr_bar(fales);
 
     if (info->attrs[GTP5G_PDR_ID]) {
         pdr_id = nla_get_u32(info->attrs[GTP5G_PDR_ID]);
@@ -396,6 +396,7 @@ int find_urr_id_in_pdr(struct pdr *pdr, u32 urr_id)
 static int set_pdr_urr_ids(struct pdr *pdr, u32 urr_id)
 {
     u32 *new_urr_ids;
+    
     if (find_urr_id_in_pdr(pdr, urr_id))
         return 0;
 
@@ -474,7 +475,6 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
             case GTP5G_PDR_URR_ID:
                 err = set_pdr_urr_ids(pdr, nla_get_u32(hdr));
                 urr_set_pdr(pdr->seid, pdr->urr_ids[pdr->urr_num - 1], &pdr->hlist_related_urr, gtp);
-                set_api_with_urr_bar(true);
                 if (err)
                     return err;
                 break;
