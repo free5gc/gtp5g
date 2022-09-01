@@ -109,7 +109,6 @@ void reverse_urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     struct pdr *pdr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     int i;
-    urr->info -= URR_INFO_INAM;
     urr->quota_exhausted = false;
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
