@@ -22,6 +22,9 @@ void resetPDRCnt(struct pdr *pdr){
     pdr->dl_byte_cnt = 0;
     pdr->ul_pkt_cnt = 0;
     pdr->dl_pkt_cnt = 0;
+
+    pdr->ul_drop_cnt = 0;
+    pdr->dl_drop_cnt = 0;
 }
 
 void resetURR(struct urr *urr){
@@ -143,9 +146,10 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
         return -EMSGSIZE;
     nla_nest_end(skb, nest_volume_measurement);
 
+    resetURR(urr);
     if(pdr)
         resetPDRCnt(pdr);
-
+    
     urr->threshold_tovol -= urr->volmeasurement.totalVolume;
     urr->threshold_uvol -= urr->volmeasurement.uplinkVolume;
     urr->threshold_dvol -= urr->volmeasurement.downlinkVolume;

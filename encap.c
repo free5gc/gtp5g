@@ -24,12 +24,11 @@
 #include "log.h"
 #include "api_version.h"
 #include "pktinfo.h"
+
 /* used to compatible with api with/without seid */
 #define MSG_URR_BAR_KOV_LEN 4
 #define MSG_SEID_KOV_LEN 3
 #define MSG_NO_SEID_KOV_LEN 2
-
-// struct workqueue_struct *workqueue_sending;
 
 enum msg_type {
     TYPE_BUFFER = 1,
@@ -290,7 +289,7 @@ static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev,
     struct pdr *pdr)
 {
     pdr->ul_drop_cnt++;
-    GTP5G_TRC(NULL, "drop packet:%lld",pdr->ul_drop_cnt);
+    GTP5G_INF(NULL, "PDR (%u) UL_DROP_CNT (%llu)", pdr->id, pdr->ul_drop_cnt);
     dev_kfree_skb(skb);
     return 0;
 }
@@ -337,7 +336,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
     }
 
     memset(&msg, 0, sizeof(msg));
-    if (get_api_with_seid() && get_api_with_urr_bar()) {    
+    if (get_api_with_seid() && get_api_with_urr_bar()) {
         if(report_num > 0){
             type_hdr[0] = TYPE_URR_REPORT;
         }
@@ -460,92 +459,6 @@ struct my_work_t {
 //     #endif
 // }
 
-// static int gtp5g_send_usage_report(struct pdr *pdr, struct user_report *report,u16 report_len, int report_num)
-// {
-//     struct msghdr *msg;
-//     struct iovec *iov;
-//     mm_segment_t oldfs;
-//     int msg_iovlen;
-//     int total_iov_len = 0;
-//     int i, rt;
-//     u8  type_hdr[1] = {TYPE_URR_REPORT};
-//     u64 self_seid_hdr[1] = {pdr->seid};
-//     u16 self_hdr[1] = {pdr->far->action};
-//     int self_len_hdr[1] = {report_num};
-
-//     // struct my_work_t *my_work;
-
-//     msg = kzalloc(sizeof(*msg), GFP_ATOMIC);
-//     // my_work = kzalloc(sizeof(*my_work), GFP_ATOMIC);
-
-//     // 8.2.44 Volume Measurement octet 5
-//     // flags are control by GTP5G
-
-//     if (!pdr->sock_for_buf) {
-//         GTP5G_ERR(NULL, "Failed: Socket for Report is NULL\n");
-//         return -EINVAL;
-//     }
-
-//     // memset(&msg, 0, sizeof(msg));
-  
-//     msg_iovlen = 5;
-//     iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
-//         GFP_KERNEL);
-
-//     memset(iov, 0, sizeof(struct iovec) * msg_iovlen);
-
-//     iov[0].iov_base = type_hdr;
-//     iov[0].iov_len = sizeof(type_hdr);
-//     iov[1].iov_base = self_seid_hdr;
-//     iov[1].iov_len = sizeof(self_seid_hdr);
-//     iov[2].iov_base = self_hdr;
-//     iov[2].iov_len = sizeof(self_hdr);
-//     iov[3].iov_base = self_len_hdr;
-//     iov[3].iov_len = sizeof(self_len_hdr);
-//     iov[4].iov_base = report;
-//     iov[4].iov_len = report_len;
-
-//     for (i = 0; i < msg_iovlen; i++)
-//         total_iov_len += iov[i].iov_len;
-
-//     msg->msg_name = 0;
-//     msg->msg_namelen = 0;
-//     iov_iter_init(&(msg->msg_iter), WRITE, iov, msg_iovlen, total_iov_len);
-//     msg->msg_control = NULL;
-//     msg->msg_controllen = 0;
-//     msg->msg_flags = MSG_DONTWAIT;
-
-//     #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-//         oldfs = force_uaccess_begin();
-//     #else
-//         oldfs = get_fs();
-//         set_fs(KERNEL_DS);
-//     #endif
-
-    
-//     rt = sock_sendmsg(pdr->sock_for_buf, msg);
-
-//     kfree(iov);
-//     kfree(msg);
-//     // printk("sock_sendmsg in urr start sock: %p msghdr: %p\n", pdr->sock_for_report, msg);
-//     // my_work->pdr = pdr;
-//     // my_work->ptr_msg = msg;
-//     // my_work->cnt = cnt++;
-//     // INIT_WORK(&(my_work->work), thread_send_report);
-//     // queue_work(pdr->workqueue_sending, &(my_work->work));
-//     // // rt = sock_sendmsg(pdr->sock_for_report, msg);
-//     // rt = 0;
-//     // // diff = ktime_get_ns()- start;
-//     // printk("sock_sendmsg in urr end\n");
-//     #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-//         force_uaccess_end(oldfs);
-//     #else
-//         set_fs(oldfs);
-//     #endif
-
-//     return rt;
-// }
-// URR uplink URR_INFO_MBQE = 0
 int check_urr(struct pdr *pdr, u64 vol, bool uplink){
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i ;
@@ -556,10 +469,7 @@ int check_urr(struct pdr *pdr, u64 vol, bool uplink){
     struct urr *urr;
     struct user_report *report;
     bool send_tol_report, send_ul_report, send_dl_report;
-    // bool inactive = false
-    // if (urr && !(urr->info & URR_INFO_MBQE)) {
-    // if ((urr->info & URR_INFO_ASPOC) && (urr->info & URR_INFO_CIAM) && (urr->info & URR_INFO_INAM))
-    //     inactive = true;
+
     urrids = kzalloc(sizeof(URR_ID_SIZE) * pdr->urr_num , GFP_ATOMIC);
     for (i = 0; i < pdr->urr_num; i++){  
         send_tol_report = false, send_ul_report = false, send_dl_report = false;
@@ -608,7 +518,7 @@ int check_urr(struct pdr *pdr, u64 vol, bool uplink){
                         trigger = TRIGGER_VOLQU;
                         urrids[report_num++] = urr->id;
                         urr_quota_exhaust_action(urr, gtp);
-                        GTP5G_LOG(NULL, "Quota Exhaust, stop measure");
+                        GTP5G_LOG(NULL, "URR (%u) Quota Exhaust, stop measure", urr->id);
 
                         continue;
                     }      
@@ -647,7 +557,6 @@ int check_urr(struct pdr *pdr, u64 vol, bool uplink){
             flag = REPORT_VOLUME_MEASUREMENT_TOVOL | REPORT_VOLUME_MEASUREMENT_UVOL | REPORT_VOLUME_MEASUREMENT_DVOL;
             if (urr->info & URR_INFO_MNOP)
                 flag |= (REPORT_VOLUME_MEASUREMENT_TONOL | REPORT_VOLUME_MEASUREMENT_UNOP | REPORT_VOLUME_MEASUREMENT_DNOP);
-            // report[0].volumemeasurement.flags = flag;
 
             urr->volmeasurement.flag = flag;
 
@@ -677,47 +586,16 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
     unsigned int hdrlen, unsigned int role)
 {
     int rt = -1;
+    u64 volume;
     struct far *far = pdr->far;
     // struct qer *qer = pdr->qer;
-
-    struct iphdr *iph; 
-    struct tcphdr *tcp; 
-    u64 volume;
 
     if (!far) {
         GTP5G_ERR(pdr->dev, "FAR not exists for PDR(%u)\n", pdr->id);
         goto out;
     }
 
-    // GTP5G_LOG(pdr->dev, "uplink (before qer)\n");
-    iph = ip_hdr(skb);
-    volume = skb->len - hdrlen - iph->ihl * 4;
-    // GTP5G_LOG(pdr->dev, "ul mbqe skb->len: %d\n", skb->len);
-    // GTP5G_LOG(pdr->dev, "ul mbqe hdrlen: %d\n", hdrlen);
-    // GTP5G_LOG(pdr->dev, "ul mbqe iph->ihl*4: %d\n", iph->ihl*4);
-
-    // GTP5G_LOG(pdr->dev, "ul volume(mbqe): %lld\n", volume);
-    // GTP5G_LOG(pdr->dev, "ul iph->protocol(mbqe): %d\n", iph->protocol);
-
-
-    // Deduct the header length of transport layer
-    switch (iph->protocol) {
-		case IPPROTO_TCP: 
-			// tcp = (struct tcphdr *)(skb_transport_header(skb) + (iph->ihl << 2));
-			tcp = (struct tcphdr *)(skb_transport_header(skb));
-            GTP5G_LOG(pdr->dev, "ul ip tcp->doff(mbqe): %d\n", tcp->doff);
-            volume -= tcp->doff * 4;
-			break;
-		case IPPROTO_UDP : 
-            volume -= 8; // udp header len = 8B
-			break;
-		default:
-			break;
-	}
-
-    // if(check_urr(pdr,volume) < 0){
-    //     GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
-    // }
+    volume = ip4_rm_header(skb,hdrlen);
 
     //TODO: QER
     //if (qer) {
@@ -769,9 +647,6 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     struct pcpu_sw_netstats *stats;
     int ret;
     u64 volume;
-    struct iphdr *iph_urr; 
-    struct tcphdr *tcp; 
-
 
     if (fwd_param) {
         if ((fwd_policy = fwd_param->fwd_policy))
@@ -831,43 +706,20 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     stats->rx_bytes += skb->len;
     u64_stats_update_end(&stats->syncp);
 
-    // pdr->ul_pkt_cnt++;
-    // pdr->ul_byte_cnt += skb->len; /* length without GTP header */
-    // // GTP5G_INF(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);
+    pdr->ul_pkt_cnt++;
+    pdr->ul_byte_cnt += skb->len; /* length without GTP header */
+    GTP5G_INF(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);
 
     ret = netif_rx(skb);
     if (ret != NET_RX_SUCCESS) {
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
     }
 
-    // GTP5G_LOG(dev, "uplink (after qer)\n");
-    // GTP5G_LOG(pdr->dev, "ul skb->len(~mbqe): %d\n", skb->len);
-    iph_urr = ip_hdr(skb);
-    volume = skb->len - iph_urr->ihl * 4;
-    // GTP5G_LOG(pdr->dev, "ul ~mbqe iph_urr->protocol: %d\n", iph_urr->protocol);
-    // GTP5G_LOG(pdr->dev, "ul ~mbqe skb_transport_header - skb: %ld\n", skb_transport_header(skb) - skb_network_header(skb));
+    volume = ip4_rm_header(skb,hdrlen);
 
-    // Deduct the header length of transport layer
-    switch (iph_urr->protocol) {
-		case IPPROTO_TCP: 
-			// tcp = (struct tcphdr *)(skb_transport_header(skb));
-			tcp = (struct tcphdr *)(skb_network_header(skb) + 20);
-
-            // GTP5G_LOG(pdr->dev, "ul ip tcp->doff(~mbqe): %d\n", tcp->doff);
-            volume -= tcp->doff * 4;
-			break;
-		case IPPROTO_UDP : 
-            volume -= 8; // udp header len = 8B
-			break;
-		default:
-			break;
-	}
-
-    // URR uplink URR_INFO_MBQE = 0
     if(pdr->urr_num != 0){
-        if(check_urr(pdr,volume,true) < 0){
+        if(check_urr(pdr,volume,true) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
-        }
     }
 
     return 0;
@@ -877,7 +729,7 @@ static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct pdr *pdr)
 {
     ++pdr->dl_drop_cnt;
-    GTP5G_LOG(NULL, "drop packet:%lld",pdr->dl_drop_cnt);
+    GTP5G_INF(NULL, "PDR (%u) DL_DROP_CNT (%llu)", pdr->id, pdr->dl_drop_cnt);
     dev_kfree_skb(skb);
     return FAR_ACTION_DROP;
 }
@@ -891,8 +743,6 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct iphdr *iph = ip_hdr(skb);
     struct outer_header_creation *hdr_creation;
     u64 volume;
-    struct tcphdr *tcp; 
-
 
     if (!(pdr->far && pdr->far->fwd_param &&
         pdr->far->fwd_param->hdr_creation)) {
@@ -920,39 +770,17 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             &fl4, 
             dev);
 
-    // pdr->dl_pkt_cnt++;
-    // pdr->dl_byte_cnt += skb->len;
-    // GTP5G_INF(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
+    pdr->dl_pkt_cnt++;
+    pdr->dl_byte_cnt += skb->len;
+    GTP5G_INF(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
 
-    volume = skb->len;
     gtp5g_push_header(skb, pktinfo);
 
-    // GTP5G_LOG(dev, "downlink (after qer)\n");
-    // GTP5G_LOG(pdr->dev, "dl skb->len(~mbqe): %d sizeof(pktinfo): %ld\n", skb->len, sizeof(pktinfo));
-    volume -= iph->ihl * 4; // iphdr->ihl: length of ip header (unit: 4 bit) 
-    // GTP5G_LOG(pdr->dev, "dl volume(~mbqe): %lld iph: %d\n", volume, iph->ihl);
-
-    // Deduct the header length of transport layer
-    switch (iph->protocol) {
-		case IPPROTO_TCP: 
-			// tcp = (struct tcphdr *)(skb_transport_header(skb) + (iph->ihl << 2));
-			tcp = (struct tcphdr *)(skb_transport_header(skb));
-            // GTP5G_LOG(pdr->dev, "dl ip tcp->doff(~mbqe): %d\n", tcp->doff);
-            volume -= tcp->doff * 4;
-			break;
-		case IPPROTO_UDP : 
-            volume -= 8; // udp header len = 8B
-			break;
-		default:
-			break;
-	}
-
-    // urr URR_INFO_MBQE=0
+    volume = ip4_rm_header(skb, 0);
 
     if(pdr->urr_num != 0){
-        if(check_urr(pdr,volume,false) < 0){
+        if(check_urr(pdr,volume,false) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
-        }
     }
 
     return FAR_ACTION_FORW;
@@ -972,6 +800,7 @@ static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     dev_kfree_skb(skb);
     return FAR_ACTION_BUFF;
 }
+
 int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct gtp5g_pktinfo *pktinfo)
 {
@@ -981,7 +810,6 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     //struct gtp5g_qer *qer;
     struct iphdr *iph;
     u64 volume;
-    struct tcphdr *tcp; 
 
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
@@ -997,28 +825,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         return -ENOENT;
     }
 
-    volume = skb->len - iph->ihl * 4;
-
-    // Deduct the header length of transport layer
-    switch (iph->protocol) {
-		case IPPROTO_TCP: 
-			// tcp = (struct tcphdr *)(skb_transport_header(skb) + (iph->ihl << 2));
-			tcp = (struct tcphdr *)(skb_transport_header(skb));
-            // GTP5G_LOG(pdr->dev, "dl ip tcp->doff(mbqe): %d\n", tcp->doff);
-            volume -= tcp->doff*4;
-			break;
-		case IPPROTO_UDP : 
-            volume -= 8; // udp header len = 8B
-			break;
-		default:
-			break;
-	}
-    // if(pdr->urr){
-    //     if(check_urr(pdr,volume) < 0){
-    //         GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
-    //     }
-    // }
-
+    volume = ip4_rm_header(skb, 0);
 
     /* TODO: QoS rule have to apply before apply FAR 
      * */

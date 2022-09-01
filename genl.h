@@ -32,7 +32,7 @@ enum gtp5g_cmd {
      * */
 
     GTP5G_CMD_GET_VERSION,
-    
+
     __GTP5G_CMD_MAX,
 };
 #define GTP5G_CMD_MAX (__GTP5G_CMD_MAX - 1)

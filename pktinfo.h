@@ -30,6 +30,7 @@ struct gtp5g_emark_pktinfo {
     __be16              gtph_port;
 };
 
+extern u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen);
 extern struct rtable *ip4_find_route(struct sk_buff *, struct iphdr *,
         struct sock *, struct net_device *,
         __be32, __be32, struct flowi4 *);

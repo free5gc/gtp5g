@@ -49,8 +49,6 @@ static const struct nla_policy gtp5g_genl_urr_policy[GTP5G_URR_ATTR_MAX + 1] = {
     [GTP5G_URR_VOLUME_QUOTA]                    = { .type = NLA_NESTED, },
 };
 
-
-
 static const struct genl_ops gtp5g_genl_ops[] = {
     {
         .cmd = GTP5G_CMD_ADD_PDR,
