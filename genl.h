@@ -49,6 +49,4 @@ enum gtp5g_device_attrs {
 
 extern struct genl_family gtp5g_genl_family;
 
-extern struct workqueue_struct *workqueue_sending;
-
 #endif // __GTP5G_GENL_H__

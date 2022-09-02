@@ -14,9 +14,6 @@ static int __init gtp5g_init(void)
 
     GTP5G_LOG(NULL, "Gtp5g Module initialization Ver: %s\n", DRV_VERSION);
 
-    // workqueue_sending = alloc_workqueue("workqueue_sending", WQ_UNBOUND, 0);
-    // workqueue_sending = create_singlethread_workqueue("workqueue_sending");
-
     init_proc_gtp5g_dev_list();
 
     // set hash initial value

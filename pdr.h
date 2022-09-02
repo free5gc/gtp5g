@@ -91,8 +91,6 @@ struct pdr {
     u64                     dl_pkt_cnt;
     u64                     ul_byte_cnt;
     u64                     dl_byte_cnt;
-
-    struct workqueue_struct *workqueue_sending;
 };
 
 extern void pdr_context_delete(struct pdr *);
@@ -106,7 +104,7 @@ extern int find_urr_id_in_pdr(struct pdr *, u32);
 
 extern void pdr_append(u64, u16, struct pdr *, struct gtp5g_dev *);
 extern void pdr_update_hlist_table(struct pdr *, struct gtp5g_dev *);
-extern int iter_pdr(struct pdr *pdr);
+
 extern void unix_sock_client_delete(struct pdr *);
 extern int unix_sock_client_new(struct pdr *);
 extern int unix_sock_client_update(struct pdr *);

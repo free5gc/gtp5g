@@ -4,9 +4,5 @@
 *.cmd
 *.mod
 *.mod.c
-*.log
-*.d
-log
-.vscode/
 Module.symvers
 modules.order

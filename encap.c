@@ -413,52 +413,6 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
     return rt;
 }
 
-struct my_work_t {
-    struct pdr *pdr;
-    
-    struct msghdr *ptr_msg;
-    int cnt;
-
-    struct work_struct work;         
-};
-
-// void thread_send_report(struct work_struct *work) {
-//     mm_segment_t oldfs;
-
-//     struct my_work_t *my_work = container_of(work, struct my_work_t, work);
-//     int ret;
-//     // mutex_lock(&(my_work->mutex));
-//     // mutex_lock(my_work->ptr_mutex);
-
-//     // struct socket *sock = my_work->sock;
-//     // struct msghdr *ptr_msg = my_work->ptr_msg;
-//     // GTP5G_LOG(NULL, "thread_send_report sock");
-//     // printk("________________________________________________________________________________\n");
-
-//     // GTP5G_LOG(NULL, "thread_send_report sock: %p msghdr: %p", my_work->sock, my_work->ptr_msg);
-//     struct pdr *pdr = my_work->pdr;
-    
-//     // printk("thread_send_report sock: %p msghdr: %p cnt:%d", pdr->sock_for_report, my_work->ptr_msg, my_work->cnt);
-//     #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-//     oldfs = force_uaccess_begin();
-//     #else
-//         oldfs = get_fs();
-//         set_fs(KERNEL_DS);
-//     #endif
-
-//     ret = sock_sendmsg(my_work->pdr->sock_for_buf, my_work->ptr_msg);
-
-//     printk("thread_send_report end (ret: %d)\n", ret);
-//     // mutex_unlock(&(my_work->mutex));
-//     // ndelay(50);
-//     // kfree(my_work->ptr_msg);
-//     #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-//     force_uaccess_end(oldfs);
-//     #else
-//         set_fs(oldfs);
-//     #endif
-// }
-
 int check_urr(struct pdr *pdr, u64 vol, bool uplink){
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i ;
