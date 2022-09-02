@@ -53,6 +53,11 @@ struct proc_gtp5g_qer {
     u8      qfi;
 };
 
+struct proc_gtp5g_urr {
+    u32     id;
+    u64     seid;
+};
+
 struct proc_dir_entry *proc_gtp5g = NULL;
 struct proc_dir_entry *proc_gtp5g_dbg = NULL;
 struct proc_dir_entry *proc_gtp5g_pdr = NULL;
@@ -61,7 +66,7 @@ struct proc_dir_entry *proc_gtp5g_qer = NULL;
 struct proc_gtp5g_pdr proc_pdr;
 struct proc_gtp5g_far proc_far;
 struct proc_gtp5g_qer proc_qer;
-struct proc_gtp5g_qer proc_urr;
+struct proc_gtp5g_urr proc_urr;
 
 u64 proc_seid = 0;
 u16 proc_pdr_id = 0;
