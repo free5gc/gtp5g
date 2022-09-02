@@ -268,7 +268,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 
     // recalculation gtpv1
     gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
-    pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, gtpv1->tid);
+    pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, gtpv1->tid, gtpv1->type);
     // pskb_may_pull() is called in pdr_find_by_gtp1u(), so gtpv1 may be invalidated here.
     // recalculation gtpv1
     gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
