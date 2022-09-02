@@ -24,7 +24,6 @@ enum gtp5g_cmd {
     GTP5G_CMD_DEL_BAR,
     GTP5G_CMD_GET_URR,
     GTP5G_CMD_GET_BAR,
-    GTP5G_CMD_GET_REPORT,
 
     /* Add newly supported feature ON ABOVE
      * for compatability with older version of
@@ -32,6 +31,8 @@ enum gtp5g_cmd {
      * */
 
     GTP5G_CMD_GET_VERSION,
+    
+    GTP5G_CMD_GET_REPORT,
 
     __GTP5G_CMD_MAX,
 };

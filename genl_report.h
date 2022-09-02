@@ -3,7 +3,6 @@
 
 #include "genl.h"
 #include "urr.h"
-#include "pdr.h"
 
 // VOLUME MEASUREMENT
 #define REPORT_VOLUME_MEASUREMENT_TOVOL 0x1
@@ -44,7 +43,6 @@ enum gtp5g_usage_report_attrs {
 extern int gtp5g_genl_get_usage_report(struct sk_buff *, struct genl_info *);
 extern int gtp5g_genl_fill_usage_report(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,u32 type, struct urr *urr);
 
-extern void resetPDRCnt(struct pdr *pdr);
 extern void resetURR(struct urr *urr);
 
 #endif // __GENL_URR_H__

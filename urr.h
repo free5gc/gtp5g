@@ -82,8 +82,8 @@ struct urr {
     struct rcu_head rcu_head;
 };
 
-extern void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp);
-extern void reverse_urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp);
+extern void urr_quota_exhaust_action(struct urr *, struct gtp5g_dev *);
+extern void urr_reverse_quota_exhaust_action(struct urr *, struct gtp5g_dev *);
 
 extern void urr_context_delete(struct urr *);
 extern struct urr *find_urr_by_id(struct gtp5g_dev *, u64, u32);
@@ -91,5 +91,4 @@ extern void urr_update(struct urr *, struct gtp5g_dev *);
 extern void urr_append(u64, u32, struct urr *, struct gtp5g_dev *);
 extern int urr_get_pdr_ids(u16 *, int, struct urr *, struct gtp5g_dev *);
 extern void urr_set_pdr(u64, u32, struct hlist_node *, struct gtp5g_dev *);
-void seid_urr_id_to_hex_str(u64 seid_int, u32 urr_id, char *buff);
 #endif // __URR_H__

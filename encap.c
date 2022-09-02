@@ -529,7 +529,6 @@ int check_urr(struct pdr *pdr, u64 vol, bool uplink){
             return -1;
         }
         
-        resetPDRCnt(pdr);
         kfree(report);
     }
     kfree(urrids);

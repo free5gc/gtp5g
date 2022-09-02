@@ -17,16 +17,6 @@
 
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *urr);
 
-void resetPDRCnt(struct pdr *pdr){
-    pdr->ul_byte_cnt = 0;
-    pdr->dl_byte_cnt = 0;
-    pdr->ul_pkt_cnt = 0;
-    pdr->dl_pkt_cnt = 0;
-
-    pdr->ul_drop_cnt = 0;
-    pdr->dl_drop_cnt = 0;
-}
-
 void resetURR(struct urr *urr){
     urr->volmeasurement = (struct VolumeMeasurement){
         urr->volmeasurement.flag,0,0,0,0,0,0
@@ -106,20 +96,7 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *urr)
 {
     struct nlattr *nest_volume_measurement;
-    struct gtp5g_dev *gtp = netdev_priv(urr->dev);
     u8 flag;
-    struct pdr *pdr;
-    struct hlist_head *head;
-    char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-
-    seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
-    head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
-
-    hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
-        if (find_urr_id_in_pdr(pdr, urr->id)) {
-            break;
-        }
-    }
 
     // flags are control by GTP5G
     flag = REPORT_VOLUME_MEASUREMENT_TOVOL | REPORT_VOLUME_MEASUREMENT_UVOL | REPORT_VOLUME_MEASUREMENT_DVOL;
@@ -147,13 +124,10 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
     nla_nest_end(skb, nest_volume_measurement);
 
     resetURR(urr);
-    if(pdr)
-        resetPDRCnt(pdr);
     
     urr->threshold_tovol -= urr->volmeasurement.totalVolume;
     urr->threshold_uvol -= urr->volmeasurement.uplinkVolume;
     urr->threshold_dvol -= urr->volmeasurement.downlinkVolume;
-
 
     return 0;
 }

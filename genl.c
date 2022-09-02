@@ -149,13 +149,13 @@ static const struct genl_ops gtp5g_genl_ops[] = {
         .flags = GENL_ADMIN_PERM,
     }, 
     {
-        .cmd = GTP5G_CMD_GET_REPORT,
-        .doit = gtp5g_genl_get_usage_report,
+        .cmd = GTP5G_CMD_GET_VERSION,
+        .doit = gtp5g_genl_get_version,
         .flags = GENL_ADMIN_PERM,
     },
     {
-        .cmd = GTP5G_CMD_GET_VERSION,
-        .doit = gtp5g_genl_get_version,
+        .cmd = GTP5G_CMD_GET_REPORT,
+        .doit = gtp5g_genl_get_usage_report,
         .flags = GENL_ADMIN_PERM,
     },
 };

@@ -99,7 +99,7 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
         }
     }
 }
-void reverse_urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
+void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
 {
     struct hlist_head *head;
     struct pdr *pdr;
