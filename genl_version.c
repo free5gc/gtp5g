@@ -11,10 +11,10 @@ static int gtp5g_genl_fill_ver(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
 
     if (nla_put_string(skb, GTP5G_VERSION, DRV_VERSION))
         goto genlmsg_fail;
-   
+
     genlmsg_end(skb, genlh);
     return 0;
-    
+
 genlmsg_fail:
     genlmsg_cancel(skb, genlh);
     return -EMSGSIZE;
@@ -40,4 +40,4 @@ int gtp5g_genl_get_version(struct sk_buff *skb, struct genl_info *info)
     }
 
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
-}  
+}
