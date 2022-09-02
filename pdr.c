@@ -3,6 +3,7 @@
 #include "dev.h"
 #include "link.h"
 #include "pdr.h"
+#include "gtp.h"
 #include "genl_pdr.h"
 #include "genl_far.h"
 #include "seid.h"
@@ -242,7 +243,7 @@ mismatch:
 }
 
 struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
-        unsigned int hdrlen, u32 teid)
+        unsigned int hdrlen, u32 teid, u8 type)
 {
 #ifdef MATCH_IP
     struct iphdr *outer_iph;
@@ -252,6 +253,7 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     struct hlist_head *head;
     struct pdr *pdr;
     struct pdi *pdi;
+    int may_pull_len;
 
     if (!gtp)
         return NULL;
@@ -259,7 +261,12 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     if (ntohs(skb->protocol) != ETH_P_IP)
         return NULL;
 
-    if (!pskb_may_pull(skb, hdrlen))
+    if (type == GTPV1_MSG_TYPE_TPDU)
+        may_pull_len = hdrlen + sizeof(struct iphdr);
+    else
+        may_pull_len = hdrlen;
+
+    if (!pskb_may_pull(skb, may_pull_len))
         return NULL;
 
     iph = (struct iphdr *)(skb->data + hdrlen);
