@@ -493,6 +493,8 @@ int check_urr(struct pdr *pdr, u64 vol, bool uplink){
                 if (!(urr->trigger & URR_TRIGGER_VOLQU) && !(urr->trigger & URR_TRIGGER_VOLTH)){
                     GTP5G_ERR(pdr->dev, "method is not volume based(%llu) in URR(%u) and related to PDR(%u)",
                         urr->method, urr->id, pdr->id);
+                    
+                    kfree(urrids);
                     return 0;
                 }
             }
@@ -518,6 +520,8 @@ int check_urr(struct pdr *pdr, u64 vol, bool uplink){
 
         if (unix_sock_send(pdr, report, len, report_num) < 0) {
             GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
+            kfree(report);
+            kfree(urrids);
             return -1;
         }
         
