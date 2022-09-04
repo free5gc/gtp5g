@@ -17,12 +17,6 @@
 
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *urr);
 
-void resetURR(struct urr *urr){
-    urr->volmeasurement = (struct VolumeMeasurement){
-        urr->volmeasurement.flag,0,0,0,0,0,0
-    };
-}
-
 int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
 {
 
@@ -96,18 +90,12 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *urr)
 {
     struct nlattr *nest_volume_measurement;
-    u8 flag;
-
-    // flags are control by GTP5G
-    flag = REPORT_VOLUME_MEASUREMENT_TOVOL | REPORT_VOLUME_MEASUREMENT_UVOL | REPORT_VOLUME_MEASUREMENT_DVOL;
-    if (urr->info & URR_INFO_MNOP)
-        flag |= (REPORT_VOLUME_MEASUREMENT_TONOL | REPORT_VOLUME_MEASUREMENT_UNOP | REPORT_VOLUME_MEASUREMENT_DNOP);
 
     nest_volume_measurement = nla_nest_start(skb, GTP5G_UR_VOLUME_MEASUREMENT);
     if (!nest_volume_measurement)
         return -EMSGSIZE;
 
-    if (nla_put_u8(skb, GTP5G_UR_VOLUME_MEASUREMENT_FLAGS, flag))
+    if (nla_put_u8(skb, GTP5G_UR_VOLUME_MEASUREMENT_FLAGS, urr->volmeasurement.flag))
         return -EMSGSIZE;
     if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOVOL, urr->volmeasurement.totalVolume , 0))
         return -EMSGSIZE;
@@ -123,7 +111,7 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
         return -EMSGSIZE;
     nla_nest_end(skb, nest_volume_measurement);
 
-    resetURR(urr);
+    urr->volmeasurement = (struct VolumeMeasurement){};
     
     urr->threshold_tovol -= urr->volmeasurement.totalVolume;
     urr->threshold_uvol -= urr->volmeasurement.uplinkVolume;

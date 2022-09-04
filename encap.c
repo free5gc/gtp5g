@@ -416,7 +416,6 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
 int check_urr(struct pdr *pdr, u64 vol, bool uplink){
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i ;
-    u8 flag;
     u64 trigger;
     u16 report_num = 0;
     int *urrids,len;
@@ -457,8 +456,8 @@ int check_urr(struct pdr *pdr, u64 vol, bool uplink){
                 urr->volmeasurement.totalVolume = urr->volmeasurement.uplinkVolume + urr->volmeasurement.downlinkVolume;
 
                 // Check threshold/quata
-                GTP5G_TRC(pdr->dev,"flags:%d, total_volume_cnt:%lld, ul_byte_cnt:%lld, dl_byte_cnt:%lld, total_pkt_cnt:%lld, ul_pkt_cnt:%lld, dl_pkt_cnt:%lld\n",
-                    urr->volmeasurement.flag,urr->volmeasurement.totalVolume,urr->volmeasurement.uplinkVolume,urr->volmeasurement.downlinkVolume, urr->volmeasurement.totalPktNum,urr->volmeasurement.uplinkPktNum,urr->volmeasurement.downlinkPktNum);
+                GTP5G_TRC(pdr->dev,"total_volume_cnt:%lld, ul_byte_cnt:%lld, dl_byte_cnt:%lld, total_pkt_cnt:%lld, ul_pkt_cnt:%lld, dl_pkt_cnt:%lld\n",
+                    urr->volmeasurement.totalVolume,urr->volmeasurement.uplinkVolume,urr->volmeasurement.downlinkVolume, urr->volmeasurement.totalPktNum,urr->volmeasurement.uplinkPktNum,urr->volmeasurement.downlinkPktNum);
 
                 if(urr->trigger & URR_TRIGGER_VOLQU){
                     if ((urr->volmeasurement.totalVolume >= urr->volumequota->totalVolume) && (urr->volumethreshold->flag & URR_VOLUME_QUOTA_TOVOL))
@@ -507,13 +506,6 @@ int check_urr(struct pdr *pdr, u64 vol, bool uplink){
         report = kzalloc(len, GFP_ATOMIC);
         for(i = 0; i < report_num; i++){
             urr = find_urr_by_id(gtp, pdr->seid, urrids[i]); 
-
-            flag = REPORT_VOLUME_MEASUREMENT_TOVOL | REPORT_VOLUME_MEASUREMENT_UVOL | REPORT_VOLUME_MEASUREMENT_DVOL;
-            if (urr->info & URR_INFO_MNOP)
-                flag |= (REPORT_VOLUME_MEASUREMENT_TONOL | REPORT_VOLUME_MEASUREMENT_UNOP | REPORT_VOLUME_MEASUREMENT_DNOP);
-
-            urr->volmeasurement.flag = flag;
-
             report[i] = (struct user_report){
                     urr->id,
                     0,
@@ -521,7 +513,7 @@ int check_urr(struct pdr *pdr, u64 vol, bool uplink){
                     urr->volmeasurement, 
                     0
             };
-            resetURR(urr);
+            urr->volmeasurement = (struct VolumeMeasurement){};
         }
 
         if (unix_sock_send(pdr, report, len, report_num) < 0) {
