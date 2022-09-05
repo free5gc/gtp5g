@@ -508,14 +508,19 @@ int check_urr(struct pdr *pdr, u64 vol, bool uplink){
         report = kzalloc(len, GFP_ATOMIC);
         for(i = 0; i < report_num; i++){
             urr = find_urr_by_id(gtp, pdr->seid, urrids[i]); 
+
+            urr->end_time = ktime_get_real();
             report[i] = (struct user_report){
                     urr->id,
                     0,
                     trigger,
                     urr->volmeasurement, 
-                    0
+                    0,
+                    urr->start_time,
+                    urr->end_time
             };
             urr->volmeasurement = (struct VolumeMeasurement){};
+            urr->start_time = ktime_get_real();
         }
 
         if (unix_sock_send(pdr, report, len, report_num) < 0) {

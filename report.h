@@ -47,7 +47,8 @@ struct user_report {
     struct VolumeMeasurement volmeasurement;
 
     uint32_t queryUrrRef;
-
+    ktime_t start_time;
+    ktime_t end_time;
 } __attribute__((packed));
 
 #endif // __REPORT_H__

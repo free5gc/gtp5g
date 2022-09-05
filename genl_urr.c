@@ -102,6 +102,7 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
     }
 
     urr->dev = gtp->dev;
+    urr->start_time = ktime_get_real();
 
     err = urr_fill(urr, gtp, info);
     if (err) {
@@ -171,6 +172,7 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
         return -ENOMEM;
     }
 
+    urr->end_time = ktime_get_real();
     err = gtp5g_genl_fill_usage_report(skb_ack,
             NETLINK_CB(skb).portid,
             info->snd_seq,

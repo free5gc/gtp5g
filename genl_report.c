@@ -71,11 +71,14 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
         return -ENOMEM;
     }
 
+    urr->end_time = ktime_get_real();
     err = gtp5g_genl_fill_usage_report(skb_ack,
             NETLINK_CB(skb).portid,
             info->snd_seq,
             info->nlhdr->nlmsg_type,
             urr);
+    urr->start_time = ktime_get_real();
+
     if (err) {
         kfree_skb(skb_ack);
         rcu_read_unlock();
@@ -137,6 +140,10 @@ int gtp5g_genl_fill_usage_report(struct sk_buff *skb, u32 snd_portid, u32 snd_se
     if(nla_put_u32(skb, GTP5G_UR_QUERY_URR_REFERENCE, 0))
         goto genlmsg_fail;
     if(gtp5g_genl_fill_volume_measurement(skb,urr))
+        goto genlmsg_fail;
+    if (nla_put_u64_64bit(skb, GTP5G_UR_START_TIME, urr->start_time, 0))
+        goto genlmsg_fail;
+    if (nla_put_u64_64bit(skb, GTP5G_UR_END_TIME, urr->end_time, 0))
         goto genlmsg_fail;
 
     genlmsg_end(skb, genlh);

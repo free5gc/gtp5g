@@ -421,57 +421,57 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     hdr = nla_next(hdr, &remaining);
     while (nla_ok(hdr, remaining)) {
         switch (nla_type(hdr)) {
-            case GTP5G_PDR_SEID:
-                pdr->seid = nla_get_u64(hdr);
-                break;
-            case GTP5G_PDR_ID:
-                pdr->id = nla_get_u16(hdr);
-                break;
-            case GTP5G_PDR_PRECEDENCE:
-                pdr->precedence = nla_get_u32(hdr);
-                break;
-            case GTP5G_OUTER_HEADER_REMOVAL:
-                if (!pdr->outer_header_removal) {
-                    pdr->outer_header_removal = kzalloc(sizeof(*pdr->outer_header_removal), GFP_ATOMIC);
-                    if (!pdr->outer_header_removal)
-                        return -ENOMEM;
-                }
-                *pdr->outer_header_removal = nla_get_u8(hdr);
-                break;
-            case GTP5G_PDR_ROLE_ADDR_IPV4:
-                /* Not in 3GPP spec, just used for routing */
-                pdr->role_addr_ipv4.s_addr = nla_get_u32(hdr);
-                break;
-            case GTP5G_PDR_UNIX_SOCKET_PATH:
-                /* Not in 3GPP spec, just used for buffering */
-                str = nla_data(hdr);
-                pdr->addr_unix.sun_family = AF_UNIX;
-                strncpy(pdr->addr_unix.sun_path, str, nla_len(hdr));
-                break;
-            case GTP5G_PDR_FAR_ID:
-                if (!pdr->far_id) {
-                    pdr->far_id = kzalloc(sizeof(*pdr->far_id), GFP_ATOMIC);
-                    if (!pdr->far_id)
-                        return -ENOMEM;
-                }
-                *pdr->far_id = nla_get_u32(hdr);
-                break;
-            case GTP5G_PDR_QER_ID:
-                err = set_pdr_qer_ids(pdr, nla_get_u32(hdr));
-                if (err)
-                    return err;
-                break;
-            case GTP5G_PDR_PDI:
-                err = parse_pdi(pdr, hdr);
-                if (err)
-                    return err;
-                break;
-            case GTP5G_PDR_URR_ID:
-                err = set_pdr_urr_ids(pdr, nla_get_u32(hdr));
-                urr_set_pdr(pdr->seid, pdr->urr_ids[pdr->urr_num - 1], &pdr->hlist_related_urr, gtp);
-                if (err)
-                    return err;
-                break;
+        case GTP5G_PDR_SEID:
+            pdr->seid = nla_get_u64(hdr);
+            break;
+        case GTP5G_PDR_ID:
+            pdr->id = nla_get_u16(hdr);
+            break;
+        case GTP5G_PDR_PRECEDENCE:
+            pdr->precedence = nla_get_u32(hdr);
+            break;
+        case GTP5G_OUTER_HEADER_REMOVAL:
+            if (!pdr->outer_header_removal) {
+                pdr->outer_header_removal = kzalloc(sizeof(*pdr->outer_header_removal), GFP_ATOMIC);
+                if (!pdr->outer_header_removal)
+                    return -ENOMEM;
+            }
+            *pdr->outer_header_removal = nla_get_u8(hdr);
+            break;
+        case GTP5G_PDR_ROLE_ADDR_IPV4:
+            /* Not in 3GPP spec, just used for routing */
+            pdr->role_addr_ipv4.s_addr = nla_get_u32(hdr);
+            break;
+        case GTP5G_PDR_UNIX_SOCKET_PATH:
+            /* Not in 3GPP spec, just used for buffering */
+            str = nla_data(hdr);
+            pdr->addr_unix.sun_family = AF_UNIX;
+            strncpy(pdr->addr_unix.sun_path, str, nla_len(hdr));
+            break;
+        case GTP5G_PDR_FAR_ID:
+            if (!pdr->far_id) {
+                pdr->far_id = kzalloc(sizeof(*pdr->far_id), GFP_ATOMIC);
+                if (!pdr->far_id)
+                    return -ENOMEM;
+            }
+            *pdr->far_id = nla_get_u32(hdr);
+            break;
+        case GTP5G_PDR_QER_ID:
+            err = set_pdr_qer_ids(pdr, nla_get_u32(hdr));
+            if (err)
+                return err;
+            break;
+        case GTP5G_PDR_PDI:
+            err = parse_pdi(pdr, hdr);
+            if (err)
+                return err;
+            break;
+        case GTP5G_PDR_URR_ID:
+            err = set_pdr_urr_ids(pdr, nla_get_u32(hdr));
+            urr_set_pdr(pdr->seid, pdr->urr_ids[pdr->urr_num - 1], &pdr->hlist_related_urr, gtp);
+            if (err)
+                return err;
+            break;
         }
         hdr = nla_next(hdr, &remaining);
     }

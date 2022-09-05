@@ -69,6 +69,10 @@ struct urr {
     // For usage report volume measurement
     struct VolumeMeasurement volmeasurement;
     
+    // for report time
+    ktime_t start_time;
+    ktime_t end_time;
+    
     // threasholds after adjusting
     u64 threshold_tovol;
     u64 threshold_uvol;
@@ -78,6 +82,7 @@ struct urr {
     bool quota_exhausted;
     u16 *pdrids;
     u8 *actions;
+
     struct net_device *dev;
     struct rcu_head rcu_head;
 };
