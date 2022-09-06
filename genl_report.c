@@ -132,7 +132,6 @@ int gtp5g_genl_fill_usage_report(struct sk_buff *skb, u32 snd_portid, u32 snd_se
     if (!genlh)
         goto genlmsg_fail;
 
-    /* urrid, usagereporttrigger, queryurrreference*/
     if (nla_put_u32(skb, GTP5G_UR_URRID, urr->id))
         goto genlmsg_fail;
     if (nla_put_u32(skb, GTP5G_UR_URSEQN, 0))
