@@ -41,11 +41,11 @@ static int gtp5g_encap_recv(struct sock *, struct sk_buff *);
 static int gtp1u_udp_encap_recv(struct gtp5g_dev *, struct sk_buff *);
 static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, unsigned int);
 static int gtp5g_fwd_skb_encap(struct sk_buff *, struct net_device *,
-        unsigned int, struct pdr *);
+        unsigned int, struct pdr *, uint64_t volume_mbqe);
 static int unix_sock_send(struct pdr *, void *, u32, u16);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
     struct net_device *, struct gtp5g_pktinfo *, 
-    struct pdr *);
+    struct pdr *, uint64_t);
 
 struct sock *gtp5g_encap_enable(int fd, int type, struct gtp5g_dev *gtp){
     struct udp_tunnel_sock_cfg tuncfg = {NULL};
@@ -413,7 +413,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
     return rt;
 }
 
-int check_urr(struct pdr *pdr, u64 vol, bool uplink){
+int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i ;
     u64 trigger;
@@ -431,15 +431,15 @@ int check_urr(struct pdr *pdr, u64 vol, bool uplink){
         if (!(urr->info & URR_INFO_INAM)) {
             if (urr->method & URR_METHOD_VOLUM) {
                 if(urr->info & URR_INFO_MBQE){
-                        if(uplink){
-                            if (urr->info & URR_INFO_MNOP)
-                                urr->volmeasurement.uplinkPktNum++;
-                            urr->volmeasurement.uplinkVolume += vol;
-                        } else{
-                            if (urr->info & URR_INFO_MNOP)
-                                urr->volmeasurement.downlinkPktNum++;
-                            urr->volmeasurement.downlinkVolume += vol;
-                        }
+                    if(uplink){
+                        if (urr->info & URR_INFO_MNOP)
+                            urr->volmeasurement.uplinkPktNum++;
+                        urr->volmeasurement.uplinkVolume += vol_mbqe;
+                    } else{
+                        if (urr->info & URR_INFO_MNOP)
+                            urr->volmeasurement.downlinkPktNum++;
+                        urr->volmeasurement.downlinkVolume += vol_mbqe;
+                    }
                 } else{
                     if(uplink){
                         if (urr->info & URR_INFO_MNOP)
@@ -540,7 +540,7 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
     unsigned int hdrlen, unsigned int role)
 {
     int rt = -1;
-    u64 volume;
+    u64 volume_mbqe;
     struct far *far = pdr->far;
     // struct qer *qer = pdr->qer;
 
@@ -549,7 +549,7 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
         goto out;
     }
 
-    volume = ip4_rm_header(skb,hdrlen);
+    volume_mbqe = ip4_rm_header(skb,hdrlen);
 
     //TODO: QER
     //if (qer) {
@@ -568,7 +568,7 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
             rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
         case FAR_ACTION_FORW:
-            rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr);
+            rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, volume_mbqe);
             break;
         case FAR_ACTION_BUFF:
             rt = gtp5g_buf_skb_encap(skb, pdr->dev, hdrlen, pdr);
@@ -589,7 +589,7 @@ out:
 }
 
 static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
-    unsigned int hdrlen, struct pdr *pdr)
+    unsigned int hdrlen, struct pdr *pdr, uint64_t volume_mbqe)
 {
     struct far *far = pdr->far;
     struct forwarding_parameter *fwd_param = far->fwd_param;
@@ -672,7 +672,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     volume = ip4_rm_header(skb,hdrlen);
 
     if(pdr->urr_num != 0){
-        if(check_urr(pdr,volume,true) < 0)
+        if(check_urr(pdr, volume, volume_mbqe, true) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
 
@@ -690,7 +690,7 @@ static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
 
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb, 
     struct net_device *dev, struct gtp5g_pktinfo *pktinfo, 
-    struct pdr *pdr)
+    struct pdr *pdr, uint64_t volume_mbqe)
 {
     struct rtable *rt;
     struct flowi4 fl4;
@@ -733,7 +733,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     volume = ip4_rm_header(skb, 0);
 
     if(pdr->urr_num != 0){
-        if(check_urr(pdr,volume,false) < 0)
+        if(check_urr(pdr,volume,volume_mbqe,false) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
 
@@ -763,7 +763,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct far *far;
     //struct gtp5g_qer *qer;
     struct iphdr *iph;
-    u64 volume;
+    u64 volume_mbqe;
 
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
@@ -779,7 +779,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         return -ENOENT;
     }
 
-    volume = ip4_rm_header(skb, 0);
+    volume_mbqe = ip4_rm_header(skb, 0);
 
     /* TODO: QoS rule have to apply before apply FAR 
      * */
@@ -798,7 +798,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         case FAR_ACTION_DROP:
             return gtp5g_drop_skb_ipv4(skb, dev, pdr);
         case FAR_ACTION_FORW:
-            return gtp5g_fwd_skb_ipv4(skb, dev, pktinfo, pdr);
+            return gtp5g_fwd_skb_ipv4(skb, dev, pktinfo, pdr, volume_mbqe);
         case FAR_ACTION_BUFF:
             return gtp5g_buf_skb_ipv4(skb, dev, pdr);
         default:
