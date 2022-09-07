@@ -138,7 +138,7 @@ int gtp5g_genl_fill_usage_report(struct sk_buff *skb, u32 snd_portid, u32 snd_se
         goto genlmsg_fail;
     if(nla_put_u32(skb, GTP5G_UR_QUERY_URR_REFERENCE, 0))
         goto genlmsg_fail;
-    if(gtp5g_genl_fill_volume_measurement(skb,urr))
+    if(gtp5g_genl_fill_volume_measurement(skb, urr))
         goto genlmsg_fail;
     if (nla_put_u64_64bit(skb, GTP5G_UR_START_TIME, urr->start_time, 0))
         goto genlmsg_fail;

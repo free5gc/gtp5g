@@ -413,7 +413,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
     return rt;
 }
 
-int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
+int check_urr(struct pdr *pdr, u64 vol, bool uplink){
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i ;
     u64 trigger;
@@ -431,15 +431,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
         if (!(urr->info & URR_INFO_INAM)) {
             if (urr->method & URR_METHOD_VOLUM) {
                 if(urr->info & URR_INFO_MBQE){
-                    if(uplink){
-                        if (urr->info & URR_INFO_MNOP)
-                            urr->volmeasurement.uplinkPktNum++;
-                        urr->volmeasurement.uplinkVolume += vol_mbqe;
-                    } else{
-                        if (urr->info & URR_INFO_MNOP)
-                            urr->volmeasurement.downlinkPktNum++;
-                        urr->volmeasurement.downlinkVolume += vol_mbqe;
-                    }
+                    // TODO: gtp5g isn't support QoS enforcement yet
                 } else{
                     if(uplink){
                         if (urr->info & URR_INFO_MNOP)
@@ -548,8 +540,6 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
         GTP5G_ERR(pdr->dev, "FAR not exists for PDR(%u)\n", pdr->id);
         goto out;
     }
-
-    volume_mbqe = ip4_rm_header(skb,hdrlen);
 
     //TODO: QER
     //if (qer) {
@@ -669,10 +659,10 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
     }
 
-    volume = ip4_rm_header(skb,hdrlen);
+    volume = ip4_rm_header(skb, hdrlen);
 
     if(pdr->urr_num != 0){
-        if(check_urr(pdr, volume, volume_mbqe, true) < 0)
+        if(check_urr(pdr, volume, true) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
 
@@ -733,7 +723,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     volume = ip4_rm_header(skb, 0);
 
     if(pdr->urr_num != 0){
-        if(check_urr(pdr,volume,volume_mbqe,false) < 0)
+        if(check_urr(pdr, volume, false) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
 
@@ -778,8 +768,6 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         GTP5G_ERR(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
         return -ENOENT;
     }
-
-    volume_mbqe = ip4_rm_header(skb, 0);
 
     /* TODO: QoS rule have to apply before apply FAR 
      * */
