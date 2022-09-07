@@ -1,4 +1,5 @@
 #include <linux/module.h>
+#include <linux/etherdevice.h>
 #include <net/genetlink.h>
 
 #include "dev.h"
