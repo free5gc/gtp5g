@@ -592,6 +592,8 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     int ret;
     u64 volume;
 
+    volume = ip4_rm_header(skb, hdrlen);
+
     if (fwd_param) {
         if ((fwd_policy = fwd_param->fwd_policy))
             skb->mark = fwd_policy->mark;
@@ -621,7 +623,12 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                 GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
                 return -1;
             }
-
+            
+            if(pdr->urr_num != 0){
+                if(check_urr(pdr, volume, true) < 0)
+                    GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
+            }
+            
             return 0;
         }
     }
@@ -658,8 +665,6 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     if (ret != NET_RX_SUCCESS) {
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
     }
-
-    volume = ip4_rm_header(skb, hdrlen);
 
     if(pdr->urr_num != 0){
         if(check_urr(pdr, volume, true) < 0)
