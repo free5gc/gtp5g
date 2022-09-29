@@ -413,9 +413,10 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
     return rt;
 }
 
-int check_urr(struct pdr *pdr, u64 vol, bool uplink){
+int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
-    int i ;
+    int i;
+    u64 volume;
     u64 trigger;
     u16 report_num = 0;
     int *urrids,len;
@@ -432,17 +433,23 @@ int check_urr(struct pdr *pdr, u64 vol, bool uplink){
             if (urr->method & URR_METHOD_VOLUM) {
                 if(urr->info & URR_INFO_MBQE){
                     // TODO: gtp5g isn't support QoS enforcement yet
+                    // Currently MBQE Volume = MAQE Volume
+                    vol_mbqe = vol;
+                    volume = vol_mbqe;
                 } else{
-                    if(uplink){
-                        if (urr->info & URR_INFO_MNOP)
-                            urr->volmeasurement.uplinkPktNum++;
-                        urr->volmeasurement.uplinkVolume += vol;
-                    } else{
-                        if (urr->info & URR_INFO_MNOP)
-                            urr->volmeasurement.downlinkPktNum++;
-                        urr->volmeasurement.downlinkVolume += vol;
-                    }
+                    volume = vol;
                 }
+
+                if(uplink){
+                    if (urr->info & URR_INFO_MNOP)
+                        urr->volmeasurement.uplinkPktNum++;
+                    urr->volmeasurement.uplinkVolume += volume;
+                } else{
+                    if (urr->info & URR_INFO_MNOP)
+                        urr->volmeasurement.downlinkPktNum++;
+                    urr->volmeasurement.downlinkVolume += volume;
+                }
+
                 if (urr->info & URR_INFO_MNOP)
                     urr->volmeasurement.totalPktNum = urr->volmeasurement.uplinkPktNum + urr->volmeasurement.downlinkPktNum;
                 urr->volmeasurement.totalVolume = urr->volmeasurement.uplinkVolume + urr->volmeasurement.downlinkVolume;
@@ -625,7 +632,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             }
             
             if(pdr->urr_num != 0){
-                if(check_urr(pdr, volume, true) < 0)
+                if(check_urr(pdr, volume, volume_mbqe, true) < 0)
                     GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
             }
             
@@ -667,7 +674,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     }
 
     if(pdr->urr_num != 0){
-        if(check_urr(pdr, volume, true) < 0)
+        if(check_urr(pdr, volume, volume_mbqe, true) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
 
@@ -728,7 +735,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     volume = ip4_rm_header(skb, 0);
 
     if(pdr->urr_num != 0){
-        if(check_urr(pdr, volume, false) < 0)
+        if(check_urr(pdr, volume, volume_mbqe, false) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
 
