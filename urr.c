@@ -80,7 +80,7 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     struct hlist_head *head;
     struct pdr *pdr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    int i;
+    int i = 0;
     // urr stop measurement
     urr->info |= URR_INFO_INAM;
     urr->quota_exhausted = true;

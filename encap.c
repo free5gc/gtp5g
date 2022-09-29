@@ -538,7 +538,7 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
     unsigned int hdrlen, unsigned int role)
 {
     int rt = -1;
-    u64 volume_mbqe;
+    u64 volume_mbqe = 0;
     struct far *far = pdr->far;
     // struct qer *qer = pdr->qer;
 
@@ -764,7 +764,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct far *far;
     //struct gtp5g_qer *qer;
     struct iphdr *iph;
-    u64 volume_mbqe;
+    u64 volume_mbqe = 0;
 
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
