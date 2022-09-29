@@ -28,11 +28,11 @@
 #define URR_INFO_MBQE   0x1
 #define URR_INFO_INAM   0x2
 #define URR_INFO_RADI   0x4
-#define URR_INFO_ISTM   0x10
-#define URR_INFO_MNOP   0x20
-#define URR_INFO_SSPOC  0x40
-#define URR_INFO_ASPOC  0x100
-#define URR_INFO_CIAM   0x200
+#define URR_INFO_ISTM   0x8
+#define URR_INFO_MNOP   0x10
+#define URR_INFO_SSPOC  0x20
+#define URR_INFO_ASPOC  0x80
+#define URR_INFO_CIAM   0x100
 
 #define URR_TRIGGER_VOLQU 0x1
 #define URR_TRIGGER_VOLTH 0x200
