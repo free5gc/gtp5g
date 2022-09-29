@@ -98,8 +98,6 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
     if (!nest_volume_measurement)
         return -EMSGSIZE;
 
-    if (nla_put_u8(skb, GTP5G_UR_VOLUME_MEASUREMENT_FLAGS, urr->volmeasurement.flag))
-        return -EMSGSIZE;
     if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOVOL, urr->volmeasurement.totalVolume , 0))
         return -EMSGSIZE;
     if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UVOL, urr->volmeasurement.uplinkVolume, 0))

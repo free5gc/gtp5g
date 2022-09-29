@@ -511,7 +511,6 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
             urr->end_time = ktime_get_real();
             report[i] = (struct user_report){
                     urr->id,
-                    0,
                     trigger,
                     urr->volmeasurement, 
                     0,
