@@ -39,7 +39,9 @@
 #define URR_INFO_CIAM   0x80
 
 #define URR_TRIGGER_VOLQU 0x1
+#define URR_TRIGGER_PERIO 0x100
 #define URR_TRIGGER_VOLTH 0x200
+
 struct Volume{        
     uint8_t flag;
 

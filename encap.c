@@ -468,7 +468,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                     volqu = true;
                 if(urr->trigger & URR_TRIGGER_VOLTH)
                     volth = true;
-                if(urr->trigger & URR_TRIGGER_VOLQU)
+                if(urr->trigger & URR_TRIGGER_PERIO)
                     perio = true;
 
                 if(urr->info & URR_INFO_MNOP)
