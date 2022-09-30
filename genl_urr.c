@@ -327,28 +327,35 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
     if (info->attrs[GTP5G_URR_REPORTING_TRIGGER])
         urr->trigger = nla_get_u64(info->attrs[GTP5G_URR_REPORTING_TRIGGER]);
 
-    if (info->attrs[GTP5G_URR_MEASUREMENT_PERIOD])
+    if (info->attrs[GTP5G_URR_MEASUREMENT_PERIOD]){
         urr->period = nla_get_u64(info->attrs[GTP5G_URR_MEASUREMENT_PERIOD]);
+        if(urr->perioMeasurement == NULL){
+            urr->perioMeasurement = kzalloc(sizeof(*urr->perioMeasurement), GFP_ATOMIC);
+        }
+    }
 
     if (info->attrs[GTP5G_URR_MEASUREMENT_INFO])
         urr->info = nla_get_u64(info->attrs[GTP5G_URR_MEASUREMENT_INFO]);
 
-    if (info->attrs[GTP5G_URR_SEQ]){
+    if (info->attrs[GTP5G_URR_SEQ])
         urr->seq = nla_get_u64(info->attrs[GTP5G_URR_SEQ]);
-    }
 
     if (info->attrs[GTP5G_URR_VOLUME_THRESHOLD]) {
         parse_volumethreshold(urr,info->attrs[GTP5G_URR_VOLUME_THRESHOLD]);
-
-        urr->threshold_tovol = urr->volumethreshold->totalVolume;
-        urr->threshold_dvol = urr->volumethreshold->downlinkVolume;
-        urr->threshold_uvol = urr->volumethreshold->uplinkVolume;
+        if(urr->volthMeasurement == NULL){
+            urr->volthMeasurement = kzalloc(sizeof(*urr->volthMeasurement), GFP_ATOMIC);
+        }
     }
 
 
     if (info->attrs[GTP5G_URR_VOLUME_QUOTA]) {
         parse_volumeqouta(urr,info->attrs[GTP5G_URR_VOLUME_QUOTA]);
-
+        if(urr->volquMeasurement == NULL){
+            urr->volquMeasurement = kzalloc(sizeof(*urr->volquMeasurement), GFP_ATOMIC);
+        } else{
+            *urr->volquMeasurement = (struct VolumeMeasurement){};
+        }
+    
         if(urr->volumequota->totalVolume == 0){
             urr_quota_exhaust_action(urr,gtp);
             GTP5G_LOG(NULL, "URR (%u) Receive zero quota, stop measure", urr->id);
@@ -363,12 +370,13 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
     urr_update(urr, gtp);
 
     return 0;
+    
 }
 
 static int parse_volumethreshold(struct urr *urr, struct nlattr *a)
 {
     struct nlattr *attrs[GTP5G_URR_ATTR_MAX + 1];
-    struct VolumeThreshold *volumethreshold;
+    struct Volume *volumethreshold;
     int err;
 
     err = nla_parse_nested(attrs, GTP5G_URR_VOLUME_THRESHOLD_ATTR_MAX, a, NULL, NULL);
@@ -405,7 +413,7 @@ static int parse_volumethreshold(struct urr *urr, struct nlattr *a)
 static int parse_volumeqouta(struct urr *urr, struct nlattr *a)
 {
     struct nlattr *attrs[GTP5G_URR_ATTR_MAX + 1];
-    struct VolumeQuota *volumequota;
+    struct Volume *volumequota;
     int err;
 
     err = nla_parse_nested(attrs, GTP5G_URR_VOLUME_QUOTA_ATTR_MAX, a, NULL, NULL);
@@ -438,7 +446,7 @@ static int parse_volumeqouta(struct urr *urr, struct nlattr *a)
     return 0;
 }
 
-static int gtp5g_genl_fill_volume_threshold(struct sk_buff *skb, struct VolumeThreshold *volumethreshold)
+static int gtp5g_genl_fill_volume_threshold(struct sk_buff *skb, struct Volume *volumethreshold)
 {
     struct nlattr *nest_volume_threshold;
 
@@ -459,7 +467,7 @@ static int gtp5g_genl_fill_volume_threshold(struct sk_buff *skb, struct VolumeTh
     return 0;
 }
 
-static int gtp5g_genl_fill_volume_quota(struct sk_buff *skb, struct VolumeQuota *volumequota)
+static int gtp5g_genl_fill_volume_quota(struct sk_buff *skb, struct Volume *volumequota)
 {
 
     struct nlattr *nest_volume_quota;

@@ -413,24 +413,76 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
     return rt;
 }
 
+bool compareVolume(struct Volume *volume, struct VolumeMeasurement *volmeasure){
+    if (volume->totalVolume && (volmeasure->totalVolume >= volume->totalVolume) && (volume->flag & URR_VOLUME_TOVOL)){
+        return true;
+    } else if(volume->uplinkVolume && (volmeasure->uplinkVolume >= volume->uplinkVolume) && (volume->flag & URR_VOLUME_ULVOL)){
+        return true;
+    } else if(volume->downlinkVolume && (volmeasure->downlinkVolume >= volume->downlinkVolume) && (volume->flag & URR_VOLUME_DLVOL)){
+        return true;
+    }
+
+    return false;
+}
+
+void updateMeasurement(struct VolumeMeasurement *volmeasure, u64 vol, bool uplink, bool mnop){
+    if(mnop){
+        if(uplink){
+            volmeasure->uplinkPktNum++;
+        } else{
+            volmeasure->downlinkPktNum++;
+        }
+        volmeasure->totalPktNum = volmeasure->uplinkPktNum + volmeasure->downlinkPktNum;
+    }
+
+    if(uplink){
+        volmeasure->uplinkVolume += vol;
+    } else{
+        volmeasure->downlinkVolume += vol;
+    }
+    
+    volmeasure->totalVolume = volmeasure->uplinkVolume + volmeasure->downlinkVolume;
+}
+
 int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i;
     u64 volume;
-    u64 trigger;
+    u64 *triggers;
     u16 report_num = 0;
-    int *urrids,len;
+    int *urrids, len;
     struct urr *urr;
     struct user_report *report;
-    bool send_tol_report, send_ul_report, send_dl_report;
+    struct VolumeMeasurement *volmeasure;
+    bool perio, volth, volqu;
+    bool mnop;
 
     urrids = kzalloc(sizeof(URR_ID_SIZE) * pdr->urr_num , GFP_ATOMIC);
-    for (i = 0; i < pdr->urr_num; i++){  
-        send_tol_report = false, send_ul_report = false, send_dl_report = false;
+    triggers = kzalloc(sizeof(uint64_t) * pdr->urr_num , GFP_ATOMIC);
 
+    for (i = 0; i < pdr->urr_num; i++){  
         urr = find_urr_by_id(gtp, pdr->seid,  pdr->urr_ids[i]);
         if (!(urr->info & URR_INFO_INAM)) {
             if (urr->method & URR_METHOD_VOLUM) {
+                if(urr->trigger & URR_TRIGGER_VOLQU)
+                    volqu = true;
+                if(urr->trigger & URR_TRIGGER_VOLTH)
+                    volth = true;
+                if(urr->trigger & URR_TRIGGER_VOLQU)
+                    perio = true;
+
+                if(urr->info & URR_INFO_MNOP)
+                    mnop = true;
+
+                if (!volqu && !volth && !perio){
+                    GTP5G_ERR(pdr->dev, "no supported trigger(%u) in URR(%u) and related to PDR(%u)",
+                        urr->trigger, urr->id, pdr->id);
+                    
+                    kfree(urrids);
+                    kfree(triggers);
+                    return 0;
+                }
+
                 if(urr->info & URR_INFO_MBQE){
                     // TODO: gtp5g isn't support QoS enforcement yet
                     // Currently MBQE Volume = MAQE Volume
@@ -439,62 +491,25 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                 } else{
                     volume = vol;
                 }
-
-                if(uplink){
-                    if (urr->info & URR_INFO_MNOP)
-                        urr->volmeasurement.uplinkPktNum++;
-                    urr->volmeasurement.uplinkVolume += volume;
-                } else{
-                    if (urr->info & URR_INFO_MNOP)
-                        urr->volmeasurement.downlinkPktNum++;
-                    urr->volmeasurement.downlinkVolume += volume;
-                }
-
-                if (urr->info & URR_INFO_MNOP)
-                    urr->volmeasurement.totalPktNum = urr->volmeasurement.uplinkPktNum + urr->volmeasurement.downlinkPktNum;
-                urr->volmeasurement.totalVolume = urr->volmeasurement.uplinkVolume + urr->volmeasurement.downlinkVolume;
-
-                // Check threshold/quata
-                GTP5G_TRC(pdr->dev,"total_volume_cnt:%lld, ul_byte_cnt:%lld, dl_byte_cnt:%lld, total_pkt_cnt:%lld, ul_pkt_cnt:%lld, dl_pkt_cnt:%lld\n",
-                    urr->volmeasurement.totalVolume,urr->volmeasurement.uplinkVolume,urr->volmeasurement.downlinkVolume, urr->volmeasurement.totalPktNum,urr->volmeasurement.uplinkPktNum,urr->volmeasurement.downlinkPktNum);
-
-                if(urr->trigger & URR_TRIGGER_VOLQU){
-                    if ((urr->volmeasurement.totalVolume >= urr->volumequota->totalVolume) && (urr->volumethreshold->flag & URR_VOLUME_QUOTA_TOVOL))
-                        send_tol_report = true;
-                    else if((urr->volmeasurement.uplinkVolume >= urr->volumequota->uplinkVolume) && ((urr->volumethreshold->flag) & URR_VOLUME_QUOTA_ULVOL))
-                        send_ul_report = true;
-                    else if((urr->volmeasurement.downlinkVolume >= urr->volumequota->downlinkVolume) && ((urr->volumethreshold->flag) & URR_VOLUME_QUOTA_DLVOL)) 
-                        send_dl_report = true;
-
-                    if(send_tol_report || send_ul_report || send_dl_report){
-                        trigger = TRIGGER_VOLQU;
-                        urrids[report_num++] = urr->id;
-                        urr_quota_exhaust_action(urr, gtp);
-                        GTP5G_LOG(NULL, "URR (%u) Quota Exhaust, stop measure", urr->id);
-
-                        continue;
-                    }      
-                }
-                if (urr->trigger & URR_TRIGGER_VOLTH) {
-                    if (urr->threshold_tovol && (urr->volmeasurement.totalVolume >= urr->threshold_tovol) && (urr->volumethreshold->flag & URR_VOLUME_THRESHOLD_TOVOL))
-                        send_tol_report = true;
-                    else if(urr->threshold_uvol && (urr->volmeasurement.uplinkVolume >= urr->threshold_uvol) && ((urr->volumethreshold->flag) & URR_VOLUME_THRESHOLD_ULVOL))
-                        send_ul_report = true;
-                    else if(urr->threshold_dvol && (urr->volmeasurement.downlinkVolume >= urr->threshold_dvol) && ((urr->volumethreshold->flag) & URR_VOLUME_THRESHOLD_DLVOL)) 
-                        send_dl_report = true;
-
-                    if(send_tol_report || send_ul_report || send_dl_report){
-                        trigger = TRIGGER_VOLTH;
+                // Caculate Volume measurement for each trigger
+                if(volth){
+                    updateMeasurement(urr->volthMeasurement, volume, uplink, mnop);
+                    if(compareVolume(urr->volumethreshold,urr->volthMeasurement)){
+                        triggers[report_num] = TRIGGER_VOLTH;
                         urrids[report_num++] = urr->id;
                     }
                 }
-
-                if (!(urr->trigger & URR_TRIGGER_VOLQU) && !(urr->trigger & URR_TRIGGER_VOLTH)){
-                    GTP5G_ERR(pdr->dev, "method is not volume based(%llu) in URR(%u) and related to PDR(%u)",
-                        urr->method, urr->id, pdr->id);
-                    
-                    kfree(urrids);
-                    return 0;
+                if(volqu){
+                    updateMeasurement(urr->volquMeasurement, volume, uplink, mnop);
+                    if(compareVolume(urr->volumequota,urr->volthMeasurement)){
+                        triggers[report_num] = TRIGGER_VOLQU;
+                        urrids[report_num++] = urr->id;
+                        // urr_quota_exhaust_action(urr, gtp);
+                        // GTP5G_LOG(NULL, "URR (%u) Quota Exhaust, stop measure", urr->id);
+                    }
+                }
+                if(perio){
+                    updateMeasurement(urr->perioMeasurement, vol, uplink, mnop);
                 }
             }
         } else{
@@ -508,16 +523,23 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
         for(i = 0; i < report_num; i++){
             urr = find_urr_by_id(gtp, pdr->seid, urrids[i]); 
 
+            if(triggers[i] == TRIGGER_VOLTH){
+                volmeasure = urr->volthMeasurement;
+            } else if(triggers[i] == TRIGGER_VOLQU){
+                volmeasure = urr->volquMeasurement;
+            }
+            
             urr->end_time = ktime_get_real();
             report[i] = (struct user_report){
                     urr->id,
-                    trigger,
-                    urr->volmeasurement, 
+                    triggers[i],
+                    *volmeasure,
                     0,
                     urr->start_time,
                     urr->end_time
             };
-            urr->volmeasurement = (struct VolumeMeasurement){};
+            
+            *volmeasure = (struct VolumeMeasurement){};
             urr->start_time = ktime_get_real();
         }
 
@@ -525,12 +547,14 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
             GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
             kfree(report);
             kfree(urrids);
+            kfree(triggers);
             return -1;
         }
         
         kfree(report);
     }
     kfree(urrids);
+    kfree(triggers);
     return 1;
 }
 

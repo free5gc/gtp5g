@@ -14,6 +14,10 @@
 #define URR_METHOD_VOLUM 0x2 
 #define URR_METHOD_EVENT 0x4 // not use temporarily
 
+#define URR_VOLUME_TOVOL 0x1
+#define URR_VOLUME_ULVOL 0x2
+#define URR_VOLUME_DLVOL 0x4
+
 // GTP5G_URR_VOLUME_QUOTA_FLAGS 8.2.50
 #define URR_VOLUME_QUOTA_TOVOL 0x1
 #define URR_VOLUME_QUOTA_ULVOL 0x2
@@ -31,20 +35,12 @@
 #define URR_INFO_ISTM   0x8
 #define URR_INFO_MNOP   0x10
 #define URR_INFO_SSPOC  0x20
-#define URR_INFO_ASPOC  0x80
-#define URR_INFO_CIAM   0x100
+#define URR_INFO_ASPOC  0x40
+#define URR_INFO_CIAM   0x80
 
 #define URR_TRIGGER_VOLQU 0x1
 #define URR_TRIGGER_VOLTH 0x200
-struct VolumeThreshold{        
-    uint8_t flag;
-
-    uint64_t totalVolume;
-    uint64_t uplinkVolume;
-    uint64_t downlinkVolume;
-}; 
-
-struct VolumeQuota{        
+struct Volume{        
     uint8_t flag;
 
     uint64_t totalVolume;
@@ -62,21 +58,17 @@ struct urr {
     uint64_t info;
     uint64_t seq;
 
-
-    struct VolumeThreshold *volumethreshold; 
-    struct VolumeQuota *volumequota;    
+    struct Volume *volumethreshold; 
+    struct Volume *volumequota;    
 
     // For usage report volume measurement
-    struct VolumeMeasurement volmeasurement;
-    
+    struct VolumeMeasurement *volthMeasurement;
+    struct VolumeMeasurement *volquMeasurement;
+    struct VolumeMeasurement *perioMeasurement;
+
     // for report time
     ktime_t start_time;
     ktime_t end_time;
-    
-    // threasholds after adjusting
-    u64 threshold_tovol;
-    u64 threshold_uvol;
-    u64 threshold_dvol;
 
     // for quota exhausted
     bool quota_exhausted;
