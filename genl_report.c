@@ -15,11 +15,11 @@
 #include "pdr.h"
 #include "urr.h"
 
-static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *urr);
+static int gtp5g_genl_fill_volume_measurement(struct sk_buff *, struct urr *, u64);
+static int gtp5g_genl_fill_ur(struct sk_buff *, struct urr *, u64);
 
 int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
 {
-
     struct gtp5g_dev *gtp;
     struct urr *urr;
     int ifindex;
@@ -90,13 +90,19 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
 }
 
 
-static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *urr)
+static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *urr, u64 trigger)
 {
     struct nlattr *nest_volume_measurement;
     struct VolumeMeasurement *volmeasure;
 
     // TODO: change measurement based on trigger
-    volmeasure = urr->perioMeasurement;
+    if(trigger & URR_TRIGGER_VOLQU){
+        volmeasure = urr->volquMeasurement;
+    } else if(trigger & URR_TRIGGER_VOLTH){
+        volmeasure = urr->volthMeasurement;
+    } else if(trigger & URR_TRIGGER_PERIO){
+        volmeasure = urr->perioMeasurement;
+    }
 
     nest_volume_measurement = nla_nest_start(skb, GTP5G_UR_VOLUME_MEASUREMENT);
     if (!nest_volume_measurement)
@@ -136,9 +142,57 @@ int gtp5g_genl_fill_usage_report(struct sk_buff *skb, u32 snd_portid, u32 snd_se
         goto genlmsg_fail;
     if (nla_put_u64_64bit(skb, GTP5G_UR_END_TIME, urr->end_time, 0))
         goto genlmsg_fail;
-    if(gtp5g_genl_fill_volume_measurement(skb, urr))
+    if(gtp5g_genl_fill_volume_measurement(skb, urr, URR_TRIGGER_PERIO))
         goto genlmsg_fail;
     genlmsg_end(skb, genlh);
+    return 0;
+
+genlmsg_fail:
+    genlmsg_cancel(skb, genlh);
+    return -EMSGSIZE;
+}
+
+static int gtp5g_genl_fill_ur(struct sk_buff *skb, struct urr *urr, u64 trigger)
+{
+    struct nlattr *nest_usage_report;
+
+    nest_usage_report = nla_nest_start(skb, GTP5G_UR);
+    if (!nest_usage_report)
+        return -EMSGSIZE;
+
+    if (nla_put_u32(skb, GTP5G_UR_URRID, urr->id))
+        return -EMSGSIZE;
+    if (nla_put_u64_64bit(skb, GTP5G_UR_START_TIME, urr->start_time, 0))
+        return -EMSGSIZE;
+    if (nla_put_u64_64bit(skb, GTP5G_UR_END_TIME, urr->end_time, 0))
+        return -EMSGSIZE;
+    if(gtp5g_genl_fill_volume_measurement(skb, urr, trigger))
+        return -EMSGSIZE;
+    nla_nest_end(skb, nest_usage_report);
+
+    return 0;
+}
+
+int gtp5g_genl_fill_usage_reports(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
+    u32 type, struct urr *urr, u64 triggers)
+{
+    void *genlh;
+    genlh = genlmsg_put(skb, snd_portid, snd_seq,
+            &gtp5g_genl_family, 0, type);
+    if (!genlh)
+        goto genlmsg_fail;
+
+    if(triggers & URR_TRIGGER_VOLQU){
+        gtp5g_genl_fill_ur(skb, urr, URR_TRIGGER_VOLQU);
+    }
+    if(triggers & URR_TRIGGER_VOLTH){
+        gtp5g_genl_fill_ur(skb, urr, URR_TRIGGER_VOLTH);
+    }
+    if(triggers & URR_TRIGGER_PERIO){
+        gtp5g_genl_fill_ur(skb, urr, URR_TRIGGER_PERIO);
+    }
+    genlmsg_end(skb, genlh);
+
     return 0;
 
 genlmsg_fail:
