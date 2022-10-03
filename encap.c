@@ -414,6 +414,9 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
 }
 
 bool compareVolume(struct Volume *volume, struct VolumeMeasurement *volmeasure){
+    if (!volume || !volmeasure) {
+        return false;
+    }
     if (volume->totalVolume && (volmeasure->totalVolume >= volume->totalVolume) && (volume->flag & URR_VOLUME_TOVOL)){
         return true;
     } else if(volume->uplinkVolume && (volmeasure->uplinkVolume >= volume->uplinkVolume) && (volume->flag & URR_VOLUME_ULVOL)){
@@ -426,6 +429,10 @@ bool compareVolume(struct Volume *volume, struct VolumeMeasurement *volmeasure){
 }
 
 void updateMeasurement(struct VolumeMeasurement *volmeasure, u64 vol, bool uplink, bool mnop){
+    if (!volmeasure) {
+        return;
+    }
+
     if(mnop){
         if(uplink){
             volmeasure->uplinkPktNum++;
@@ -464,6 +471,8 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
         urr = find_urr_by_id(gtp, pdr->seid,  pdr->urr_ids[i]);
         if (!(urr->info & URR_INFO_INAM)) {
             if (urr->method & URR_METHOD_VOLUM) {
+                perio = false, volth = false, volqu = false, mnop = false;
+
                 if(urr->trigger & URR_TRIGGER_VOLQU)
                     volqu = true;
                 if(urr->trigger & URR_TRIGGER_VOLTH)
@@ -504,8 +513,8 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                     if(compareVolume(urr->volumequota,urr->volthMeasurement)){
                         triggers[report_num] = TRIGGER_VOLQU;
                         urrids[report_num++] = urr->id;
-                        // urr_quota_exhaust_action(urr, gtp);
-                        // GTP5G_LOG(NULL, "URR (%u) Quota Exhaust, stop measure", urr->id);
+                        urr_quota_exhaust_action(urr, gtp);
+                        GTP5G_LOG(NULL, "URR (%u) Quota Exhaust, stop measure", urr->id);
                     }
                 }
                 if(perio){
@@ -521,6 +530,8 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
 
         report = kzalloc(len, GFP_ATOMIC);
         for(i = 0; i < report_num; i++){
+            volmeasure = NULL;
+
             urr = find_urr_by_id(gtp, pdr->seid, urrids[i]); 
 
             if(triggers[i] == TRIGGER_VOLTH){
@@ -529,6 +540,10 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                 volmeasure = urr->volquMeasurement;
             }
             
+            if (!volmeasure) {
+                continue;
+            }
+
             urr->end_time = ktime_get_real();
             report[i] = (struct user_report){
                     urr->id,
