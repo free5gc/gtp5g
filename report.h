@@ -39,7 +39,7 @@ struct VolumeMeasurement{
 }__attribute__((packed));
 
 struct user_report {
-	uint32_t urrid; 					/* 8.2.54 URR_ID */
+    uint32_t urrid; 					/* 8.2.54 URR_ID */
     uint64_t trigger ;
     struct VolumeMeasurement volmeasurement;
 
