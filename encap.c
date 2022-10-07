@@ -336,7 +336,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
     }
 
     memset(&msg, 0, sizeof(msg));
-    if (get_api_with_seid() && get_api_with_urr_bar()) {
+    if (get_api_with_urr_bar()) {
         if(report_num > 0){
             type_hdr[0] = TYPE_URR_REPORT;
         }

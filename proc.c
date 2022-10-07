@@ -26,6 +26,9 @@ struct proc_gtp5g_pdr {
     u32     *qer_ids;
     u32     qer_num;
 
+    u32     *urr_ids;
+    u32     urr_num;
+
     u64     ul_drop_cnt;
     u64     dl_drop_cnt;
 
@@ -56,6 +59,24 @@ struct proc_gtp5g_qer {
 struct proc_gtp5g_urr {
     u32     id;
     u64     seid;
+    u64     method;
+    u32     trigger;
+    u64     period;
+    u64     info;
+    u64     seq;
+
+    u8      volth_flag;
+    u64     volth_tolvol;
+    u64     volth_ulvol;
+    u64     volth_dlvol;    
+
+    u8      volqu_flag;
+    u64     volqu_tolvol;
+    u64     volqu_ulvol;
+    u64     volqu_dlvol;    
+
+    s64     start_time;
+    s64     end_time;
 };
 
 struct proc_dir_entry *proc_gtp5g = NULL;
@@ -63,6 +84,7 @@ struct proc_dir_entry *proc_gtp5g_dbg = NULL;
 struct proc_dir_entry *proc_gtp5g_pdr = NULL;
 struct proc_dir_entry *proc_gtp5g_far = NULL;
 struct proc_dir_entry *proc_gtp5g_qer = NULL;
+struct proc_dir_entry *proc_gtp5g_urr = NULL;
 struct proc_gtp5g_pdr proc_pdr;
 struct proc_gtp5g_far proc_far;
 struct proc_gtp5g_qer proc_qer;
@@ -136,12 +158,21 @@ static void set_pdr_qer_ids(char *pdr_qer_ids, struct proc_gtp5g_pdr *proc_pdr)
     }
 }
 
+static void set_pdr_urr_ids(char *pdr_urr_ids, struct proc_gtp5g_pdr *proc_pdr)
+{
+    int i = 0, len = 0;
+    for (i = 0; i < proc_pdr->urr_num; i++) {
+        len += sprintf(&pdr_urr_ids[len], "0x%x, ", proc_pdr->urr_ids[i]);
+    }
+}
+
 static int gtp5g_pdr_read(struct seq_file *s, void *v) 
 {
     char role_addr[35];
     char pdi_ue_addr[35];
     char pdu_gtpu_addr[35];
     char pdr_qer_ids[64];
+    char pdr_urr_ids[64];
 
     if (!proc_pdr_id) {
         seq_printf(s, "Given PDR ID does not exists\n");
@@ -163,6 +194,8 @@ static int gtp5g_pdr_read(struct seq_file *s, void *v)
     seq_printf(s, "\t FAR ID: %u\n", proc_pdr.far_id);
     set_pdr_qer_ids(pdr_qer_ids, &proc_pdr);
     seq_printf(s, "\t QER IDs: %s\n", pdr_qer_ids);
+    set_pdr_urr_ids(pdr_urr_ids, &proc_pdr);
+    seq_printf(s, "\t URR IDs: %s\n", pdr_urr_ids);
     seq_printf(s, "\t UL Drop Count: %#llx\n", proc_pdr.ul_drop_cnt);
     seq_printf(s, "\t DL Drop Count: %#llx\n", proc_pdr.dl_drop_cnt);
     seq_printf(s, "\t UL Packet Count: %llu\n", proc_pdr.ul_pkt_cnt);
@@ -213,8 +246,24 @@ static int gtp5g_urr_read(struct seq_file *s, void *v)
     seq_printf(s, "URR: \n");
     seq_printf(s, "\t SEID : %llu\n", proc_urr.seid);
     seq_printf(s, "\t ID : %u\n", proc_urr.id);
-    
-    //TODO: urr attributes
+    seq_printf(s, "\t Measurement method : %llu\n", proc_urr.method);
+    seq_printf(s, "\t Reporting trigger : %u\n", proc_urr.trigger);
+    seq_printf(s, "\t Measurement period : %llu\n", proc_urr.period);
+    seq_printf(s, "\t Measurement information : %llu\n", proc_urr.info);
+    seq_printf(s, "\t Sequence number : %llu\n", proc_urr.seq);
+    seq_printf(s, "\t Volume threshold flag: %d\n", proc_urr.volth_flag);   
+    seq_printf(s, "\t Volume threshold toltal volume: %llu\n", proc_urr.volth_tolvol);   
+    seq_printf(s, "\t Volume threshold uplink volume: %llu\n", proc_urr.volth_ulvol);   
+    seq_printf(s, "\t Volume threshold downlink volume: %llu\n", proc_urr.volth_dlvol);   
+
+    seq_printf(s, "\t Volume quota flag: %d\n", proc_urr.volqu_flag);   
+    seq_printf(s, "\t Volume quota toltal volume: %llu\n", proc_urr.volqu_tolvol);   
+    seq_printf(s, "\t Volume quota uplink volume: %llu\n", proc_urr.volqu_ulvol);   
+    seq_printf(s, "\t Volume quota downlink volume: %llu\n", proc_urr.volqu_dlvol);  
+
+    seq_printf(s, "\t Start time: %lld\n", proc_urr.start_time);   
+    seq_printf(s, "\t End time: %lld\n", proc_urr.end_time);   
+
     return 0;
 }
 
@@ -281,6 +330,11 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
     if (pdr->qer_ids) {
         proc_pdr.qer_ids = pdr->qer_ids;
         proc_pdr.qer_num = pdr->qer_num;
+    }
+
+    if (pdr->urr_ids) {
+        proc_pdr.urr_ids = pdr->urr_ids;
+        proc_pdr.urr_num = pdr->urr_num;
     }
 
     proc_pdr.ul_drop_cnt = pdr->ul_drop_cnt;
@@ -441,16 +495,29 @@ static ssize_t proc_urr_write(struct file *filp, const char __user *buffer,
     memset(&proc_urr, 0, sizeof(proc_urr));
     proc_urr.id = urr->id;
     proc_urr.seid = urr->seid;
+    proc_urr.method = urr->method;
+    proc_urr.trigger = urr->trigger;
+    proc_urr.period = urr->period;
+    proc_urr.info = urr->info;
+    proc_urr.seq = urr->seq;
+
+    proc_urr.volth_flag = urr->volumethreshold->flag;
+    proc_urr.volth_tolvol = urr->volumethreshold->totalVolume;
+    proc_urr.volth_ulvol = urr->volumethreshold->uplinkVolume;
+    proc_urr.volth_dlvol = urr->volumethreshold->downlinkVolume;    
+
+    proc_urr.volqu_flag = urr->volumequota->flag;
+    proc_urr.volqu_tolvol = urr->volumequota->totalVolume;
+    proc_urr.volqu_ulvol = urr->volumequota->uplinkVolume;
+    proc_urr.volqu_dlvol = urr->volumequota->downlinkVolume;    
+
+    proc_urr.start_time = urr->start_time;
+    proc_urr.end_time = urr->end_time;
 
     return strnlen(buf, buf_len);
 err:
     proc_urr_id = 0;
     return -1;
-}
-
-static int proc_urr_read(struct inode *inode, struct file *file)
-{
-    return single_open(file, gtp5g_urr_read, NULL);
 }
 
 static int proc_pdr_read(struct inode *inode, struct file *file)
@@ -466,6 +533,11 @@ static int proc_far_read(struct inode *inode, struct file *file)
 static int proc_qer_read(struct inode *inode, struct file *file)
 {
     return single_open(file, gtp5g_qer_read, NULL);
+}
+
+static int proc_urr_read(struct inode *inode, struct file *file)
+{
+    return single_open(file, gtp5g_urr_read, NULL);
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
@@ -565,7 +637,7 @@ static const struct file_operations proc_gtp5g_urr_ops = {
 
 int create_proc(void)
 {
-     proc_gtp5g = proc_mkdir("gtp5g", NULL);
+    proc_gtp5g = proc_mkdir("gtp5g", NULL);
     if (!proc_gtp5g) {
         GTP5G_ERR(NULL, "Failed to create /proc/gtp5g\n");
     }
@@ -597,8 +669,18 @@ int create_proc(void)
         GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/qer\n");
         goto remove_far_proc;
     }
+
+    proc_gtp5g_urr = proc_create("urr", (S_IFREG | S_IRUGO | S_IWUGO), 
+        proc_gtp5g, &proc_gtp5g_urr_ops);
+    if (!proc_gtp5g_urr) {
+        GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/urr\n");
+        goto remove_qer_proc;
+    }
+
     return 0;
 
+    remove_qer_proc:
+        remove_proc_entry("qer", proc_gtp5g);
     remove_far_proc:
         remove_proc_entry("far", proc_gtp5g);
     remove_pdr_proc:
