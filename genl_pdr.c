@@ -77,8 +77,6 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
      */
     if (info->attrs[GTP5G_PDR_URR_ID])
         set_api_with_urr_bar(true);
-    // else
-    //     set_api_with_urr_bar(false);
 
     if (info->attrs[GTP5G_PDR_ID]) {
         pdr_id = nla_get_u32(info->attrs[GTP5G_PDR_ID]);
