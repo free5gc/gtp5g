@@ -13,7 +13,7 @@ enum gtp5g_urr_attrs {
     GTP5G_URR_SEID,
 
     GTP5G_URR_VOLUME_THRESHOLD,
-	GTP5G_URR_VOLUME_QUOTA,
+    GTP5G_URR_VOLUME_QUOTA,
 
     /* Not IEs in 3GPP Spec, for other purpose */
     GTP5G_URR_RELATED_TO_PDR,
