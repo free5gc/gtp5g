@@ -501,15 +501,15 @@ static ssize_t proc_urr_write(struct file *filp, const char __user *buffer,
     proc_urr.info = urr->info;
     proc_urr.seq = urr->seq;
 
-    proc_urr.volth_flag = urr->volumethreshold->flag;
-    proc_urr.volth_tolvol = urr->volumethreshold->totalVolume;
-    proc_urr.volth_ulvol = urr->volumethreshold->uplinkVolume;
-    proc_urr.volth_dlvol = urr->volumethreshold->downlinkVolume;    
+    proc_urr.volth_flag = urr->volumethreshold.flag;
+    proc_urr.volth_tolvol = urr->volumethreshold.totalVolume;
+    proc_urr.volth_ulvol = urr->volumethreshold.uplinkVolume;
+    proc_urr.volth_dlvol = urr->volumethreshold.downlinkVolume;    
 
-    proc_urr.volqu_flag = urr->volumequota->flag;
-    proc_urr.volqu_tolvol = urr->volumequota->totalVolume;
-    proc_urr.volqu_ulvol = urr->volumequota->uplinkVolume;
-    proc_urr.volqu_dlvol = urr->volumequota->downlinkVolume;    
+    proc_urr.volqu_flag = urr->volumequota.flag;
+    proc_urr.volqu_tolvol = urr->volumequota.totalVolume;
+    proc_urr.volqu_ulvol = urr->volumequota.uplinkVolume;
+    proc_urr.volqu_dlvol = urr->volumequota.downlinkVolume;    
 
     proc_urr.start_time = urr->start_time;
     proc_urr.end_time = urr->end_time;

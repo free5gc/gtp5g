@@ -60,13 +60,12 @@ struct urr {
     uint64_t info;
     uint64_t seq;
 
-    struct Volume *volumethreshold; 
-    struct Volume *volumequota;    
+    struct Volume volumethreshold; 
+    struct Volume volumequota;    
 
     // For usage report volume measurement
-    struct VolumeMeasurement *volthMeasurement;
-    struct VolumeMeasurement *volquMeasurement;
-    struct VolumeMeasurement *perioMeasurement;
+    struct VolumeMeasurement bytes;
+    struct VolumeMeasurement consumed;
 
     // for report time
     ktime_t start_time;

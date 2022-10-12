@@ -18,11 +18,6 @@ static void urr_context_free(struct rcu_head *head)
     if (!urr)
         return;
 
-    kfree(urr->volumethreshold);
-    kfree(urr->volumequota);
-    kfree(urr->volquMeasurement);
-    kfree(urr->volthMeasurement);
-    kfree(urr->perioMeasurement);
     kfree(urr);
 }
 
