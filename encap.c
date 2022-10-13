@@ -496,6 +496,9 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                         triggers[report_num] = TRIGGER_VOLTH;
                         urrids[report_num++] = urr->id;
                     }
+                } else{
+                    // For other triggers, onlt increment bytes 
+                    increment_and_check_counter(&urr->bytes, NULL, volume, uplink,mnop);
                 }
                 if(urr->trigger & URR_TRIGGER_VOLQU){
                     if(increment_and_check_counter(&urr->consumed, &urr->volumequota, volume, uplink,mnop)){
