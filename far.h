@@ -19,8 +19,8 @@
 #define FAR_ACTION_NOCP   0x08
 #define FAR_ACTION_DUPL   0x10
 
+#define FAR_ACTION_U8  1
 #define FAR_ACTION_U16 2
-#define FAR_ACTION_U8 1
 
 struct outer_header_creation {
     u16 description;
