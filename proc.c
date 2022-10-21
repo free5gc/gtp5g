@@ -39,7 +39,7 @@ struct proc_gtp5g_pdr {
 struct proc_gtp5g_far {
     u32     id;
     u64     seid;
-    u8      action;
+    u16      action;
 
     //OHC
     u16     description;
