@@ -476,12 +476,12 @@ static int far_fill(struct far *far, struct gtp5g_dev *gtp, struct genl_info *in
     if (info->attrs[GTP5G_FAR_APPLY_ACTION])
         switch (nla_len(info->attrs[GTP5G_FAR_APPLY_ACTION]))
         {
-        case FAR_ACTION_16BITS:
-            set_far_action_16bits(true);
+        case FAR_ACTION_U16:
+            set_far_action_u16(true);
             far->action = nla_get_u16(info->attrs[GTP5G_FAR_APPLY_ACTION]);
             break;
-        case FAR_ACTION_8BITS:
-            set_far_action_16bits(false);
+        case FAR_ACTION_U8:
+            set_far_action_u16(false);
             far->action = nla_get_u8(info->attrs[GTP5G_FAR_APPLY_ACTION]);
             break;
         default:
@@ -533,7 +533,7 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     if (nla_put_u32(skb, GTP5G_FAR_ID, far->id))
         goto genlmsg_fail;
 
-    if (far_action_is_16bits()) {
+    if (far_action_is_u16()) {
         if (nla_put_u16(skb, GTP5G_FAR_APPLY_ACTION, far->action))
             goto genlmsg_fail;
     } else {
