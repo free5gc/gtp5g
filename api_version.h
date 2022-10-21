@@ -7,4 +7,7 @@ extern bool get_api_with_seid(void);
 extern void set_api_with_urr_bar(bool);
 extern bool get_api_with_urr_bar(void);
 
+extern void set_far_action_16bits(bool);
+extern bool far_action_is_16bits(void);
+
 #endif // __API_VERSION_H__

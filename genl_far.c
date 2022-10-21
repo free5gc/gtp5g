@@ -7,6 +7,7 @@
 #include "genl_far.h"
 #include "far.h"
 #include "pktinfo.h"
+#include "api_version.h"
 
 #include <linux/rculist.h>
 #include <net/netns/generic.h>
@@ -473,7 +474,19 @@ static int far_fill(struct far *far, struct gtp5g_dev *gtp, struct genl_info *in
         far->seid = 0;
 
     if (info->attrs[GTP5G_FAR_APPLY_ACTION])
-        far->action = nla_get_u8(info->attrs[GTP5G_FAR_APPLY_ACTION]);
+        switch (nla_len(info->attrs[GTP5G_FAR_APPLY_ACTION]))
+        {
+        case FAR_ACTION_16BITS:
+            set_far_action_16bits(true);
+            far->action = nla_get_u16(info->attrs[GTP5G_FAR_APPLY_ACTION]);
+            break;
+        case FAR_ACTION_8BITS:
+            set_far_action_16bits(false);
+            far->action = nla_get_u8(info->attrs[GTP5G_FAR_APPLY_ACTION]);
+            break;
+        default:
+            break;
+        }
 
     if (info->attrs[GTP5G_FAR_FORWARDING_PARAMETER]) {
         err = nla_parse_nested(attrs,
@@ -519,9 +532,15 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
 
     if (nla_put_u32(skb, GTP5G_FAR_ID, far->id))
         goto genlmsg_fail;
-    if (nla_put_u8(skb, GTP5G_FAR_APPLY_ACTION, far->action))
-        goto genlmsg_fail;
 
+    if (far_action_is_16bits()) {
+        if (nla_put_u16(skb, GTP5G_FAR_APPLY_ACTION, far->action))
+            goto genlmsg_fail;
+    } else {
+        if (nla_put_u8(skb, GTP5G_FAR_APPLY_ACTION, far->action))
+            goto genlmsg_fail;
+    }
+    
     if (far->seid) {
         if (nla_put_u64_64bit(skb, GTP5G_FAR_SEID, far->seid, 0))
             goto genlmsg_fail;
