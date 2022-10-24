@@ -62,7 +62,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
     }
 
     if (info->attrs[GTP5G_PDR_SEID]) {
-        seid = nla_get_u32(info->attrs[GTP5G_PDR_SEID]);
+        seid = nla_get_u64(info->attrs[GTP5G_PDR_SEID]);
     }
 
     if (info->attrs[GTP5G_PDR_ID]) {
