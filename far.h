@@ -19,6 +19,9 @@
 #define FAR_ACTION_NOCP   0x08
 #define FAR_ACTION_DUPL   0x10
 
+#define FAR_ACTION_U8  1
+#define FAR_ACTION_U16 2
+
 struct outer_header_creation {
     u16 description;
     u32 teid;
@@ -43,7 +46,7 @@ struct far {
     struct hlist_node hlist_related_bar;
     u64 seid;
     u32 id;
-    u8 action;
+    u16 action;
     struct forwarding_parameter *fwd_param;
     u8 *bar_id;
     struct bar *bar;

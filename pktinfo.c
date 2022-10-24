@@ -5,6 +5,7 @@
 #include <net/ip.h>
 #include <net/icmp.h>
 #include <net/udp_tunnel.h>
+#include <net/route.h>
 
 #include "gtp.h"
 #include "far.h"
@@ -143,6 +144,7 @@ int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_dev)
     struct iphdr *iph = ip_hdr(skb);
     struct flowi4 fl4;
     struct rtable *rt;
+    __be32 src;
 
     rt = ip4_find_route_simple(skb, sk, gtp_dev, 0, iph->daddr, &fl4);
     if (IS_ERR(rt)) {
@@ -152,10 +154,15 @@ int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_dev)
 
     skb_dst_set(skb, &rt->dst);
     /*
-        Source address should be IP addr of the outgoing interface.
-        Limitation: Not support multiple IP address configured on outgoing interface.
+        fill in correct source address of the outgoing interface.
+        Support multiple IP address configured on outgoing interface.
      */
-    iph->saddr = rt->dst.dev->ip_ptr->ifa_list->ifa_address;
+    src = inet_select_addr(rt->dst.dev,
+                    rt_nexthop(rt, iph->daddr),
+                    RT_SCOPE_UNIVERSE);
+    if (src != 0) {
+        iph->saddr = src;
+    }
 
     if (ip_local_out(dev_net(gtp_dev), sk, skb) < 0) {
         GTP5G_ERR(gtp_dev, "Failed to send skb to ip layer\n");
