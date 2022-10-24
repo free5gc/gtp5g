@@ -540,7 +540,7 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         if (nla_put_u8(skb, GTP5G_FAR_APPLY_ACTION, far->action))
             goto genlmsg_fail;
     }
-    
+
     if (far->seid) {
         if (nla_put_u64_64bit(skb, GTP5G_FAR_SEID, far->seid, 0))
             goto genlmsg_fail;

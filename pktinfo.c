@@ -23,12 +23,12 @@ u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen){
 
     // Deduct the header length of transport layer
     switch (iph->protocol) {
-    case IPPROTO_TCP: 
+    case IPPROTO_TCP:
         // tcp = (struct tcphdr *)(skb_transport_header(skb) + (iph->ihl << 2));
         tcp = (struct tcphdr *)(skb_transport_header(skb));
         volume -= tcp->doff * 4;
         break;
-    case IPPROTO_UDP : 
+    case IPPROTO_UDP:
         volume -= 8; // udp header len = 8B
         break;
     default:

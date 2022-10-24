@@ -11,7 +11,7 @@
 #define SEID_U32ID_HEX_STR_LEN 24
 // Measurement Method
 #define URR_METHOD_DURAT (1 << 0) // not use temporarily
-#define URR_METHOD_VOLUM (1 << 1) 
+#define URR_METHOD_VOLUM (1 << 1)
 #define URR_METHOD_EVENT (1 << 2) // not use temporarily
 
 #define URR_VOLUME_TOVOL (1 << 0)
@@ -29,20 +29,20 @@
 #define URR_VOLUME_THRESHOLD_DLVOL (1 << 2)
 
 // Measurement Information
-#define URR_INFO_MBQE (1 << 0)
-#define URR_INFO_INAM (1 << 1)
-#define URR_INFO_RADI (1 << 2)
-#define URR_INFO_ISTM (1 << 3)
-#define URR_INFO_MNOP (1 << 4)
+#define URR_INFO_MBQE  (1 << 0)
+#define URR_INFO_INAM  (1 << 1)
+#define URR_INFO_RADI  (1 << 2)
+#define URR_INFO_ISTM  (1 << 3)
+#define URR_INFO_MNOP  (1 << 4)
 #define URR_INFO_SSPOC (1 << 5)
 #define URR_INFO_ASPOC (1 << 6)
-#define URR_INFO_CIAM (1 << 7)
+#define URR_INFO_CIAM  (1 << 7)
 
 #define URR_TRIGGER_VOLQU (1 << 0)
 #define URR_TRIGGER_PERIO (1 << 8)
 #define URR_TRIGGER_VOLTH (1 << 9)
 
-struct Volume{        
+struct Volume{
     uint8_t flag;
 
     uint64_t totalVolume;
@@ -60,8 +60,8 @@ struct urr {
     uint64_t info;
     uint64_t seq;
 
-    struct Volume volumethreshold; 
-    struct Volume volumequota;    
+    struct Volume volumethreshold;
+    struct Volume volumequota;
 
     // For usage report volume measurement
     struct VolumeMeasurement bytes;

@@ -339,11 +339,10 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
     if (info->attrs[GTP5G_URR_VOLUME_THRESHOLD])
         parse_volumethreshold(urr,info->attrs[GTP5G_URR_VOLUME_THRESHOLD]);
 
-
     if (info->attrs[GTP5G_URR_VOLUME_QUOTA]) {
         parse_volumeqouta(urr,info->attrs[GTP5G_URR_VOLUME_QUOTA]);
         urr->consumed = urr->bytes;
-    
+
         if(urr->volumequota.totalVolume == 0){
             urr_quota_exhaust_action(urr,gtp);
             GTP5G_LOG(NULL, "URR (%u) Receive zero quota, stop measure", urr->id);
@@ -358,7 +357,6 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
     urr_update(urr, gtp);
 
     return 0;
-    
 }
 
 static int parse_volumethreshold(struct urr *urr, struct nlattr *a)
@@ -440,7 +438,6 @@ static int gtp5g_genl_fill_volume_threshold(struct sk_buff *skb, struct Volume v
 
 static int gtp5g_genl_fill_volume_quota(struct sk_buff *skb, struct Volume volumequota)
 {
-
     struct nlattr *nest_volume_quota;
 
     nest_volume_quota = nla_nest_start(skb, GTP5G_URR_VOLUME_QUOTA);

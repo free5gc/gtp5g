@@ -68,12 +68,12 @@ struct proc_gtp5g_urr {
     u8      volth_flag;
     u64     volth_tolvol;
     u64     volth_ulvol;
-    u64     volth_dlvol;    
+    u64     volth_dlvol;
 
     u8      volqu_flag;
     u64     volqu_tolvol;
     u64     volqu_ulvol;
-    u64     volqu_dlvol;    
+    u64     volqu_dlvol;
 
     s64     start_time;
     s64     end_time;
@@ -251,18 +251,18 @@ static int gtp5g_urr_read(struct seq_file *s, void *v)
     seq_printf(s, "\t Measurement period : %llu\n", proc_urr.period);
     seq_printf(s, "\t Measurement information : %llu\n", proc_urr.info);
     seq_printf(s, "\t Sequence number : %llu\n", proc_urr.seq);
-    seq_printf(s, "\t Volume threshold flag: %d\n", proc_urr.volth_flag);   
-    seq_printf(s, "\t Volume threshold toltal volume: %llu\n", proc_urr.volth_tolvol);   
-    seq_printf(s, "\t Volume threshold uplink volume: %llu\n", proc_urr.volth_ulvol);   
-    seq_printf(s, "\t Volume threshold downlink volume: %llu\n", proc_urr.volth_dlvol);   
+    seq_printf(s, "\t Volume threshold flag: %d\n", proc_urr.volth_flag);
+    seq_printf(s, "\t Volume threshold toltal volume: %llu\n", proc_urr.volth_tolvol);
+    seq_printf(s, "\t Volume threshold uplink volume: %llu\n", proc_urr.volth_ulvol);
+    seq_printf(s, "\t Volume threshold downlink volume: %llu\n", proc_urr.volth_dlvol);
 
-    seq_printf(s, "\t Volume quota flag: %d\n", proc_urr.volqu_flag);   
-    seq_printf(s, "\t Volume quota toltal volume: %llu\n", proc_urr.volqu_tolvol);   
-    seq_printf(s, "\t Volume quota uplink volume: %llu\n", proc_urr.volqu_ulvol);   
-    seq_printf(s, "\t Volume quota downlink volume: %llu\n", proc_urr.volqu_dlvol);  
+    seq_printf(s, "\t Volume quota flag: %d\n", proc_urr.volqu_flag);
+    seq_printf(s, "\t Volume quota toltal volume: %llu\n", proc_urr.volqu_tolvol);
+    seq_printf(s, "\t Volume quota uplink volume: %llu\n", proc_urr.volqu_ulvol);
+    seq_printf(s, "\t Volume quota downlink volume: %llu\n", proc_urr.volqu_dlvol);
 
-    seq_printf(s, "\t Start time: %lld\n", proc_urr.start_time);   
-    seq_printf(s, "\t End time: %lld\n", proc_urr.end_time);   
+    seq_printf(s, "\t Start time: %lld\n", proc_urr.start_time);
+    seq_printf(s, "\t End time: %lld\n", proc_urr.end_time);
 
     return 0;
 }
@@ -504,12 +504,12 @@ static ssize_t proc_urr_write(struct file *filp, const char __user *buffer,
     proc_urr.volth_flag = urr->volumethreshold.flag;
     proc_urr.volth_tolvol = urr->volumethreshold.totalVolume;
     proc_urr.volth_ulvol = urr->volumethreshold.uplinkVolume;
-    proc_urr.volth_dlvol = urr->volumethreshold.downlinkVolume;    
+    proc_urr.volth_dlvol = urr->volumethreshold.downlinkVolume;
 
     proc_urr.volqu_flag = urr->volumequota.flag;
     proc_urr.volqu_tolvol = urr->volumequota.totalVolume;
     proc_urr.volqu_ulvol = urr->volumequota.uplinkVolume;
-    proc_urr.volqu_dlvol = urr->volumequota.downlinkVolume;    
+    proc_urr.volqu_dlvol = urr->volumequota.downlinkVolume;
 
     proc_urr.start_time = urr->start_time;
     proc_urr.end_time = urr->end_time;
@@ -663,7 +663,7 @@ int create_proc(void)
         goto remove_pdr_proc;
     }
 
-    proc_gtp5g_qer = proc_create("qer", (S_IFREG | S_IRUGO | S_IWUGO), 
+    proc_gtp5g_qer = proc_create("qer", (S_IFREG | S_IRUGO | S_IWUGO),
         proc_gtp5g, &proc_gtp5g_qer_ops);
     if (!proc_gtp5g_qer) {
         GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/qer\n");

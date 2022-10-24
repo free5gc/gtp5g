@@ -432,7 +432,7 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
     } else{
         volmeasure->downlinkVolume += vol;
     }
-    
+
     volmeasure->totalVolume = volmeasure->uplinkVolume + volmeasure->downlinkVolume;
 
     if (!volume) {
@@ -445,8 +445,8 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
         return true;
     } else if(volume->downlinkVolume && (volmeasure->downlinkVolume >= volume->downlinkVolume) && (volume->flag & URR_VOLUME_DLVOL)){
         return true;
-    } 
-    
+    }
+
     return false;
 }
 
@@ -469,14 +469,13 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
         urr = find_urr_by_id(gtp, pdr->seid,  pdr->urr_ids[i]);
 
         if (!(urr->info & URR_INFO_INAM)) {
-            if (urr->method & URR_METHOD_VOLUM) {   
+            if (urr->method & URR_METHOD_VOLUM) {
                 if(urr->info & URR_INFO_MNOP)
                     mnop = true;
 
                 if (urr->trigger == 0){
                     GTP5G_ERR(pdr->dev, "no supported trigger(%u) in URR(%u) and related to PDR(%u)",
                         urr->trigger, urr->id, pdr->id);
-                    
                     kfree(urrids);
                     kfree(triggers);
                     return 0;
@@ -529,7 +528,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                     urr->start_time,
                     urr->end_time
             };
-            
+
             memset(&urr->bytes, 0, sizeof(struct VolumeMeasurement));
             urr->start_time = ktime_get_real();
         }
@@ -541,7 +540,6 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
             kfree(triggers);
             return -1;
         }
-        
         kfree(report);
     }
     kfree(urrids);
@@ -644,12 +642,11 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                 GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
                 return -1;
             }
-            
+
             if(pdr->urr_num != 0){
                 if(check_urr(pdr, volume, volume_mbqe, true) < 0)
                     GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
             }
-            
             return 0;
         }
     }

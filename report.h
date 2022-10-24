@@ -7,13 +7,13 @@
 
 #include "dev.h"
 
-#define TRIGGER_EVEQU (1 << 0) 
-#define TRIGGER_TEBUR (1 << 1)
-#define TRIGGER_IPMJL (1 << 2)
-#define TRIGGER_QUVTI (1 << 3)
-#define TRIGGER_EMRRE (1 << 4)
-#define TRIGGER_VOLQU (1 << 8)
-#define TRIGGER_TIMQU (1 << 9)
+#define TRIGGER_EVEQU  (1 << 0)
+#define TRIGGER_TEBUR  (1 << 1)
+#define TRIGGER_IPMJL  (1 << 2)
+#define TRIGGER_QUVTI  (1 << 3)
+#define TRIGGER_EMRRE  (1 << 4)
+#define TRIGGER_VOLQU  (1 << 8)
+#define TRIGGER_TIMQU  (1 << 9)
 #define TRIGGER_LIUSA (1 << 10)
 #define TRIGGER_TERMR (1 << 11)
 #define TRIGGER_MONIT (1 << 12)
