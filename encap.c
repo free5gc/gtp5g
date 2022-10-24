@@ -26,9 +26,7 @@
 #include "pktinfo.h"
 
 /* used to compatible with api with/without seid */
-#define MSG_URR_BAR_KOV_LEN 4
-#define MSG_SEID_KOV_LEN 3
-#define MSG_NO_SEID_KOV_LEN 2
+#define MSG_KOV_LEN 4
 
 enum msg_type {
     TYPE_BUFFER = 1,
@@ -336,66 +334,35 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
     }
 
     memset(&msg, 0, sizeof(msg));
-    if (get_api_with_urr_bar()) {
-        if(report_num > 0){
-            type_hdr[0] = TYPE_URR_REPORT;
-        }
-
-        msg_kovlen = MSG_URR_BAR_KOV_LEN;
-        kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
-            GFP_KERNEL);
-        if (kov == NULL)
-            return -ENOMEM;
-
-        memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
-
-        kov[0].iov_base = type_hdr;
-        kov[0].iov_len = sizeof(type_hdr);
-        kov[1].iov_base = self_seid_hdr;
-        kov[1].iov_len = sizeof(self_seid_hdr);
-
-        //buf is report in this case
-        if(report_num > 0){
-            kov[2].iov_base = self_num_hdr;
-            kov[2].iov_len = sizeof(self_num_hdr);
-        }
-        else{
-            kov[2].iov_base = self_hdr;
-            kov[2].iov_len = sizeof(self_hdr);
-        }
-
-        kov[3].iov_base = buf;
-        kov[3].iov_len = len;
-    } else if (get_api_with_seid()) {
-        msg_kovlen = MSG_SEID_KOV_LEN;
-        kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
-            GFP_KERNEL);
-        if (kov == NULL)
-            return -ENOMEM;
-
-        memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
-
-        kov[0].iov_base = self_seid_hdr;
-        kov[0].iov_len = sizeof(self_seid_hdr);
-        kov[1].iov_base = self_hdr;
-        kov[1].iov_len = sizeof(self_hdr);
-        kov[2].iov_base = buf;
-        kov[2].iov_len = len;
-    } else {
-        // for backward compatible
-        msg_kovlen = MSG_NO_SEID_KOV_LEN;
-        kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
-            GFP_KERNEL);
-        if (kov == NULL)
-            return -ENOMEM;
-
-        memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
-
-        kov[0].iov_base = self_hdr;
-        kov[0].iov_len = sizeof(self_hdr);
-        kov[1].iov_base = buf;
-        kov[1].iov_len = len;
+    if(report_num > 0){
+        type_hdr[0] = TYPE_URR_REPORT;
     }
+
+    msg_kovlen = MSG_KOV_LEN;
+    kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
+        GFP_KERNEL);
+    if (kov == NULL)
+        return -ENOMEM;
+
+    memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
+
+    kov[0].iov_base = type_hdr;
+    kov[0].iov_len = sizeof(type_hdr);
+    kov[1].iov_base = self_seid_hdr;
+    kov[1].iov_len = sizeof(self_seid_hdr);
+
+    //buf is report in this case
+    if(report_num > 0){
+        kov[2].iov_base = self_num_hdr;
+        kov[2].iov_len = sizeof(self_num_hdr);
+    }
+    else{
+        kov[2].iov_base = self_hdr;
+        kov[2].iov_len = sizeof(self_hdr);
+    }
+
+    kov[3].iov_base = buf;
+    kov[3].iov_len = len;
 
     for (i = 0; i < msg_kovlen; i++)
         total_kov_len += kov[i].iov_len;

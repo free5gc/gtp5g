@@ -35,7 +35,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
     struct pdr *pdr;
     int ifindex;
     int netnsfd;
-    u64 seid;
+    u64 seid = 0;
     u16 pdr_id;
     int err;
 
@@ -62,21 +62,8 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
     }
 
     if (info->attrs[GTP5G_PDR_SEID]) {
-        set_api_with_seid(true);
         seid = nla_get_u32(info->attrs[GTP5G_PDR_SEID]);
-    } else {
-        set_api_with_seid(false);
-        seid = 0;
     }
-
-    /* 
-     * For backward compatability: 
-     * If information has GTP5G_PDR_URR_ID, 
-     * it means that user use the API which support 
-     * URR and BAR feature. Otherwise, use the older API. 
-     */
-    if (info->attrs[GTP5G_PDR_URR_ID])
-        set_api_with_urr_bar(true);
 
     if (info->attrs[GTP5G_PDR_ID]) {
         pdr_id = nla_get_u32(info->attrs[GTP5G_PDR_ID]);
@@ -162,7 +149,7 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
     struct pdr *pdr;
     int ifindex;
     int netnsfd;
-    u64 seid;
+    u64 seid = 0;
     u16 pdr_id;
 
     if (!info->attrs[GTP5G_LINK])
@@ -184,8 +171,6 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
 
     if (info->attrs[GTP5G_PDR_SEID]) {
         seid = nla_get_u64(info->attrs[GTP5G_PDR_SEID]);
-    } else {
-        seid = 0;
     }
 
     if (info->attrs[GTP5G_PDR_ID]) {
@@ -213,7 +198,7 @@ int gtp5g_genl_get_pdr(struct sk_buff *skb, struct genl_info *info)
     struct pdr *pdr;
     int ifindex;
     int netnsfd;
-    u64 seid;
+    u64 seid = 0;
     u16 pdr_id;
     struct sk_buff *skb_ack;
     int err;
@@ -237,8 +222,6 @@ int gtp5g_genl_get_pdr(struct sk_buff *skb, struct genl_info *info)
 
     if (info->attrs[GTP5G_PDR_SEID]) {
         seid = nla_get_u64(info->attrs[GTP5G_PDR_SEID]);
-    } else {
-        seid = 0;
     }
 
     if (info->attrs[GTP5G_PDR_ID]) {
