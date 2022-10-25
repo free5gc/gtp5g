@@ -457,18 +457,18 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                     volume = vol;
                 }
                 // Caculate Volume measurement for each trigger
-                if(urr->trigger & URR_TRIGGER_VOLTH){
-                    if(increment_and_check_counter(&urr->bytes, &urr->volumethreshold, volume, uplink,mnop)){
-                        triggers[report_num] = TRIGGER_VOLTH;
+                if(urr->trigger & URR_RPT_TRIGGER_VOLTH){
+                    if(increment_and_check_counter(&urr->bytes, &urr->volumethreshold, volume, uplink, mnop)){
+                        triggers[report_num] = USAR_TRIGGER_VOLTH;
                         urrids[report_num++] = urr->id;
                     }
                 } else{
-                    // For other triggers, onlt increment bytes 
+                    // For other triggers, only increment bytes
                     increment_and_check_counter(&urr->bytes, NULL, volume, uplink,mnop);
                 }
-                if(urr->trigger & URR_TRIGGER_VOLQU){
-                    if(increment_and_check_counter(&urr->consumed, &urr->volumequota, volume, uplink,mnop)){
-                        triggers[report_num] = TRIGGER_VOLQU;
+                if(urr->trigger & URR_RPT_TRIGGER_VOLQU){
+                    if(increment_and_check_counter(&urr->consumed, &urr->volumequota, volume, uplink, mnop)){
+                        triggers[report_num] = USAR_TRIGGER_VOLQU;
                         urrids[report_num++] = urr->id;
                         urr_quota_exhaust_action(urr, gtp);
                         GTP5G_LOG(NULL, "URR (%u) Quota Exhaust, stop measure", urr->id);

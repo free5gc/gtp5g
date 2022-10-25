@@ -38,9 +38,24 @@
 #define URR_INFO_ASPOC (1 << 6)
 #define URR_INFO_CIAM  (1 << 7)
 
-#define URR_TRIGGER_VOLQU (1 << 0)
-#define URR_TRIGGER_PERIO (1 << 8)
-#define URR_TRIGGER_VOLTH (1 << 9)
+#define URR_RPT_TRIGGER_PERIO  (1 << 0)
+#define URR_RPT_TRIGGER_VOLTH  (1 << 1)
+#define URR_RPT_TRIGGER_TIMTH  (1 << 2)
+#define URR_RPT_TRIGGER_QUHTI  (1 << 3)
+#define URR_RPT_TRIGGER_START  (1 << 4)
+#define URR_RPT_TRIGGER_STOPT  (1 << 5)
+#define URR_RPT_TRIGGER_DROTH  (1 << 6)
+#define URR_RPT_TRIGGER_LIUSA  (1 << 7)
+#define URR_RPT_TRIGGER_VOLQU  (1 << 8)
+#define URR_RPT_TRIGGER_TIMQU  (1 << 9)
+#define URR_RPT_TRIGGER_ENVCL (1 << 10)
+#define URR_RPT_TRIGGER_MACAR (1 << 11)
+#define URR_RPT_TRIGGER_EVETH (1 << 12)
+#define URR_RPT_TRIGGER_EVEQU (1 << 13)
+#define URR_RPT_TRIGGER_IPMJL (1 << 14)
+#define URR_RPT_TRIGGER_QUVTI (1 << 15)
+#define URR_RPT_TRIGGER_REEMR (1 << 16)
+#define URR_RPT_TRIGGER_UPINT (1 << 17)
 
 struct Volume{
     uint8_t flag;
