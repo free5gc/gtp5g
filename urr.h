@@ -10,9 +10,9 @@
 
 #define SEID_U32ID_HEX_STR_LEN 24
 // Measurement Method
-#define URR_METHOD_DURAT (1 << 0) // not use temporarily
+#define URR_METHOD_DURAT (1 << 0)
 #define URR_METHOD_VOLUM (1 << 1)
-#define URR_METHOD_EVENT (1 << 2) // not use temporarily
+#define URR_METHOD_EVENT (1 << 2)
 
 #define URR_VOLUME_TOVOL (1 << 0)
 #define URR_VOLUME_ULVOL (1 << 1)
@@ -69,11 +69,10 @@ struct urr {
     struct hlist_node hlist_id;
     u64 seid;
     u32 id;
-    uint64_t method;
-    uint32_t trigger;
-    uint64_t period;
-    uint64_t info;
-    uint64_t seq;
+    u8  method;
+    u32 trigger;
+    u32 period;
+    u64 info;
 
     struct Volume volumethreshold;
     struct Volume volumequota;

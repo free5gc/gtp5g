@@ -59,11 +59,10 @@ struct proc_gtp5g_qer {
 struct proc_gtp5g_urr {
     u32     id;
     u64     seid;
-    u64     method;
+    u8      method;
     u32     trigger;
-    u64     period;
-    u64     info;
-    u64     seq;
+    u32     period;
+    u8      info;
 
     u8      volth_flag;
     u64     volth_tolvol;
@@ -246,17 +245,16 @@ static int gtp5g_urr_read(struct seq_file *s, void *v)
     seq_printf(s, "URR: \n");
     seq_printf(s, "\t SEID : %llu\n", proc_urr.seid);
     seq_printf(s, "\t ID : %u\n", proc_urr.id);
-    seq_printf(s, "\t Measurement method : %llu\n", proc_urr.method);
-    seq_printf(s, "\t Reporting trigger : %u\n", proc_urr.trigger);
-    seq_printf(s, "\t Measurement period : %llu\n", proc_urr.period);
-    seq_printf(s, "\t Measurement information : %llu\n", proc_urr.info);
-    seq_printf(s, "\t Sequence number : %llu\n", proc_urr.seq);
-    seq_printf(s, "\t Volume threshold flag: %d\n", proc_urr.volth_flag);
+    seq_printf(s, "\t Measurement method : 0x%02x\n", proc_urr.method);
+    seq_printf(s, "\t Reporting trigger : 0x%06x\n", proc_urr.trigger);
+    seq_printf(s, "\t Measurement period : %d\n", proc_urr.period);
+    seq_printf(s, "\t Measurement information : 0x%02x\n", proc_urr.info);
+    seq_printf(s, "\t Volume threshold flag: 0x%02x\n", proc_urr.volth_flag);
     seq_printf(s, "\t Volume threshold toltal volume: %llu\n", proc_urr.volth_tolvol);
     seq_printf(s, "\t Volume threshold uplink volume: %llu\n", proc_urr.volth_ulvol);
     seq_printf(s, "\t Volume threshold downlink volume: %llu\n", proc_urr.volth_dlvol);
 
-    seq_printf(s, "\t Volume quota flag: %d\n", proc_urr.volqu_flag);
+    seq_printf(s, "\t Volume quota flag: %02x\n", proc_urr.volqu_flag);
     seq_printf(s, "\t Volume quota toltal volume: %llu\n", proc_urr.volqu_tolvol);
     seq_printf(s, "\t Volume quota uplink volume: %llu\n", proc_urr.volqu_ulvol);
     seq_printf(s, "\t Volume quota downlink volume: %llu\n", proc_urr.volqu_dlvol);
@@ -499,7 +497,6 @@ static ssize_t proc_urr_write(struct file *filp, const char __user *buffer,
     proc_urr.trigger = urr->trigger;
     proc_urr.period = urr->period;
     proc_urr.info = urr->info;
-    proc_urr.seq = urr->seq;
 
     proc_urr.volth_flag = urr->volumethreshold.flag;
     proc_urr.volth_tolvol = urr->volumethreshold.totalVolume;

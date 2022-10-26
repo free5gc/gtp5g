@@ -322,19 +322,16 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
         urr->seid = 0;
 
     if (info->attrs[GTP5G_URR_MEASUREMENT_METHOD])
-        urr->method = nla_get_u64(info->attrs[GTP5G_URR_MEASUREMENT_METHOD]);
+        urr->method = nla_get_u8(info->attrs[GTP5G_URR_MEASUREMENT_METHOD]);
 
     if (info->attrs[GTP5G_URR_REPORTING_TRIGGER])
-        urr->trigger = nla_get_u64(info->attrs[GTP5G_URR_REPORTING_TRIGGER]);
+        urr->trigger = nla_get_u32(info->attrs[GTP5G_URR_REPORTING_TRIGGER]);
 
     if (info->attrs[GTP5G_URR_MEASUREMENT_PERIOD])
-        urr->period = nla_get_u64(info->attrs[GTP5G_URR_MEASUREMENT_PERIOD]);
+        urr->period = nla_get_u32(info->attrs[GTP5G_URR_MEASUREMENT_PERIOD]);
 
     if (info->attrs[GTP5G_URR_MEASUREMENT_INFO])
-        urr->info = nla_get_u64(info->attrs[GTP5G_URR_MEASUREMENT_INFO]);
-
-    if (info->attrs[GTP5G_URR_SEQ])
-        urr->seq = nla_get_u64(info->attrs[GTP5G_URR_SEQ]);
+        urr->info = nla_get_u8(info->attrs[GTP5G_URR_MEASUREMENT_INFO]);
 
     if (info->attrs[GTP5G_URR_VOLUME_THRESHOLD])
         parse_volumethreshold(urr,info->attrs[GTP5G_URR_VOLUME_THRESHOLD]);
@@ -479,8 +476,6 @@ static int gtp5g_genl_fill_urr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     if (nla_put_u64_64bit(skb, GTP5G_URR_MEASUREMENT_PERIOD, urr->period, 0))
         goto genlmsg_fail;
     if (nla_put_u64_64bit(skb, GTP5G_URR_MEASUREMENT_INFO, urr->info, 0))
-        goto genlmsg_fail;
-    if (nla_put_u64_64bit(skb, GTP5G_URR_SEQ, urr->seq, 0))
         goto genlmsg_fail;
     if (urr->seid) {
         if (nla_put_u64_64bit(skb, GTP5G_URR_SEID, urr->seid, 0))
