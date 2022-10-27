@@ -421,7 +421,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i;
     u64 volume;
-    u64 *triggers;
+    u32 *triggers;
     u16 report_num = 0;
     int *urrids, len;
     struct urr *urr;

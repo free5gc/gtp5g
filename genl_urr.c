@@ -469,11 +469,11 @@ static int gtp5g_genl_fill_urr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
 
     if (nla_put_u32(skb, GTP5G_URR_ID, urr->id))
         goto genlmsg_fail;
-    if (nla_put_u64_64bit(skb, GTP5G_URR_MEASUREMENT_METHOD, urr->method, 0))
+    if (nla_put_u8(skb, GTP5G_URR_MEASUREMENT_METHOD, urr->method))
         goto genlmsg_fail;
-    if (nla_put_u64_64bit(skb, GTP5G_URR_REPORTING_TRIGGER, urr->trigger, 0))
+    if (nla_put_u32(skb, GTP5G_URR_REPORTING_TRIGGER, urr->trigger))
         goto genlmsg_fail;
-    if (nla_put_u64_64bit(skb, GTP5G_URR_MEASUREMENT_PERIOD, urr->period, 0))
+    if (nla_put_u32(skb, GTP5G_URR_MEASUREMENT_PERIOD, urr->period))
         goto genlmsg_fail;
     if (nla_put_u64_64bit(skb, GTP5G_URR_MEASUREMENT_INFO, urr->info, 0))
         goto genlmsg_fail;
