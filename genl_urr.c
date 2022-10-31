@@ -475,7 +475,7 @@ static int gtp5g_genl_fill_urr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         goto genlmsg_fail;
     if (nla_put_u32(skb, GTP5G_URR_MEASUREMENT_PERIOD, urr->period))
         goto genlmsg_fail;
-    if (nla_put_u64_64bit(skb, GTP5G_URR_MEASUREMENT_INFO, urr->info, 0))
+    if (nla_put_u8(skb, GTP5G_URR_MEASUREMENT_INFO, urr->info))
         goto genlmsg_fail;
     if (urr->seid) {
         if (nla_put_u64_64bit(skb, GTP5G_URR_SEID, urr->seid, 0))
