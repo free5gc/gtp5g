@@ -420,6 +420,7 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
 int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i;
+    int ret = 1;
     u64 volume;
     u32 *triggers;
     u16 report_num = 0;
@@ -443,9 +444,8 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                 if (urr->trigger == 0){
                     GTP5G_ERR(pdr->dev, "no supported trigger(%u) in URR(%u) and related to PDR(%u)",
                         urr->trigger, urr->id, pdr->id);
-                    kfree(urrids);
-                    kfree(triggers);
-                    return 0;
+                    ret = 0;
+                    goto err1;
                 }
 
                 if(urr->info & URR_INFO_MBQE){
@@ -502,16 +502,17 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
 
         if (unix_sock_send(pdr, report, len, report_num) < 0) {
             GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
-            kfree(report);
-            kfree(urrids);
-            kfree(triggers);
-            return -1;
+            ret = -1;
+            goto err2;
         }
-        kfree(report);
     }
+
+err2:
+    kfree(report);
+err1:
     kfree(urrids);
     kfree(triggers);
-    return 1;
+    return ret;
 }
 
 static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
