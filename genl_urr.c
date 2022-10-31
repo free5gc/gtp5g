@@ -340,11 +340,11 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
         parse_volumeqouta(urr,info->attrs[GTP5G_URR_VOLUME_QUOTA]);
         urr->consumed = urr->bytes;
 
-        if(urr->volumequota.totalVolume == 0){
+        if (urr->volumequota.totalVolume == 0) {
             urr_quota_exhaust_action(urr,gtp);
             GTP5G_LOG(NULL, "URR (%u) Receive zero quota, stop measure", urr->id);
         } 
-        else if(urr->quota_exhausted){
+        else if (urr->quota_exhausted) {
             urr_reverse_quota_exhaust_action(urr, gtp);
             GTP5G_LOG(NULL, "URR (%u) Receive New quota, continue measure", urr->id);
         }
@@ -481,13 +481,13 @@ static int gtp5g_genl_fill_urr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         if (nla_put_u64_64bit(skb, GTP5G_URR_SEID, urr->seid, 0))
             goto genlmsg_fail;
     }
-    if(urr->volumethreshold.flag != 0){
-        if(gtp5g_genl_fill_volume_threshold(skb,urr->volumethreshold))
+    if (urr->volumethreshold.flag != 0) {
+        if (gtp5g_genl_fill_volume_threshold(skb, urr->volumethreshold))
             goto genlmsg_fail;
     }
 
-    if(urr->volumequota.flag != 0){
-        if(gtp5g_genl_fill_volume_quota(skb,urr->volumequota))
+    if (urr->volumequota.flag != 0) {
+        if (gtp5g_genl_fill_volume_quota(skb, urr->volumequota))
             goto genlmsg_fail;
     }
     ids = kzalloc(0xff * sizeof(u16), GFP_KERNEL);

@@ -113,12 +113,12 @@ int unix_sock_client_new(struct pdr *pdr)
     struct sockaddr_un *addr = &pdr->addr_unix;
     int err;
 
-    if (strlen(addr->sun_path) == 0){
+    if (strlen(addr->sun_path) == 0) {
         return -EINVAL;
     }
 
     err = sock_create(AF_UNIX, SOCK_DGRAM, 0, psock);
-    if (err){
+    if (err) {
         return err;
     }
 

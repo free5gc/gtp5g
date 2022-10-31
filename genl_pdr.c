@@ -327,9 +327,9 @@ static void set_pdr_qfi(struct pdr *pdr, struct gtp5g_dev *gtp){
     struct qer *qer;
 
     // TS 38.415 QFI range {0..2^6-1}
-    for (i = 0; i < pdr->qer_num; i++){   
+    for (i = 0; i < pdr->qer_num; i++) {   
         qer = find_qer_by_id(gtp, pdr->seid, pdr->qer_ids[i]);
-        if (qer && qer->qfi > 0){
+        if (qer && qer->qfi > 0) {
             pdr->qfi = qer->qfi;
             break;
         }

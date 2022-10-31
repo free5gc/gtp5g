@@ -166,7 +166,7 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     req_gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
 
     flags = req_gtp1->flags;
-    if (flags & GTPV1_HDR_FLG_SEQ){
+    if (flags & GTPV1_HDR_FLG_SEQ) {
          req_gtpOptHdr = (struct gtp1_hdr_opt *)(skb->data + sizeof(struct udphdr) 
                                                             + sizeof(struct gtpv1_hdr));
          seq_number = req_gtpOptHdr->seq_number;
@@ -178,7 +178,7 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     pskb_pull(skb, skb->len);          
 
     gtp_pkt = skb_push(skb, sizeof(struct gtpv1_echo_resp));
-    if (!gtp_pkt){
+    if (!gtp_pkt) {
         GTP5G_ERR(gtp->dev, "can not construct GTP Echo Response\n");
         return 1;
     }
@@ -334,7 +334,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
     }
 
     memset(&msg, 0, sizeof(msg));
-    if(report_num > 0){
+    if (report_num > 0) {
         type_hdr[0] = TYPE_URR_REPORT;
     }
 
@@ -352,11 +352,11 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
     kov[1].iov_len = sizeof(self_seid_hdr);
 
     //buf is report in this case
-    if(report_num > 0){
+    if (report_num > 0) {
         kov[2].iov_base = self_num_hdr;
         kov[2].iov_len = sizeof(self_num_hdr);
     }
-    else{
+    else {
         kov[2].iov_base = self_hdr;
         kov[2].iov_len = sizeof(self_hdr);
     }
@@ -385,18 +385,18 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
         return false;
     }
 
-    if(mnop){
-        if(uplink){
+    if (mnop) {
+        if (uplink) {
             volmeasure->uplinkPktNum++;
-        } else{
+        } else {
             volmeasure->downlinkPktNum++;
         }
         volmeasure->totalPktNum = volmeasure->uplinkPktNum + volmeasure->downlinkPktNum;
     }
 
-    if(uplink){
+    if (uplink) {
         volmeasure->uplinkVolume += vol;
-    } else{
+    } else {
         volmeasure->downlinkVolume += vol;
     }
 
@@ -406,11 +406,11 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
         return false;
     }
 
-    if (volume->totalVolume && (volmeasure->totalVolume >= volume->totalVolume) && (volume->flag & URR_VOLUME_TOVOL)){
+    if (volume->totalVolume && (volmeasure->totalVolume >= volume->totalVolume) && (volume->flag & URR_VOLUME_TOVOL)) {
         return true;
-    } else if(volume->uplinkVolume && (volmeasure->uplinkVolume >= volume->uplinkVolume) && (volume->flag & URR_VOLUME_ULVOL)){
+    } else if (volume->uplinkVolume && (volmeasure->uplinkVolume >= volume->uplinkVolume) && (volume->flag & URR_VOLUME_ULVOL)) {
         return true;
-    } else if(volume->downlinkVolume && (volmeasure->downlinkVolume >= volume->downlinkVolume) && (volume->flag & URR_VOLUME_DLVOL)){
+    } else if (volume->downlinkVolume && (volmeasure->downlinkVolume >= volume->downlinkVolume) && (volume->flag & URR_VOLUME_DLVOL)) {
         return true;
     }
 
@@ -422,9 +422,9 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
     int i;
     int ret = 1;
     u64 volume;
-    u32 *triggers;
-    u16 report_num = 0;
-    int *urrids, len;
+    u64 len;
+    u32 *triggers, *urrids;
+    u32 report_num = 0;
     struct urr *urr;
     struct user_report *report;
     bool mnop;
@@ -432,42 +432,42 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
     urrids = kzalloc(sizeof(URR_ID_SIZE) * pdr->urr_num , GFP_ATOMIC);
     triggers = kzalloc(sizeof(uint64_t) * pdr->urr_num , GFP_ATOMIC);
 
-    for (i = 0; i < pdr->urr_num; i++){
-        mnop = false;
+    for (i = 0; i < pdr->urr_num; i++) {
         urr = find_urr_by_id(gtp, pdr->seid,  pdr->urr_ids[i]);
 
+        mnop = false;
+        if (urr->info & URR_INFO_MNOP)
+            mnop = true;
+        
         if (!(urr->info & URR_INFO_INAM)) {
             if (urr->method & URR_METHOD_VOLUM) {
-                if(urr->info & URR_INFO_MNOP)
-                    mnop = true;
-
-                if (urr->trigger == 0){
+                if (urr->trigger == 0) {
                     GTP5G_ERR(pdr->dev, "no supported trigger(%u) in URR(%u) and related to PDR(%u)",
                         urr->trigger, urr->id, pdr->id);
                     ret = 0;
                     goto err1;
                 }
 
-                if(urr->info & URR_INFO_MBQE){
+                if (urr->info & URR_INFO_MBQE) {
                     // TODO: gtp5g isn't support QoS enforcement yet
                     // Currently MBQE Volume = MAQE Volume
                     vol_mbqe = vol;
                     volume = vol_mbqe;
-                } else{
+                } else {
                     volume = vol;
                 }
                 // Caculate Volume measurement for each trigger
-                if(urr->trigger & URR_RPT_TRIGGER_VOLTH){
-                    if(increment_and_check_counter(&urr->bytes, &urr->volumethreshold, volume, uplink, mnop)){
+                if (urr->trigger & URR_RPT_TRIGGER_VOLTH) {
+                    if (increment_and_check_counter(&urr->bytes, &urr->volumethreshold, volume, uplink, mnop)) {
                         triggers[report_num] = USAR_TRIGGER_VOLTH;
                         urrids[report_num++] = urr->id;
                     }
-                } else{
+                } else {
                     // For other triggers, only increment bytes
                     increment_and_check_counter(&urr->bytes, NULL, volume, uplink,mnop);
                 }
-                if(urr->trigger & URR_RPT_TRIGGER_VOLQU){
-                    if(increment_and_check_counter(&urr->consumed, &urr->volumequota, volume, uplink, mnop)){
+                if (urr->trigger & URR_RPT_TRIGGER_VOLQU) {
+                    if (increment_and_check_counter(&urr->consumed, &urr->volumequota, volume, uplink, mnop)) {
                         triggers[report_num] = USAR_TRIGGER_VOLQU;
                         urrids[report_num++] = urr->id;
                         urr_quota_exhaust_action(urr, gtp);
@@ -475,19 +475,19 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                     }
                 }
             }
-        } else{
+        } else {
             GTP5G_TRC(pdr->dev, "URR stop measurement");
         }
     }
-    if(report_num > 0){
+    if (report_num > 0) {
         len = sizeof(*report) * report_num;
 
         report = kzalloc(len, GFP_ATOMIC);
-        for(i = 0; i < report_num; i++){
+        for (i = 0; i < report_num; i++) {
             urr = find_urr_by_id(gtp, pdr->seid, urrids[i]); 
 
             urr->end_time = ktime_get_real();
-            report[i] = (struct user_report){
+            report[i] = (struct user_report) {
                     urr->id,
                     triggers[i],
                     urr->bytes,
@@ -611,8 +611,8 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                 return -1;
             }
 
-            if(pdr->urr_num != 0){
-                if(check_urr(pdr, volume, volume_mbqe, true) < 0)
+            if (pdr->urr_num != 0) {
+                if (check_urr(pdr, volume, volume_mbqe, true) < 0)
                     GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
             }
             return 0;
@@ -652,8 +652,8 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
     }
 
-    if(pdr->urr_num != 0){
-        if(check_urr(pdr, volume, volume_mbqe, true) < 0)
+    if (pdr->urr_num != 0) {
+        if (check_urr(pdr, volume, volume_mbqe, true) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
 
@@ -713,8 +713,8 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
 
     volume = ip4_rm_header(skb, 0);
 
-    if(pdr->urr_num != 0){
-        if(check_urr(pdr, volume, volume_mbqe, false) < 0)
+    if (pdr->urr_num != 0) {
+        if (check_urr(pdr, volume, volume_mbqe, false) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
 
