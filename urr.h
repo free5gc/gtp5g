@@ -89,6 +89,7 @@ struct urr {
     bool quota_exhausted;
     u16 *pdrids;
     u16 *actions;
+    u32 pdr_num;
 
     struct net_device *dev;
     struct rcu_head rcu_head;

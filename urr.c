@@ -80,25 +80,35 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     struct hlist_head *head;
     struct pdr *pdr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    int i = 0;
+    u16 *actions, *pdrids;
+
     // urr stop measurement
+    urr->pdr_num = 0;
     urr->info |= URR_INFO_INAM;
     urr->quota_exhausted = true;
-    urr->pdrids = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
-    urr->actions = kzalloc(0xff * sizeof(u8), GFP_KERNEL);
+    
+    pdrids = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
+    actions = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
 
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
     //each pdr that associate with the urr drop pkt
     hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
         if (find_urr_id_in_pdr(pdr, urr->id)) {
-            urr->pdrids[i] = pdr->id;
-            urr->actions[i++] = pdr->far->action;
+            pdrids[urr->pdr_num] = pdr->id;
+            actions[urr->pdr_num++] = pdr->far->action;
 
             pdr->far->action = FAR_ACTION_DROP;
         }
     }
+
+    memcpy(urr->pdrids, pdrids, urr->pdr_num * sizeof(u16));
+    memcpy(urr->actions, actions, urr->pdr_num * sizeof(u16));
+
+    kfree(pdrids);
+    kfree(actions);
 }
+
 void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
 {
     struct hlist_head *head;
@@ -112,7 +122,7 @@ void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     //each pdr that associate with the urr resume it's normal action
     hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
         if (find_urr_id_in_pdr(pdr, urr->id)) {
-            for (i = 0; i < sizeof(urr->pdrids);i++)
+            for (i = 0; i < urr->pdr_num; i++)
                 if (urr->pdrids[i] == pdr->id)
                     pdr->far->action = urr->actions[i];
         }
@@ -121,6 +131,7 @@ void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     kfree(urr->pdrids);
     kfree(urr->actions);
 }
+
 void urr_append(u64 seid, u32 urr_id, struct urr *urr, struct gtp5g_dev *gtp)
 {
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
