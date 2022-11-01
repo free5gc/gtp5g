@@ -58,11 +58,11 @@
 #define URR_RPT_TRIGGER_UPINT (1 << 17)
 
 struct Volume{
-    uint8_t flag;
+    u8 flag;
 
-    uint64_t totalVolume;
-    uint64_t uplinkVolume;
-    uint64_t downlinkVolume;
+    u64 totalVolume;
+    u64 uplinkVolume;
+    u64 downlinkVolume;
 }; 
 
 struct urr {
@@ -72,7 +72,7 @@ struct urr {
     u8  method;
     u32 trigger;
     u32 period;
-    u64 info;
+    u8 info;
 
     struct Volume volumethreshold;
     struct Volume volumequota;
@@ -88,7 +88,7 @@ struct urr {
     // for quota exhausted
     bool quota_exhausted;
     u16 *pdrids;
-    u8 *actions;
+    u16 *actions;
 
     struct net_device *dev;
     struct rcu_head rcu_head;

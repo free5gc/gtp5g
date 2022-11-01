@@ -40,7 +40,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *, struct sk_buff *);
 static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, unsigned int);
 static int gtp5g_fwd_skb_encap(struct sk_buff *, struct net_device *,
         unsigned int, struct pdr *, uint64_t);
-static int unix_sock_send(struct pdr *, void *, u32, u16);
+static int unix_sock_send(struct pdr *, void *, u32, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
     struct net_device *, struct gtp5g_pktinfo *, 
     struct pdr *, uint64_t);
@@ -315,7 +315,7 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
 /* Function unix_sock_{...} are used to handle buffering */
 // Send PDR ID, FAR action and buffered packet to user space
-static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
+static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u32 report_num)
 {
     struct msghdr msg;
     struct kvec *kov;
@@ -326,7 +326,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u16 report_num)
     u8  type_hdr[1] = {TYPE_BUFFER};
     u64 self_seid_hdr[1] = {pdr->seid};
     u16 self_hdr[2] = {pdr->id, pdr->far->action};
-    u16 self_num_hdr[1] = {report_num};
+    u32 self_num_hdr[1] = {report_num};
 
     if (!pdr->sock_for_buf) {
         GTP5G_ERR(NULL, "Failed Socket buffer is NULL\n");
@@ -429,8 +429,8 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
     struct user_report *report;
     bool mnop;
 
-    urrids = kzalloc(sizeof(URR_ID_SIZE) * pdr->urr_num , GFP_ATOMIC);
-    triggers = kzalloc(sizeof(uint64_t) * pdr->urr_num , GFP_ATOMIC);
+    urrids = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);
+    triggers = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);
 
     for (i = 0; i < pdr->urr_num; i++) {
         urr = find_urr_by_id(gtp, pdr->seid,  pdr->urr_ids[i]);
@@ -503,12 +503,11 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
         if (unix_sock_send(pdr, report, len, report_num) < 0) {
             GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
             ret = -1;
-            goto err2;
+            kfree(report);
+            goto err1;
         }
     }
 
-err2:
-    kfree(report);
 err1:
     kfree(urrids);
     kfree(triggers);

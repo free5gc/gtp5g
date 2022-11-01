@@ -334,17 +334,16 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
         urr->info = nla_get_u8(info->attrs[GTP5G_URR_MEASUREMENT_INFO]);
 
     if (info->attrs[GTP5G_URR_VOLUME_THRESHOLD])
-        parse_volumethreshold(urr,info->attrs[GTP5G_URR_VOLUME_THRESHOLD]);
+        parse_volumethreshold(urr, info->attrs[GTP5G_URR_VOLUME_THRESHOLD]);
 
     if (info->attrs[GTP5G_URR_VOLUME_QUOTA]) {
-        parse_volumeqouta(urr,info->attrs[GTP5G_URR_VOLUME_QUOTA]);
+        parse_volumeqouta(urr, info->attrs[GTP5G_URR_VOLUME_QUOTA]);
         urr->consumed = urr->bytes;
 
         if (urr->volumequota.totalVolume == 0) {
-            urr_quota_exhaust_action(urr,gtp);
+            urr_quota_exhaust_action(urr, gtp);
             GTP5G_LOG(NULL, "URR (%u) Receive zero quota, stop measure", urr->id);
-        } 
-        else if (urr->quota_exhausted) {
+        } else if (urr->quota_exhausted) {
             urr_reverse_quota_exhaust_action(urr, gtp);
             GTP5G_LOG(NULL, "URR (%u) Receive New quota, continue measure", urr->id);
         }
