@@ -423,13 +423,13 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
     int ret = 1;
     u64 volume;
     u64 len;
-    u32 *triggers, *urrids;
+    u32 *triggers;
     u32 report_num = 0;
-    struct urr *urr;
+    struct urr *urr, **urrs;
     struct user_report *report;
     bool mnop;
 
-    urrids = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);
+    urrs = kzalloc(sizeof(struct urr *) * pdr->urr_num , GFP_ATOMIC);
     triggers = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);
 
     for (i = 0; i < pdr->urr_num; i++) {
@@ -460,7 +460,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                 if (urr->trigger & URR_RPT_TRIGGER_VOLTH) {
                     if (increment_and_check_counter(&urr->bytes, &urr->volumethreshold, volume, uplink, mnop)) {
                         triggers[report_num] = USAR_TRIGGER_VOLTH;
-                        urrids[report_num++] = urr->id;
+                        urrs[report_num++] = urr;
                     }
                 } else {
                     // For other triggers, only increment bytes
@@ -469,7 +469,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                 if (urr->trigger & URR_RPT_TRIGGER_VOLQU) {
                     if (increment_and_check_counter(&urr->consumed, &urr->volumequota, volume, uplink, mnop)) {
                         triggers[report_num] = USAR_TRIGGER_VOLQU;
-                        urrids[report_num++] = urr->id;
+                        urrs[report_num++] = urr;
                         urr_quota_exhaust_action(urr, gtp);
                         GTP5G_LOG(NULL, "URR (%u) Quota Exhaust, stop measure", urr->id);
                     }
@@ -484,7 +484,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
 
         report = kzalloc(len, GFP_ATOMIC);
         for (i = 0; i < report_num; i++) {
-            urr = find_urr_by_id(gtp, pdr->seid, urrids[i]); 
+            urr = urrs[i];
 
             urr->end_time = ktime_get_real();
             report[i] = (struct user_report) {
@@ -509,7 +509,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
     }
 
 err1:
-    kfree(urrids);
+    kfree(urrs);
     kfree(triggers);
     return ret;
 }

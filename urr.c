@@ -102,8 +102,13 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
         }
     }
 
-    memcpy(urr->pdrids, pdrids, urr->pdr_num * sizeof(u16));
-    memcpy(urr->actions, actions, urr->pdr_num * sizeof(u16));
+    if (urr->pdr_num > 0) {
+        urr->pdrids = kzalloc(urr->pdr_num * sizeof(u16), GFP_KERNEL);
+        urr->actions = kzalloc(urr->pdr_num * sizeof(u16), GFP_KERNEL);
+
+        memcpy(urr->pdrids, pdrids, urr->pdr_num * sizeof(u16));
+        memcpy(urr->actions, actions, urr->pdr_num * sizeof(u16));
+    }
 
     kfree(pdrids);
     kfree(actions);
