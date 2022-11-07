@@ -172,9 +172,6 @@ void urr_set_pdr(u64 seid, u32 urr_id, struct hlist_node *node, struct gtp5g_dev
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     u32 i;
 
-    if (!hlist_unhashed(node))
-        hlist_del_rcu(node);
-
     seid_urr_id_to_hex_str(seid, urr_id, seid_urr_id_hexstr);
     i = str_hashfn(seid_urr_id_hexstr) % gtp->hash_size;
     hlist_add_head_rcu(node, &gtp->related_urr_hash[i]);
