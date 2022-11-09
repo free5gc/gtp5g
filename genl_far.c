@@ -2,6 +2,7 @@
 #include <linux/etherdevice.h>
 #include <net/genetlink.h>
 
+#include "common.h"
 #include "dev.h"
 #include "genl.h"
 #include "genl_far.h"
@@ -523,7 +524,7 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     struct forwarding_parameter *fwd_param;
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
-    u16 *ids;
+    u16 *ids = NULL;
     int n;
 
     genlh = genlmsg_put(skb, snd_portid, snd_seq, &gtp5g_genl_family, 0, type);
@@ -576,22 +577,22 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         nla_nest_end(skb, nest_fwd_param);
     }
 
-    ids = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
+    ids = kzalloc(MAX_PDR_PER_SESSION * sizeof(u16), GFP_KERNEL);
     if (!ids)
         goto genlmsg_fail;
-    n = far_get_pdr_ids(ids, 0xff, far, gtp);
+    n = far_get_pdr_ids(ids, MAX_PDR_PER_SESSION, far, gtp);
     if (n) {
-        if (nla_put(skb, GTP5G_FAR_RELATED_TO_PDR, n * sizeof(u16), ids)) {
-            kfree(ids);
-            genlmsg_cancel(skb, genlh);
-            return -EMSGSIZE;
-        }
+        if (nla_put(skb, GTP5G_FAR_RELATED_TO_PDR, n * sizeof(u16), ids))
+            goto genlmsg_fail;
     }
-    kfree(ids);
 
+    kfree(ids);
     genlmsg_end(skb, genlh);
     return 0;
+
 genlmsg_fail:
+    if (ids)
+        kfree(ids);
     genlmsg_cancel(skb, genlh);
     return -EMSGSIZE;
 }

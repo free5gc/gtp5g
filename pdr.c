@@ -184,6 +184,7 @@ static bool ports_match(struct range *match_list, int list_len, __be16 port)
 static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb,
         unsigned int hdrlen, u8 direction)
 {
+    #define IP_PROTO_RESERVED 0xff
     struct iphdr *iph;
     struct ip_filter_rule *rule;
     const __be16 *pptr;
@@ -202,7 +203,7 @@ static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb,
         if (rule->direction != direction)
             goto mismatch;
 
-        if (rule->proto != 0xff && rule->proto != iph->protocol)
+        if (rule->proto != IP_PROTO_RESERVED && rule->proto != iph->protocol)
             goto mismatch;
 
         if (!ipv4_match(iph->saddr, rule->src.s_addr, rule->smask.s_addr))

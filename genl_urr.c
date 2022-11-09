@@ -3,6 +3,7 @@
 #include <linux/rculist.h>
 #include <net/netns/generic.h>
 
+#include "common.h"
 #include "dev.h"
 #include "genl.h"
 #include "urr.h"
@@ -458,7 +459,7 @@ static int gtp5g_genl_fill_urr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
 {
     struct gtp5g_dev *gtp = netdev_priv(urr->dev);
     void *genlh;
-    u16 *ids;
+    u16 *ids = NULL;
     int n;
 
     genlh = genlmsg_put(skb, snd_portid, snd_seq,
@@ -489,21 +490,22 @@ static int gtp5g_genl_fill_urr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         if (gtp5g_genl_fill_volume_quota(skb, urr->volumequota))
             goto genlmsg_fail;
     }
-    ids = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
+    ids = kzalloc(MAX_PDR_PER_SESSION * sizeof(u16), GFP_KERNEL);
     if (!ids)
         goto genlmsg_fail;
-    n = urr_get_pdr_ids(ids, 0xff, urr, gtp);
+    n = urr_get_pdr_ids(ids, MAX_PDR_PER_SESSION, urr, gtp);
     if (n) {
-        if (nla_put(skb, GTP5G_URR_RELATED_TO_PDR, n * sizeof(u16), ids)) {
-            kfree(ids);
+        if (nla_put(skb, GTP5G_URR_RELATED_TO_PDR, n * sizeof(u16), ids))
             goto genlmsg_fail;
-        }
     }
-    kfree(ids);
 
+    kfree(ids);
     genlmsg_end(skb, genlh);
     return 0;
+
 genlmsg_fail:
+    if (ids)
+        kfree(ids);
     genlmsg_cancel(skb, genlh);
     return -EMSGSIZE;
 }

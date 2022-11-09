@@ -1,5 +1,6 @@
 #include <linux/rculist.h>
 
+#include "common.h"
 #include "dev.h"
 #include "urr.h"
 #include "pdr.h"
@@ -80,15 +81,17 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     struct hlist_head *head;
     struct pdr *pdr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    u16 *actions, *pdrids;
+    u16 *actions = NULL, *pdrids = NULL;
 
     // urr stop measurement
     urr->pdr_num = 0;
     urr->info |= URR_INFO_INAM;
     urr->quota_exhausted = true;
-    
-    pdrids = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
-    actions = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
+
+    pdrids = kzalloc(MAX_PDR_PER_SESSION * sizeof(u16), GFP_KERNEL);
+    actions = kzalloc(MAX_PDR_PER_SESSION * sizeof(u16), GFP_KERNEL);
+    if (!pdrids || !actions)
+        goto fail;
 
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
@@ -110,8 +113,11 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
         memcpy(urr->actions, actions, urr->pdr_num * sizeof(u16));
     }
 
-    kfree(pdrids);
-    kfree(actions);
+fail:
+    if (pdrids)
+        kfree(pdrids);
+    if (actions)
+        kfree(actions);
 }
 
 void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
@@ -127,14 +133,17 @@ void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     //each pdr that associate with the urr resume it's normal action
     hlist_for_each_entry_rcu(pdr, head, hlist_related_urr) {
         if (find_urr_id_in_pdr(pdr, urr->id)) {
-            for (i = 0; i < urr->pdr_num; i++)
+            for (i = 0; i < urr->pdr_num; i++) {
                 if (urr->pdrids[i] == pdr->id)
                     pdr->far->action = urr->actions[i];
+            }
         }
     }
 
-    kfree(urr->pdrids);
-    kfree(urr->actions);
+    if (urr->pdrids)
+        kfree(urr->pdrids);
+    if (urr->actions)
+        kfree(urr->actions);
 }
 
 void urr_append(u64 seid, u32 urr_id, struct urr *urr, struct gtp5g_dev *gtp)

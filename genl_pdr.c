@@ -665,12 +665,14 @@ static int parse_ip_filter_rule(struct sdf_filter *sdf, struct nlattr *a)
             return -ENOMEM;
 
         for (i = 0; i < rule->sport_num; i++) {
-            if ((sport_encode[i] & 0xFFFF) <= (sport_encode[i] >> 16)) {
-                rule->sport[i].start = (sport_encode[i] & 0xFFFF);
-                rule->sport[i].end = (sport_encode[i] >> 16);
+            u16 port1 = (u16)(sport_encode[i] & 0xFFFF);
+            u16 port2 = (u16)(sport_encode[i] >> 16);
+            if (port1 <= port2) {
+                rule->sport[i].start = port1;
+                rule->sport[i].end = port2;
             } else {
-                rule->sport[i].start = (sport_encode[i] >> 16);
-                rule->sport[i].end = (sport_encode[i] & 0xFFFF);
+                rule->sport[i].start = port2;
+                rule->sport[i].end = port1;
             }
         }
     }
@@ -687,12 +689,14 @@ static int parse_ip_filter_rule(struct sdf_filter *sdf, struct nlattr *a)
             return -ENOMEM;
 
         for (i = 0; i < rule->dport_num; i++) {
-            if ((dport_encode[i] & 0xFFFF) <= (dport_encode[i] >> 16)) {
-                rule->dport[i].start = (dport_encode[i] & 0xFFFF);
-                rule->dport[i].end = (dport_encode[i] >> 16);
+            u16 port1 = (u16)(dport_encode[i] & 0xFFFF);
+            u16 port2 = (u16)(dport_encode[i] >> 16);
+            if (port1 <= port2) {
+                rule->dport[i].start = port1;
+                rule->dport[i].end = port2;
             } else {
-                rule->dport[i].start = (dport_encode[i] >> 16);
-                rule->dport[i].end = (dport_encode[i] & 0xFFFF);
+                rule->dport[i].start = port2;
+                rule->dport[i].end = port1;
             }
         }
     }
@@ -703,12 +707,16 @@ static int parse_ip_filter_rule(struct sdf_filter *sdf, struct nlattr *a)
 static int gtp5g_genl_fill_rule(struct sk_buff *skb, struct ip_filter_rule *rule)
 {
     struct nlattr *nest_rule;
-    u32 *u32_buf;
+    int max_port_num = rule->sport_num;
+    u32 *port_buf = NULL;
     int i;
 
-    u32_buf = kzalloc(0xff * sizeof(u32), GFP_KERNEL);
-    if (!u32_buf)
-        return -EMSGSIZE;
+    if (rule->dport_num > max_port_num)
+        max_port_num = rule->dport_num;
+
+    port_buf = kzalloc(max_port_num * sizeof(u32), GFP_KERNEL);
+    if (!port_buf)
+        goto genlmsg_fail;
 
     nest_rule = nla_nest_start(skb, GTP5G_SDF_FILTER_FLOW_DESCRIPTION);
     if (!nest_rule)
@@ -735,25 +743,27 @@ static int gtp5g_genl_fill_rule(struct sk_buff *skb, struct ip_filter_rule *rule
 
     if (rule->sport_num && rule->sport) {
         for (i = 0; i < rule->sport_num; i++)
-            u32_buf[i] = rule->sport[i].start + (rule->sport[i].end << 16);
+            port_buf[i] = (u32)(rule->sport[i].start | (rule->sport[i].end << 16));
         if (nla_put(skb, GTP5G_FLOW_DESCRIPTION_SRC_PORT,
-                    rule->sport_num * sizeof(u32), u32_buf))
+                    rule->sport_num * sizeof(u32), port_buf))
             goto genlmsg_fail;
     }
 
     if (rule->dport_num && rule->dport) {
         for (i = 0; i < rule->dport_num; i++)
-            u32_buf[i] = rule->dport[i].start + (rule->dport[i].end << 16);
+            port_buf[i] = (u32)(rule->dport[i].start | (rule->dport[i].end << 16));
         if (nla_put(skb, GTP5G_FLOW_DESCRIPTION_DEST_PORT,
-                    rule->dport_num * sizeof(u32), u32_buf))
+                    rule->dport_num * sizeof(u32), port_buf))
             goto genlmsg_fail;
     }
 
     nla_nest_end(skb, nest_rule);
-    kfree(u32_buf);
+    kfree(port_buf);
     return 0;
+
 genlmsg_fail:
-    kfree(u32_buf);
+    if (port_buf)
+        kfree(port_buf);
     return -EMSGSIZE;
 }
 
