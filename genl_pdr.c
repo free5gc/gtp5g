@@ -451,7 +451,6 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
             err = set_pdr_urr_ids(pdr, nla_get_u32(hdr));
             if (err)
                 return err;
-            urr_set_pdr(pdr->seid, pdr->urr_ids[pdr->urr_num - 1], &pdr->hlist_related_urr, gtp);
             break;
         }
         hdr = nla_next(hdr, &remaining);
@@ -463,6 +462,8 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     pdr->af = AF_INET;
     pdr->far = find_far_by_id(gtp, pdr->seid, *pdr->far_id);
     far_set_pdr(pdr->seid, *pdr->far_id, &pdr->hlist_related_far, gtp);
+    urr_set_pdr(pdr->seid, pdr->urr_ids, pdr->urr_num, &pdr->hlist_related_urr, gtp);
+    qer_set_pdr(pdr->seid, pdr->qer_ids, pdr->qer_num, &pdr->hlist_related_qer, gtp);
     set_pdr_qfi(pdr, gtp);
 
     if (unix_sock_client_update(pdr) < 0)
