@@ -72,7 +72,7 @@ struct urr {
     u8  method;
     u32 trigger;
     u32 period;
-    u8 info;
+    u8  info;
 
     struct Volume volumethreshold;
     struct Volume volumequota;

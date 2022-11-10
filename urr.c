@@ -6,6 +6,7 @@
 #include "pdr.h"
 #include "seid.h"
 #include "hash.h"
+#include "log.h"
 
 void seid_urr_id_to_hex_str(u64 seid_int, u32 urr_id, char *buff)
 {
@@ -15,7 +16,6 @@ void seid_urr_id_to_hex_str(u64 seid_int, u32 urr_id, char *buff)
 static void urr_context_free(struct rcu_head *head)
 {
     struct urr *urr = container_of(head, struct urr, rcu_head);
-
     if (!urr)
         return;
 
@@ -83,10 +83,13 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     u16 *actions = NULL, *pdrids = NULL;
 
+    if (urr->quota_exhausted) {
+        GTP5G_WAR(NULL, "URR (%u) quota was already exhausted\n", urr->id);
+        return;
+    }
+
     // urr stop measurement
     urr->pdr_num = 0;
-    urr->info |= URR_INFO_INAM;
-    urr->quota_exhausted = true;
 
     pdrids = kzalloc(MAX_PDR_PER_SESSION * sizeof(u16), GFP_KERNEL);
     actions = kzalloc(MAX_PDR_PER_SESSION * sizeof(u16), GFP_KERNEL);
@@ -113,6 +116,9 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
         memcpy(urr->actions, actions, urr->pdr_num * sizeof(u16));
     }
 
+    urr->info |= URR_INFO_INAM;
+    urr->quota_exhausted = true;
+
 fail:
     if (pdrids)
         kfree(pdrids);
@@ -126,7 +132,12 @@ void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     struct pdr *pdr;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     int i;
-    urr->quota_exhausted = false;
+
+    if (!urr->quota_exhausted) {
+        GTP5G_WAR(NULL, "URR (%u) quota is not exhausted; should not reverse\n", urr->id);
+        return;
+    }
+
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
 
@@ -139,6 +150,8 @@ void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
             }
         }
     }
+
+    urr->quota_exhausted = false;
 
     if (urr->pdrids)
         kfree(urr->pdrids);
