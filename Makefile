@@ -4,8 +4,6 @@ ifneq (,$(findstring 1, $(RHEL8)))
 	RHEL8FLAG := -DRHEL8
 endif
 
-PWD := $(shell pwd) 
-
 CONFIG_MODULE_SIG=n
 MODULE_NAME = gtp5g
 MOD_KERNEL_PATH := kernel/drivers/net
@@ -36,13 +34,45 @@ MY_CFLAGS += -g -DDEBUG $(RHEL8FLAG)
 EXTRA_CFLAGS += -Wno-misleading-indentation -Wuninitialized
 CC += ${MY_CFLAGS}
 
-obj-m := $(MODULE_NAME).o
-gtp5g-y += main.o 
-gtp5g-y += api_version.o
-gtp5g-y += log.o util.o
-gtp5g-y += dev.o genl.o net.o link.o proc.o
-gtp5g-y += gtp.o pktinfo.o hash.o seid.o encap.o
-gtp5g-y += pdr.o far.o qer.o bar.o urr.o genl.o genl_pdr.o genl_far.o genl_qer.o genl_bar.o genl_urr.o genl_version.o genl_report.o
+EXTRA_CFLAGS += -I $(PWD)/include
+
+5G_MOD := src/gtp5g.o
+
+5G_LOG	:= src/log.o 
+
+5G_UTIL	:= src/util.o
+
+5G_GTPU	:= src/gtpu/dev.o \
+			src/gtpu/encap.o \
+			src/gtpu/gtp.o \
+			src/gtpu/hash.o \
+			src/gtpu/link.o \
+			src/gtpu/net.o \
+			src/gtpu/pktinfo.o
+
+5G_GENL := src/genl/genl.o \
+			src/genl/genl_version.o \
+			src/genl/genl_pdr.o \
+			src/genl/genl_far.o \
+			src/genl/genl_qer.o \
+			src/genl/genl_urr.o \
+			src/genl/genl_report.o \
+			src/genl/genl_bar.o
+
+5G_PFCP := src/pfcp/api_version.o \
+			src/pfcp/pdr.o \
+			src/pfcp/far.o \
+			src/pfcp/qer.o \
+			src/pfcp/urr.o \
+			src/pfcp/bar.o \
+			src/pfcp/seid.o
+
+5G_PROC := src/proc.o
+
+# Build files 
+obj-m += $(MODULE_NAME).o
+$(MODULE_NAME)-objs := $(5G_MOD) $(5G_LOG) $(5G_UTIL) $(5G_GTPU) \
+						$(5G_GENL) $(5G_PFCP) $(5G_PROC) 
 
 default: module
 

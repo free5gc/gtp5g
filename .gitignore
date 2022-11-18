@@ -6,3 +6,10 @@
 *.mod.c
 Module.symvers
 modules.order
+
+# Ctags
+tags
+
+# VSCode
+.vscode
+
