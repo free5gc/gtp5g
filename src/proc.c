@@ -691,6 +691,7 @@ int create_proc(void)
 
 void remove_proc()
 {
+    remove_proc_entry("urr", proc_gtp5g);
     remove_proc_entry("qer", proc_gtp5g);
     remove_proc_entry("far", proc_gtp5g);
     remove_proc_entry("pdr", proc_gtp5g);
