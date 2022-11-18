@@ -42,6 +42,8 @@ static void pdr_context_free(struct rcu_head *head)
             kfree(pdr->far_id);
         if (pdr->qer_ids)
             kfree(pdr->qer_ids);
+        if (pdr->urr_ids)
+            kfree(pdr->urr_ids);
 
         sdf = pdi->sdf;
         if (sdf) {
@@ -90,6 +92,8 @@ void pdr_context_delete(struct pdr *pdr)
     if (!hlist_unhashed(&pdr->hlist_related_qer))
         hlist_del_rcu(&pdr->hlist_related_qer);
 
+    if (!hlist_unhashed(&pdr->hlist_related_urr))
+        hlist_del_rcu(&pdr->hlist_related_urr);
     call_rcu(&pdr->rcu_head, pdr_context_free);
 }
 
@@ -109,12 +113,12 @@ int unix_sock_client_new(struct pdr *pdr)
     struct sockaddr_un *addr = &pdr->addr_unix;
     int err;
 
-    if (strlen(addr->sun_path) == 0){
+    if (strlen(addr->sun_path) == 0) {
         return -EINVAL;
     }
 
     err = sock_create(AF_UNIX, SOCK_DGRAM, 0, psock);
-    if (err){
+    if (err) {
         return err;
     }
 
@@ -136,7 +140,7 @@ int unix_sock_client_update(struct pdr *pdr)
 
     unix_sock_client_delete(pdr);
 
-    if (far && (far->action & FAR_ACTION_BUFF))
+    if ((far && (far->action & FAR_ACTION_BUFF)) || pdr->urr_num > 0)
         return unix_sock_client_new(pdr);
 
     return 0;
@@ -180,6 +184,7 @@ static bool ports_match(struct range *match_list, int list_len, __be16 port)
 static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb,
         unsigned int hdrlen, u8 direction)
 {
+    #define IP_PROTO_RESERVED 0xff
     struct iphdr *iph;
     struct ip_filter_rule *rule;
     const __be16 *pptr;
@@ -198,7 +203,7 @@ static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb,
         if (rule->direction != direction)
             goto mismatch;
 
-        if (rule->proto != 0xff && rule->proto != iph->protocol)
+        if (rule->proto != IP_PROTO_RESERVED && rule->proto != iph->protocol)
             goto mismatch;
 
         if (!ipv4_match(iph->saddr, rule->src.s_addr, rule->smask.s_addr))

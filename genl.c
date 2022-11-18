@@ -7,6 +7,7 @@
 #include "genl_qer.h"
 #include "genl_bar.h"
 #include "genl_urr.h"
+#include "genl_report.h"
 #include "genl_version.h"
 
 static const struct nla_policy gtp5g_genl_pdr_policy[GTP5G_PDR_ATTR_MAX + 1] = {
@@ -34,6 +35,17 @@ static const struct nla_policy gtp5g_genl_qer_policy[GTP5G_QER_ATTR_MAX + 1] = {
     [GTP5G_QER_QFI]                             = { .type = NLA_U8, },
     [GTP5G_QER_PPI]                             = { .type = NLA_U8, },
     [GTP5G_QER_RCSR]                            = { .type = NLA_U8, },
+};
+
+static const struct nla_policy gtp5g_genl_urr_policy[GTP5G_URR_ATTR_MAX + 1] = {
+    [GTP5G_URR_ID]                              = { .type = NLA_U32, },
+    [GTP5G_URR_MEASUREMENT_METHOD]              = { .type = NLA_U8, },
+    [GTP5G_URR_REPORTING_TRIGGER]               = { .type = NLA_U32, },
+    [GTP5G_URR_MEASUREMENT_PERIOD]              = { .type = NLA_U32, },
+    [GTP5G_URR_MEASUREMENT_INFO]                = { .type = NLA_U8, },
+    [GTP5G_URR_SEID]                            = { .type = NLA_U64, },
+    [GTP5G_URR_VOLUME_THRESHOLD]                = { .type = NLA_NESTED, },
+    [GTP5G_URR_VOLUME_QUOTA]                    = { .type = NLA_NESTED, },
 };
 
 static const struct genl_ops gtp5g_genl_ops[] = {
@@ -138,6 +150,11 @@ static const struct genl_ops gtp5g_genl_ops[] = {
     {
         .cmd = GTP5G_CMD_GET_VERSION,
         .doit = gtp5g_genl_get_version,
+        .flags = GENL_ADMIN_PERM,
+    },
+    {
+        .cmd = GTP5G_CMD_GET_REPORT,
+        .doit = gtp5g_genl_get_usage_report,
         .flags = GENL_ADMIN_PERM,
     },
 };

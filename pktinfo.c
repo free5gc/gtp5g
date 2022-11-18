@@ -13,6 +13,31 @@
 #include "pktinfo.h"
 #include "log.h"
 
+u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen){
+    struct iphdr *iph; 
+    struct tcphdr *tcp; 
+    u64 volume;
+    
+    iph = ip_hdr(skb);
+    volume = skb->len - hdrlen - iph->ihl * 4;
+
+    // Deduct the header length of transport layer
+    switch (iph->protocol) {
+    case IPPROTO_TCP:
+        // tcp = (struct tcphdr *)(skb_transport_header(skb) + (iph->ihl << 2));
+        tcp = (struct tcphdr *)(skb_transport_header(skb));
+        volume -= tcp->doff * 4;
+        break;
+    case IPPROTO_UDP:
+        volume -= 8; // udp header len = 8B
+        break;
+    default:
+        break;
+	}
+
+    return volume;
+}
+
 struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
     struct sock *sk, struct net_device *gtp_dev, 
     __be32 saddr, __be32 daddr, struct flowi4 *fl4)

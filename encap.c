@@ -15,15 +15,18 @@
 #include "pdr.h"
 #include "far.h"
 #include "qer.h"
+#include "urr.h"
+#include "report.h"
+
 #include "genl.h"
+#include "genl_report.h"
+
 #include "log.h"
 #include "api_version.h"
 #include "pktinfo.h"
 
 /* used to compatible with api with/without seid */
-#define MSG_URR_BAR_KOV_LEN 4
-#define MSG_SEID_KOV_LEN 3
-#define MSG_NO_SEID_KOV_LEN 2
+#define MSG_KOV_LEN 4
 
 enum msg_type {
     TYPE_BUFFER = 1,
@@ -36,11 +39,11 @@ static int gtp5g_encap_recv(struct sock *, struct sk_buff *);
 static int gtp1u_udp_encap_recv(struct gtp5g_dev *, struct sk_buff *);
 static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, unsigned int);
 static int gtp5g_fwd_skb_encap(struct sk_buff *, struct net_device *,
-        unsigned int, struct pdr *);
-static int unix_sock_send(struct pdr *, void *, u32);
+        unsigned int, struct pdr *, uint64_t);
+static int unix_sock_send(struct pdr *, void *, u32, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
     struct net_device *, struct gtp5g_pktinfo *, 
-    struct pdr *);
+    struct pdr *, uint64_t);
 
 struct sock *gtp5g_encap_enable(int fd, int type, struct gtp5g_dev *gtp){
     struct udp_tunnel_sock_cfg tuncfg = {NULL};
@@ -163,7 +166,7 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     req_gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
 
     flags = req_gtp1->flags;
-    if (flags & GTPV1_HDR_FLG_SEQ){
+    if (flags & GTPV1_HDR_FLG_SEQ) {
          req_gtpOptHdr = (struct gtp1_hdr_opt *)(skb->data + sizeof(struct udphdr) 
                                                             + sizeof(struct gtpv1_hdr));
          seq_number = req_gtpOptHdr->seq_number;
@@ -175,7 +178,7 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     pskb_pull(skb, skb->len);          
 
     gtp_pkt = skb_push(skb, sizeof(struct gtpv1_echo_resp));
-    if (!gtp_pkt){
+    if (!gtp_pkt) {
         GTP5G_ERR(gtp->dev, "can not construct GTP Echo Response\n");
         return 1;
     }
@@ -284,6 +287,7 @@ static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev,
     struct pdr *pdr)
 {
     pdr->ul_drop_cnt++;
+    GTP5G_INF(NULL, "PDR (%u) UL_DROP_CNT (%llu)", pdr->id, pdr->ul_drop_cnt);
     dev_kfree_skb(skb);
     return 0;
 }
@@ -300,7 +304,7 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
         return -1;
     }
 
-    if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0) {
+    if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
         GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
         ++pdr->ul_drop_cnt;
     }
@@ -311,7 +315,7 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
 /* Function unix_sock_{...} are used to handle buffering */
 // Send PDR ID, FAR action and buffered packet to user space
-static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
+static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u32 report_num)
 {
     struct msghdr msg;
     struct kvec *kov;
@@ -322,6 +326,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
     u8  type_hdr[1] = {TYPE_BUFFER};
     u64 self_seid_hdr[1] = {pdr->seid};
     u16 self_hdr[2] = {pdr->id, pdr->far->action};
+    u32 self_num_hdr[1] = {report_num};
 
     if (!pdr->sock_for_buf) {
         GTP5G_ERR(NULL, "Failed Socket buffer is NULL\n");
@@ -329,53 +334,35 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
     }
 
     memset(&msg, 0, sizeof(msg));
-        if (get_api_with_seid() && get_api_with_urr_bar()) {    
-        msg_kovlen = MSG_URR_BAR_KOV_LEN;
-        kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
-            GFP_KERNEL);
-        if (kov == NULL)
-            return -ENOMEM;
+    if (report_num > 0) {
+        type_hdr[0] = TYPE_URR_REPORT;
+    }
 
-        memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
+    msg_kovlen = MSG_KOV_LEN;
+    kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
+        GFP_KERNEL);
+    if (kov == NULL)
+        return -ENOMEM;
 
-        kov[0].iov_base = type_hdr;
-        kov[0].iov_len = sizeof(type_hdr);
-        kov[1].iov_base = self_seid_hdr;
-        kov[1].iov_len = sizeof(self_seid_hdr);
+    memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
+
+    kov[0].iov_base = type_hdr;
+    kov[0].iov_len = sizeof(type_hdr);
+    kov[1].iov_base = self_seid_hdr;
+    kov[1].iov_len = sizeof(self_seid_hdr);
+
+    //buf is report in this case
+    if (report_num > 0) {
+        kov[2].iov_base = self_num_hdr;
+        kov[2].iov_len = sizeof(self_num_hdr);
+    }
+    else {
         kov[2].iov_base = self_hdr;
         kov[2].iov_len = sizeof(self_hdr);
-        kov[3].iov_base = buf;
-        kov[3].iov_len = len;
-    } else if (get_api_with_seid()) {
-        msg_kovlen = MSG_SEID_KOV_LEN;
-        kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
-            GFP_KERNEL);
-        if (kov == NULL)
-            return -ENOMEM;
-
-        memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
-
-        kov[0].iov_base = self_seid_hdr;
-        kov[0].iov_len = sizeof(self_seid_hdr);
-        kov[1].iov_base = self_hdr;
-        kov[1].iov_len = sizeof(self_hdr);
-        kov[2].iov_base = buf;
-        kov[2].iov_len = len;
-    } else {
-        // for backward compatible
-        msg_kovlen = MSG_NO_SEID_KOV_LEN;
-        kov = kmalloc_array(msg_kovlen, sizeof(struct kvec),
-            GFP_KERNEL);
-        if (kov == NULL)
-            return -ENOMEM;
-
-        memset(kov, 0, sizeof(struct kvec) * msg_kovlen);
-
-        kov[0].iov_base = self_hdr;
-        kov[0].iov_len = sizeof(self_hdr);
-        kov[1].iov_base = buf;
-        kov[1].iov_len = len;
     }
+
+    kov[3].iov_base = buf;
+    kov[3].iov_len = len;
 
     for (i = 0; i < msg_kovlen; i++)
         total_kov_len += kov[i].iov_len;
@@ -393,10 +380,145 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
     return rt;
 }
 
+bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Volume *volume, u64 vol, bool uplink, bool mnop){
+    if (!volmeasure) {
+        return false;
+    }
+
+    if (mnop) {
+        if (uplink) {
+            volmeasure->uplinkPktNum++;
+        } else {
+            volmeasure->downlinkPktNum++;
+        }
+        volmeasure->totalPktNum = volmeasure->uplinkPktNum + volmeasure->downlinkPktNum;
+    }
+
+    if (uplink) {
+        volmeasure->uplinkVolume += vol;
+    } else {
+        volmeasure->downlinkVolume += vol;
+    }
+
+    volmeasure->totalVolume = volmeasure->uplinkVolume + volmeasure->downlinkVolume;
+
+    if (!volume) {
+        return false;
+    }
+
+    if (volume->totalVolume && (volmeasure->totalVolume >= volume->totalVolume) && (volume->flag & URR_VOLUME_TOVOL)) {
+        return true;
+    } else if (volume->uplinkVolume && (volmeasure->uplinkVolume >= volume->uplinkVolume) && (volume->flag & URR_VOLUME_ULVOL)) {
+        return true;
+    } else if (volume->downlinkVolume && (volmeasure->downlinkVolume >= volume->downlinkVolume) && (volume->flag & URR_VOLUME_DLVOL)) {
+        return true;
+    }
+
+    return false;
+}
+
+int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
+    struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
+    int i;
+    int ret = 1;
+    u64 volume;
+    u64 len;
+    u32 *triggers;
+    u32 report_num = 0;
+    struct urr *urr, **urrs;
+    struct user_report *report;
+    bool mnop;
+
+    urrs = kzalloc(sizeof(struct urr *) * pdr->urr_num , GFP_ATOMIC);
+    triggers = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);
+
+    for (i = 0; i < pdr->urr_num; i++) {
+        urr = find_urr_by_id(gtp, pdr->seid,  pdr->urr_ids[i]);
+
+        mnop = false;
+        if (urr->info & URR_INFO_MNOP)
+            mnop = true;
+        
+        if (!(urr->info & URR_INFO_INAM)) {
+            if (urr->method & URR_METHOD_VOLUM) {
+                if (urr->trigger == 0) {
+                    GTP5G_ERR(pdr->dev, "no supported trigger(%u) in URR(%u) and related to PDR(%u)",
+                        urr->trigger, urr->id, pdr->id);
+                    ret = 0;
+                    goto err1;
+                }
+
+                if (urr->info & URR_INFO_MBQE) {
+                    // TODO: gtp5g isn't support QoS enforcement yet
+                    // Currently MBQE Volume = MAQE Volume
+                    vol_mbqe = vol;
+                    volume = vol_mbqe;
+                } else {
+                    volume = vol;
+                }
+                // Caculate Volume measurement for each trigger
+                if (urr->trigger & URR_RPT_TRIGGER_VOLTH) {
+                    if (increment_and_check_counter(&urr->bytes, &urr->volumethreshold, volume, uplink, mnop)) {
+                        triggers[report_num] = USAR_TRIGGER_VOLTH;
+                        urrs[report_num++] = urr;
+                    }
+                } else {
+                    // For other triggers, only increment bytes
+                    increment_and_check_counter(&urr->bytes, NULL, volume, uplink,mnop);
+                }
+                if (urr->trigger & URR_RPT_TRIGGER_VOLQU) {
+                    if (increment_and_check_counter(&urr->consumed, &urr->volumequota, volume, uplink, mnop)) {
+                        triggers[report_num] = USAR_TRIGGER_VOLQU;
+                        urrs[report_num++] = urr;
+                        urr_quota_exhaust_action(urr, gtp);
+                        GTP5G_LOG(NULL, "URR (%u) Quota Exhaust, stop measure", urr->id);
+                    }
+                }
+            }
+        } else {
+            GTP5G_TRC(pdr->dev, "URR stop measurement");
+        }
+    }
+    if (report_num > 0) {
+        len = sizeof(*report) * report_num;
+
+        report = kzalloc(len, GFP_ATOMIC);
+        for (i = 0; i < report_num; i++) {
+            urr = urrs[i];
+
+            urr->end_time = ktime_get_real();
+            report[i] = (struct user_report) {
+                    urr->id,
+                    triggers[i],
+                    urr->bytes,
+                    0,
+                    urr->start_time,
+                    urr->end_time
+            };
+
+            memset(&urr->bytes, 0, sizeof(struct VolumeMeasurement));
+            urr->start_time = ktime_get_real();
+        }
+
+        if (unix_sock_send(pdr, report, len, report_num) < 0) {
+            GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
+            ret = -1;
+            kfree(report);
+            goto err1;
+        }
+    }
+
+err1:
+    kfree(urrs);
+    kfree(triggers);
+    return ret;
+}
+
 static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
     unsigned int hdrlen, unsigned int role)
 {
     int rt = -1;
+    u64 volume_mbqe = 0;
     struct far *far = pdr->far;
     // struct qer *qer = pdr->qer;
 
@@ -422,7 +544,7 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
             rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
         case FAR_ACTION_FORW:
-            rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr);
+            rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, volume_mbqe);
             break;
         case FAR_ACTION_BUFF:
             rt = gtp5g_buf_skb_encap(skb, pdr->dev, hdrlen, pdr);
@@ -443,7 +565,7 @@ out:
 }
 
 static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
-    unsigned int hdrlen, struct pdr *pdr)
+    unsigned int hdrlen, struct pdr *pdr, uint64_t volume_mbqe)
 {
     struct far *far = pdr->far;
     struct forwarding_parameter *fwd_param = far->fwd_param;
@@ -454,6 +576,9 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     struct udphdr *uh;
     struct pcpu_sw_netstats *stats;
     int ret;
+    u64 volume;
+
+    volume = ip4_rm_header(skb, hdrlen);
 
     if (fwd_param) {
         if ((fwd_policy = fwd_param->fwd_policy))
@@ -485,6 +610,10 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                 return -1;
             }
 
+            if (pdr->urr_num != 0) {
+                if (check_urr(pdr, volume, volume_mbqe, true) < 0)
+                    GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
+            }
             return 0;
         }
     }
@@ -522,6 +651,11 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
     }
 
+    if (pdr->urr_num != 0) {
+        if (check_urr(pdr, volume, volume_mbqe, true) < 0)
+            GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
+    }
+
     return 0;
 }
 
@@ -529,18 +663,20 @@ static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct pdr *pdr)
 {
     ++pdr->dl_drop_cnt;
+    GTP5G_INF(NULL, "PDR (%u) DL_DROP_CNT (%llu)", pdr->id, pdr->dl_drop_cnt);
     dev_kfree_skb(skb);
     return FAR_ACTION_DROP;
 }
 
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb, 
     struct net_device *dev, struct gtp5g_pktinfo *pktinfo, 
-    struct pdr *pdr)
+    struct pdr *pdr, uint64_t volume_mbqe)
 {
     struct rtable *rt;
     struct flowi4 fl4;
     struct iphdr *iph = ip_hdr(skb);
     struct outer_header_creation *hdr_creation;
+    u64 volume;
 
     if (!(pdr->far && pdr->far->fwd_param &&
         pdr->far->fwd_param->hdr_creation)) {
@@ -574,6 +710,13 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
 
     gtp5g_push_header(skb, pktinfo);
 
+    volume = ip4_rm_header(skb, 0);
+
+    if (pdr->urr_num != 0) {
+        if (check_urr(pdr, volume, volume_mbqe, false) < 0)
+            GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
+    }
+
     return FAR_ACTION_FORW;
 err:
     return -EBADMSG;
@@ -583,7 +726,7 @@ static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct pdr *pdr)
 {
     // TODO: handle nonlinear part
-    if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0) {
+    if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
         GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
         ++pdr->dl_drop_cnt;
     }
@@ -600,6 +743,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct far *far;
     //struct gtp5g_qer *qer;
     struct iphdr *iph;
+    u64 volume_mbqe = 0;
 
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
@@ -632,7 +776,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         case FAR_ACTION_DROP:
             return gtp5g_drop_skb_ipv4(skb, dev, pdr);
         case FAR_ACTION_FORW:
-            return gtp5g_fwd_skb_ipv4(skb, dev, pktinfo, pdr);
+            return gtp5g_fwd_skb_ipv4(skb, dev, pktinfo, pdr, volume_mbqe);
         case FAR_ACTION_BUFF:
             return gtp5g_buf_skb_ipv4(skb, dev, pdr);
         default:

@@ -1,6 +1,7 @@
 #include <net/genetlink.h>
 #include <net/sock.h>
 
+#include "common.h"
 #include "dev.h"
 #include "genl.h"
 #include "genl_qer.h"
@@ -345,7 +346,7 @@ static int gtp5g_genl_fill_qer(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     void *genlh;
     struct nlattr *nest_mbr_param;
     struct nlattr *nest_gbr_param;
-    u16 *ids;
+    u16 *ids = NULL;
     int n;
 
     genlh = genlmsg_put(skb, snd_portid, snd_seq,
@@ -404,21 +405,22 @@ static int gtp5g_genl_fill_qer(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     if (nla_put_u8(skb, GTP5G_QER_RCSR, qer->rcsr))
         goto genlmsg_fail;
 
-    ids = kzalloc(0xff * sizeof(u16), GFP_KERNEL);
+    ids = kzalloc(MAX_PDR_PER_SESSION * sizeof(u16), GFP_KERNEL);
     if (!ids)
         goto genlmsg_fail;
-    n = qer_get_pdr_ids(ids, 0xff, qer, gtp);
+    n = qer_get_pdr_ids(ids, MAX_PDR_PER_SESSION, qer, gtp);
     if (n) {
-        if (nla_put(skb, GTP5G_QER_RELATED_TO_PDR, n * sizeof(u16), ids)) {
-            kfree(ids);
+        if (nla_put(skb, GTP5G_QER_RELATED_TO_PDR, n * sizeof(u16), ids))
             goto genlmsg_fail;
-        }
     }
-    kfree(ids);
 
+    kfree(ids);
     genlmsg_end(skb, genlh);
     return 0;
+
 genlmsg_fail:
+    if (ids)
+        kfree(ids);
     genlmsg_cancel(skb, genlh);
     return -EMSGSIZE;
 }

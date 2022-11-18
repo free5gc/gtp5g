@@ -106,15 +106,17 @@ int qer_get_pdr_ids(u16 *ids, int n, struct qer *qer, struct gtp5g_dev *gtp)
     return i;
 }
 
-void qer_set_pdr(u64 seid, u32 qer_id, struct hlist_node *node, struct gtp5g_dev *gtp)
+void qer_set_pdr(u64 seid, u32 *qer_ids, u32 qer_num, struct hlist_node *node, struct gtp5g_dev *gtp)
 {
-    u32 i;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
+    u32 i, j;
 
     if (!hlist_unhashed(node))
         hlist_del_rcu(node);
 
-    seid_qer_id_to_hex_str(seid, qer_id, seid_qer_id_hexstr);
-    i = str_hashfn(seid_qer_id_hexstr) % gtp->hash_size;
-    hlist_add_head_rcu(node, &gtp->related_qer_hash[i]);
+    for (j = 0; j < qer_num; j++) {
+        seid_qer_id_to_hex_str(seid, qer_ids[j], seid_qer_id_hexstr);
+        i = str_hashfn(seid_qer_id_hexstr) % gtp->hash_size;
+        hlist_add_head_rcu(node, &gtp->related_qer_hash[i]);
+    }
 }
