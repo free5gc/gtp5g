@@ -12,6 +12,7 @@ because the type translating between libgtp5gnl and gtp5g had been changed.
 ## Usage
 ### Compile
 ```
+git clone https://github.com/free5gc/gtp5g.git && cd gtp5g
 make clean && make
 ```
 
