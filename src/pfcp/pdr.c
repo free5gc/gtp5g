@@ -267,9 +267,6 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     else
         may_pull_len = hdrlen;
 
-    if (!pskb_may_pull(skb, may_pull_len))
-        return NULL;
-
     iph = (struct iphdr *)(skb->data + hdrlen);
     target_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->saddr : &iph->daddr);
 

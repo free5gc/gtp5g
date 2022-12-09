@@ -225,17 +225,25 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
 
 static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 {
-    unsigned int hdrlen = sizeof(struct udphdr) + sizeof(struct gtpv1_hdr);
+    unsigned int hdrlen;
+    unsigned int udp_hdr_len = sizeof(struct udphdr);
+    struct udphdr *udp_hdr;
     struct gtpv1_hdr *gtpv1;
     struct pdr *pdr;
     int gtpv1_hdr_len;
 
-    if (!pskb_may_pull(skb, hdrlen)) {
-        GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
+    if (!pskb_may_pull(skb, udp_hdr_len)) {
+        GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", udp_hdr_len);
         return -1;
     }
 
-    gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+    udp_hdr = (struct udphdr *)skb->data;
+    if (!pskb_may_pull(skb, ntohs(udp_hdr->len))) {
+        GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", ntohs(udp_hdr->len));
+        return -1;
+    }
+
+    gtpv1 = (struct gtpv1_hdr *)(skb->data + udp_hdr_len);
     if ((gtpv1->flags >> 5) != GTP_V1) {
         GTP5G_ERR(gtp->dev, "GTP version is not v1: %#x\n",
             gtpv1->flags);
@@ -256,25 +264,14 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     }
 
     gtpv1_hdr_len = get_gtpu_header_len(gtpv1, skb);
-    // pskb_may_pull() may be called in get_gtpu_header_len(), so gtpv1 may be invalidated here.
     if (gtpv1_hdr_len < 0) {
         GTP5G_ERR(gtp->dev, "Invalid extension header length or else\n");
         return -1;
     }
 
-    hdrlen = sizeof(struct udphdr) + gtpv1_hdr_len;
-    if (!pskb_may_pull(skb, hdrlen)) {
-        GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
-        return -1;
-    }
-    // pskb_may_pull() is called, so gtpv1 may be invalidated here.
+    hdrlen = udp_hdr_len + gtpv1_hdr_len;
 
-    // recalculation gtpv1
-    gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, gtpv1->tid, gtpv1->type);
-    // pskb_may_pull() is called in pdr_find_by_gtp1u(), so gtpv1 may be invalidated here.
-    // recalculation gtpv1
-    gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     if (!pdr) {
         GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(gtpv1->tid));
         return -1;

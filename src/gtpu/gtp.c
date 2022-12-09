@@ -28,15 +28,7 @@ int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
      */
     if (gtpv1->flags & GTPV1_HDR_FLG_EXTHDR) {
         __u8 next_ehdr_type = 0;
-        gtpv1_hdr_opt_t *gtpv1_opt;
-        
-        if (!pskb_may_pull(skb, pull_len)) {
-            GTP5G_ERR(NULL, "Failed to pull skb length %#x\n", pull_len);
-            return -1;
-        }
-        // pskb_may_pull() is called, so gtpv1 may be invalidated here.
-        gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
-        gtpv1_opt = (gtpv1_hdr_opt_t *) ((u8 *) gtpv1 + sizeof(*gtpv1));
+        gtpv1_hdr_opt_t *gtpv1_opt = (gtpv1_hdr_opt_t *) ((u8 *) gtpv1 + sizeof(*gtpv1));
 
         next_ehdr_type = gtpv1_opt->next_ehdr_type;
         while (next_ehdr_type) {
@@ -45,13 +37,6 @@ int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
                 ext_pdu_sess_ctr_t *etype85; 
                 // pdu_sess_ctr_t *pdu_sess_info = &etype85->pdu_sess_ctr;
 
-                if (!pskb_may_pull(skb, (pull_len + 4))) {
-                    GTP5G_ERR(NULL, "Failed to pull skb length %#x\n", pull_len);
-                    return -1;
-                }
-                // pskb_may_pull() is called, so gtpv1 and gtpv1_opt may be invalidated here.
-                gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
-                gtpv1_opt = (gtpv1_hdr_opt_t *) ((u8 *) gtpv1 + sizeof(*gtpv1));
                 etype85 = (ext_pdu_sess_ctr_t *) ((u8 *) gtpv1_opt + sizeof(*gtpv1_opt)); 
 
                 // Commented the below code due to support N9 packet downlink
