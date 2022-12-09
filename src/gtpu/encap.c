@@ -227,10 +227,10 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 {
     unsigned int hdrlen;
     unsigned int udp_hdr_len = sizeof(struct udphdr);
+    unsigned int gtpv1_hdr_len = sizeof(struct gtpv1_hdr);
     struct udphdr *udp_hdr;
     struct gtpv1_hdr *gtpv1;
     struct pdr *pdr;
-    int gtpv1_hdr_len;
 
     if (!pskb_may_pull(skb, udp_hdr_len)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", udp_hdr_len);
@@ -263,10 +263,38 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         return 1;
     }
 
-    gtpv1_hdr_len = get_gtpu_header_len(gtpv1, skb);
-    if (gtpv1_hdr_len < 0) {
-        GTP5G_ERR(gtp->dev, "Invalid extension header length or else\n");
-        return -1;
+    /** TS 29.281 Chapter 5.1 and Figure 5.1-1
+     * GTP-U header at least 8 byte
+     *
+     * This field shall be present if and only if any one or more of the S, PN and E flags are set.
+     * This field means seq number (2 Octect), N-PDU number (1 Octet) and  Next ext hdr type (1 Octet).
+     *
+     * TODO: Validate the Reserved flag set or not, if it is set then protocol error
+     */
+    if (gtpv1->flags & GTPV1_HDR_FLG_MASK) {
+        u8 *ext_hdr = NULL;
+        gtpv1_hdr_len += sizeof(struct gtp1_hdr_opt);
+        /** TS 29.281 Chapter 5.2 and Figure 5.2.1-1
+         * The length of the Extension header shall be defined in a variable length of 4 octets,
+         * i.e. m+1 = n*4 octets, where n is a positive integer.
+         */
+        while (*(ext_hdr = (u8 *)gtpv1 + gtpv1_hdr_len - 1)) {
+            switch (*ext_hdr) {
+                case GTPV1_NEXT_EXT_HDR_TYPE_85:
+                {
+                    // ext_pdu_sess_ctr_t *etype85 = (ext_pdu_sess_ctr_t *) ((u8 *)ext_hdr + 1);
+                    // pdu_sess_ctr_t *pdu_sess_info = &etype85->pdu_sess_ctr;
+
+                    // Commented the below code due to support N9 packet downlink
+                    // if (pdu_sess_info->type_spare == PDU_SESSION_INFO_TYPE0)
+                    //     return -1;
+            
+                    //TODO: validate pdu_sess_ctr
+                    break;
+                }
+            }
+            gtpv1_hdr_len += (*(++ext_hdr)) * 4;
+        }
     }
 
     hdrlen = udp_hdr_len + gtpv1_hdr_len;
