@@ -311,8 +311,11 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev, 
     struct pdr *pdr)
 {
-    pdr->ul_drop_cnt++;
-    GTP5G_INF(NULL, "PDR (%u) UL_DROP_CNT (%llu)", pdr->id, pdr->ul_drop_cnt);
+    struct gtpv1_hdr *gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+    if (gtp1->type == GTPV1_MSG_TYPE_TPDU) {
+        pdr->ul_drop_cnt++;
+        GTP5G_INF(NULL, "PDR (%u) UL_DROP_CNT (%llu)", pdr->id, pdr->ul_drop_cnt);
+    }
     dev_kfree_skb(skb);
     return 0;
 }
@@ -320,20 +323,22 @@ static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev,
 static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev, 
     unsigned int hdrlen, struct pdr *pdr)
 {
-    // Get rid of the GTP-U + UDP headers.
-    if (iptunnel_pull_header(skb,
-            hdrlen, 
-            skb->protocol,
-            !net_eq(sock_net(pdr->sk), dev_net(dev)))) {
-        GTP5G_ERR(dev, "Failed to pull GTP-U and UDP headers\n");
-        return -1;
-    }
+    struct gtpv1_hdr *gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+    if (gtp1->type == GTPV1_MSG_TYPE_TPDU) {
+        // Get rid of the GTP-U + UDP headers.
+        if (iptunnel_pull_header(skb,
+                hdrlen,
+                skb->protocol,
+                !net_eq(sock_net(pdr->sk), dev_net(dev)))) {
+            GTP5G_ERR(dev, "Failed to pull GTP-U and UDP headers\n");
+            return -1;
+        }
 
-    if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
-        GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
-        ++pdr->ul_drop_cnt;
+        if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
+            GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
+            ++pdr->ul_drop_cnt;
+        }
     }
-
     dev_kfree_skb(skb);
     return 0;
 }
@@ -565,7 +570,7 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
         // The NOCP flag may only be set if the BUFF flag is set.
         // The DUPL flag may be set with any of the DROP, FORW, BUFF and NOCP flags.
         switch(far->action & FAR_ACTION_MASK) {
-        case FAR_ACTION_DROP: 
+        case FAR_ACTION_DROP:
             rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
         case FAR_ACTION_FORW:
@@ -596,14 +601,15 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     struct forwarding_parameter *fwd_param = far->fwd_param;
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
-    struct gtpv1_hdr *gtp1;
+    struct gtpv1_hdr *gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     struct iphdr *iph;
     struct udphdr *uh;
     struct pcpu_sw_netstats *stats;
     int ret;
-    u64 volume;
+    u64 volume = 0;
 
-    volume = ip4_rm_header(skb, hdrlen);
+    if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
+        volume = ip4_rm_header(skb, hdrlen);
 
     if (fwd_param) {
         if ((fwd_policy = fwd_param->fwd_policy))
@@ -611,7 +617,6 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
         if ((hdr_creation = fwd_param->hdr_creation)) {
             // Just modify the teid and packet dest ip
-            gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
             gtp1->tid = hdr_creation->teid;
 
             skb_push(skb, 20); // L3 Header Length
@@ -641,6 +646,11 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             }
             return 0;
         }
+    }
+
+    if (gtp1->type != GTPV1_MSG_TYPE_TPDU) {
+        GTP5G_WAR(dev, "Uplink: GTPv1 msg type is not TPDU\n");
+        return -1;
     }
 
     // Get rid of the GTP-U + UDP headers.
