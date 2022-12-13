@@ -225,25 +225,18 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
 
 static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 {
-    unsigned int hdrlen;
-    unsigned int udp_hdr_len = sizeof(struct udphdr);
-    unsigned int gtpv1_hdr_len = sizeof(struct gtpv1_hdr);
-    struct udphdr *udp_hdr;
+    unsigned int hdrlen = sizeof(struct udphdr) + sizeof(struct gtpv1_hdr);
     struct gtpv1_hdr *gtpv1;
     struct pdr *pdr;
+    unsigned int pull_len = hdrlen + sizeof(struct gtp1_hdr_opt) + 1; // 1 byte for the length of extension hdr
+    u32 teid;
 
-    if (!pskb_may_pull(skb, udp_hdr_len)) {
-        GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", udp_hdr_len);
+    if (!pskb_may_pull(skb, pull_len)) {
+        GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
         return -1;
     }
 
-    udp_hdr = (struct udphdr *)skb->data;
-    if (!pskb_may_pull(skb, ntohs(udp_hdr->len))) {
-        GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", ntohs(udp_hdr->len));
-        return -1;
-    }
-
-    gtpv1 = (struct gtpv1_hdr *)(skb->data + udp_hdr_len);
+    gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     if ((gtpv1->flags >> 5) != GTP_V1) {
         GTP5G_ERR(gtp->dev, "GTP version is not v1: %#x\n",
             gtpv1->flags);
@@ -273,13 +266,24 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
      */
     if (gtpv1->flags & GTPV1_HDR_FLG_MASK) {
         u8 *ext_hdr = NULL;
-        gtpv1_hdr_len += sizeof(struct gtp1_hdr_opt);
+        hdrlen += sizeof(struct gtp1_hdr_opt);
         /** TS 29.281 Chapter 5.2 and Figure 5.2.1-1
          * The length of the Extension header shall be defined in a variable length of 4 octets,
          * i.e. m+1 = n*4 octets, where n is a positive integer.
          */
-        while (*(ext_hdr = (u8 *)gtpv1 + gtpv1_hdr_len - 1)) {
-            switch (*ext_hdr) {
+        while (*(ext_hdr = (u8 *)gtpv1 + hdrlen - 1)) {
+            u8 ext_hdr_type = *ext_hdr;
+            hdrlen += (*(++ext_hdr)) * 4;
+            if (pull_len < hdrlen) {
+                pull_len = hdrlen + 1; // 1 byte for the length of extension hdr
+                if (!pskb_may_pull(skb, pull_len)) {
+                    GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
+                    return -1;
+                }
+                // pskb_may_pull() is called, so gtpv1 may be invalidated here.
+                gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+            }
+            switch (ext_hdr_type) {
                 case GTPV1_NEXT_EXT_HDR_TYPE_85:
                 {
                     // ext_pdu_sess_ctr_t *etype85 = (ext_pdu_sess_ctr_t *) ((u8 *)ext_hdr + 1);
@@ -293,15 +297,13 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
                     break;
                 }
             }
-            gtpv1_hdr_len += (*(++ext_hdr)) * 4;
         }
     }
 
-    hdrlen = udp_hdr_len + gtpv1_hdr_len;
-
-    pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, gtpv1->tid, gtpv1->type);
+    teid = gtpv1->tid;
+    pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, teid, gtpv1->type);
     if (!pdr) {
-        GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(gtpv1->tid));
+        GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(teid));
         return -1;
     }
 
@@ -627,7 +629,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                     "due to pdr->pdi->f_teid not exist\n");
                 return -1;
             }
-            
+
             iph->saddr = pdr->pdi->f_teid->gtpu_addr_ipv4.s_addr;
             iph->daddr = hdr_creation->peer_addr_ipv4.s_addr;
             iph->check = 0;
