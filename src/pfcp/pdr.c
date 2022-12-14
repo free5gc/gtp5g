@@ -250,11 +250,10 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     struct iphdr *outer_iph;
 #endif
     struct iphdr *iph;
-    __be32 *target_addr;
+    __be32 *target_addr = NULL;
     struct hlist_head *head;
     struct pdr *pdr;
     struct pdi *pdi;
-    int may_pull_len;
 
     if (!gtp)
         return NULL;
@@ -262,16 +261,12 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     if (ntohs(skb->protocol) != ETH_P_IP)
         return NULL;
 
-    if (type == GTPV1_MSG_TYPE_TPDU)
-        may_pull_len = hdrlen + sizeof(struct iphdr);
-    else
-        may_pull_len = hdrlen;
-
-    if (!pskb_may_pull(skb, may_pull_len))
-        return NULL;
-
-    iph = (struct iphdr *)(skb->data + hdrlen);
-    target_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->saddr : &iph->daddr);
+    if (type == GTPV1_MSG_TYPE_TPDU) {
+        if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr)))
+            return NULL;
+        iph = (struct iphdr *)(skb->data + hdrlen);
+        target_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->saddr : &iph->daddr);
+    }
 
     head = &gtp->i_teid_hash[u32_hashfn(teid) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_i_teid) {
@@ -282,6 +277,10 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
         // GTP-U packet must check teid
         if (!(pdi->f_teid && pdi->f_teid->teid == teid))
             continue;
+
+        if (type != GTPV1_MSG_TYPE_TPDU)
+            return pdr;
+
         // check outer IP dest addr to distinguish between N3 and N9 packet whil e act as i-upf
 #ifdef MATCH_IP
     #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
@@ -295,7 +294,7 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     #endif
 #endif
         if (pdi->ue_addr_ipv4)
-            if (!(pdr->af == AF_INET && *target_addr == pdi->ue_addr_ipv4->s_addr))
+            if (!(pdr->af == AF_INET && target_addr && *target_addr == pdi->ue_addr_ipv4->s_addr))
                 continue;
 
         if (pdi->sdf)
