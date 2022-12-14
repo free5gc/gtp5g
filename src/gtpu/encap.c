@@ -228,7 +228,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     unsigned int hdrlen = sizeof(struct udphdr) + sizeof(struct gtpv1_hdr);
     struct gtpv1_hdr *gtpv1;
     struct pdr *pdr;
-    unsigned int pull_len = hdrlen + sizeof(struct gtp1_hdr_opt) + 1; // 1 byte for the length of extension hdr
+    unsigned int pull_len = hdrlen;
     u8 gtp_type;
     u32 teid;
 
@@ -270,24 +270,33 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     if (gtpv1->flags & GTPV1_HDR_FLG_MASK) {
         u8 *ext_hdr = NULL;
         hdrlen += sizeof(struct gtp1_hdr_opt);
+        pull_len = hdrlen;
+        if (!pskb_may_pull(skb, pull_len)) {
+            GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
+            return -1;
+        }
+
         /** TS 29.281 Chapter 5.2 and Figure 5.2.1-1
          * The length of the Extension header shall be defined in a variable length of 4 octets,
          * i.e. m+1 = n*4 octets, where n is a positive integer.
          */
         while (*(ext_hdr = (u8 *)(skb->data + hdrlen - 1))) {
             u8 ext_hdr_type = *ext_hdr;
-            hdrlen += (*(++ext_hdr)) * 4;
-            if (pull_len < hdrlen) {
-                pull_len = hdrlen + 1; // 1 byte for the length of extension hdr
-                if (!pskb_may_pull(skb, pull_len)) {
-                    GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
-                    return -1;
-                }
+            pull_len = hdrlen + 1; // 1 byte for the length of extension hdr
+            if (!pskb_may_pull(skb, pull_len)) {
+                GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
+                return -1;
+            }
+            hdrlen += (*((u8 *)(skb->data + hdrlen))) * 4; // total length of extension hdr
+            pull_len = hdrlen;
+            if (!pskb_may_pull(skb, pull_len)) {
+                GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
+                return -1;
             }
             switch (ext_hdr_type) {
                 case GTPV1_NEXT_EXT_HDR_TYPE_85:
                 {
-                    // ext_pdu_sess_ctr_t *etype85 = (ext_pdu_sess_ctr_t *) ((u8 *)ext_hdr + 1);
+                    // ext_pdu_sess_ctr_t *etype85 = (ext_pdu_sess_ctr_t *) (skb->data + hdrlen);
                     // pdu_sess_ctr_t *pdu_sess_info = &etype85->pdu_sess_ctr;
 
                     // Commented the below code due to support N9 packet downlink
