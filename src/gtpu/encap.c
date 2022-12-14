@@ -229,6 +229,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     struct gtpv1_hdr *gtpv1;
     struct pdr *pdr;
     unsigned int pull_len = hdrlen + sizeof(struct gtp1_hdr_opt) + 1; // 1 byte for the length of extension hdr
+    u8 gtp_type;
     u32 teid;
 
     if (!pskb_may_pull(skb, pull_len)) {
@@ -243,16 +244,18 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         return 1;
     }
 
-    if (gtpv1->type == GTPV1_MSG_TYPE_ECHO_REQ) {
+    gtp_type = gtpv1->type;
+    teid = gtpv1->tid;
+    if (gtp_type == GTPV1_MSG_TYPE_ECHO_REQ) {
         GTP5G_INF(gtp->dev, "GTP-C message type is GTP echo request: %#x\n",
-            gtpv1->type);
+            gtp_type);
 
         return gtp1c_handle_echo_req(skb, gtp);
     }
 
-    if (gtpv1->type != GTPV1_MSG_TYPE_TPDU && gtpv1->type != GTPV1_MSG_TYPE_EMARK) {
+    if (gtp_type != GTPV1_MSG_TYPE_TPDU && gtp_type != GTPV1_MSG_TYPE_EMARK) {
         GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU or End Marker: %#x\n",
-            gtpv1->type);
+            gtp_type);
         return 1;
     }
 
@@ -271,7 +274,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
          * The length of the Extension header shall be defined in a variable length of 4 octets,
          * i.e. m+1 = n*4 octets, where n is a positive integer.
          */
-        while (*(ext_hdr = (u8 *)gtpv1 + hdrlen - 1)) {
+        while (*(ext_hdr = (u8 *)(skb->data + hdrlen - 1))) {
             u8 ext_hdr_type = *ext_hdr;
             hdrlen += (*(++ext_hdr)) * 4;
             if (pull_len < hdrlen) {
@@ -280,8 +283,6 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
                     GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
                     return -1;
                 }
-                // pskb_may_pull() is called, so gtpv1 may be invalidated here.
-                gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
             }
             switch (ext_hdr_type) {
                 case GTPV1_NEXT_EXT_HDR_TYPE_85:
@@ -300,8 +301,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         }
     }
 
-    teid = gtpv1->tid;
-    pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, teid, gtpv1->type);
+    pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, teid, gtp_type);
     if (!pdr) {
         GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(teid));
         return -1;

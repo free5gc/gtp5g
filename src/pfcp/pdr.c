@@ -294,7 +294,7 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     #endif
 #endif
         if (pdi->ue_addr_ipv4)
-            if (!(pdr->af == AF_INET && !target_addr && *target_addr == pdi->ue_addr_ipv4->s_addr))
+            if (!(pdr->af == AF_INET && target_addr && *target_addr == pdi->ue_addr_ipv4->s_addr))
                 continue;
 
         if (pdi->sdf)
