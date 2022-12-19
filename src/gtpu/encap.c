@@ -447,6 +447,10 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                     ret = 0;
                     goto err1;
                 }
+                if (urr->trigger & URR_RPT_TRIGGER_START){
+                    triggers[report_num] = USAR_TRIGGER_START;
+                    urrs[report_num++] = urr;
+                }
 
                 if (urr->info & URR_INFO_MBQE) {
                     // TODO: gtp5g isn't support QoS enforcement yet
