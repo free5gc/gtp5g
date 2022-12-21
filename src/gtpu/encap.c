@@ -349,7 +349,7 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
         if (pdr_addr_is_netlink(pdr)) {
             if (netlink_send(pdr, skb, dev_net(dev)) < 0) {
                 GTP5G_ERR(dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
-                ++pdr->dl_drop_cnt;
+                ++pdr->ul_drop_cnt;
             }
         } else {
             if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
