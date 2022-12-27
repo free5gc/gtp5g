@@ -42,6 +42,7 @@ static const struct nla_policy gtp5g_genl_urr_policy[GTP5G_URR_ATTR_MAX + 1] = {
     [GTP5G_URR_MEASUREMENT_METHOD]              = { .type = NLA_U8, },
     [GTP5G_URR_REPORTING_TRIGGER]               = { .type = NLA_U32, },
     [GTP5G_URR_MEASUREMENT_PERIOD]              = { .type = NLA_U32, },
+    [URR_QUOTA_VALIDITY_TIME]                   = { .type = NLA_U32, },
     [GTP5G_URR_MEASUREMENT_INFO]                = { .type = NLA_U8, },
     [GTP5G_URR_SEID]                            = { .type = NLA_U64, },
     [GTP5G_URR_VOLUME_THRESHOLD]                = { .type = NLA_NESTED, },

@@ -331,6 +331,9 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
     if (info->attrs[GTP5G_URR_MEASUREMENT_PERIOD])
         urr->period = nla_get_u32(info->attrs[GTP5G_URR_MEASUREMENT_PERIOD]);
 
+    if (info->attrs[URR_QUOTA_VALIDITY_TIME])
+        urr->period = nla_get_u32(info->attrs[URR_QUOTA_VALIDITY_TIME]);
+
     if (info->attrs[GTP5G_URR_MEASUREMENT_INFO])
         urr->info = nla_get_u8(info->attrs[GTP5G_URR_MEASUREMENT_INFO]);
 
@@ -475,6 +478,8 @@ static int gtp5g_genl_fill_urr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         goto genlmsg_fail;
     if (nla_put_u32(skb, GTP5G_URR_MEASUREMENT_PERIOD, urr->period))
         goto genlmsg_fail;
+    if (nla_put_u32(skb, URR_QUOTA_VALIDITY_TIME, urr->validtime))
+        goto genlmsg_fail;        
     if (nla_put_u8(skb, GTP5G_URR_MEASUREMENT_INFO, urr->info))
         goto genlmsg_fail;
     if (urr->seid) {
