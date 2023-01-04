@@ -109,4 +109,9 @@ extern void unix_sock_client_delete(struct pdr *);
 extern int unix_sock_client_new(struct pdr *);
 extern int unix_sock_client_update(struct pdr *);
 
+static inline bool pdr_addr_is_netlink(struct pdr *pdr)
+{
+    return (pdr->addr_unix.sun_path[0] == '/' && pdr->addr_unix.sun_path[1] == 0);
+}
+
 #endif // __PDR_H__

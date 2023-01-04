@@ -40,6 +40,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *, struct sk_buff *);
 static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, unsigned int);
 static int gtp5g_fwd_skb_encap(struct sk_buff *, struct net_device *,
         unsigned int, struct pdr *, uint64_t);
+static int netlink_send(struct pdr *, struct sk_buff *, struct net *);
 static int unix_sock_send(struct pdr *, void *, u32, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
     struct net_device *, struct gtp5g_pktinfo *, 
@@ -345,12 +346,81 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
             return -1;
         }
 
-        if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
-            GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
-            ++pdr->ul_drop_cnt;
+        if (pdr_addr_is_netlink(pdr)) {
+            if (netlink_send(pdr, skb, dev_net(dev)) < 0) {
+                GTP5G_ERR(dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
+                ++pdr->ul_drop_cnt;
+            }
+        } else {
+            if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
+                GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
+                ++pdr->ul_drop_cnt;
+            }
         }
     }
     dev_kfree_skb(skb);
+    return 0;
+}
+
+/* Function netlink_{...} are used to handle buffering */
+// Send PDR ID, FAR action and buffered packet to user space
+static int netlink_send(struct pdr *pdr, struct sk_buff *skb_in, struct net *net)
+{
+    struct sk_buff *skb;
+    static atomic_t seq_counter;
+    u32 seq;
+    void *header;
+    struct nlattr *attr;
+    int err;
+
+    skb = genlmsg_new(
+        nla_total_size_64bit(8) +
+            nla_total_size(2) +
+            nla_total_size(2) +
+            nla_total_size(skb_in->len),
+        GFP_ATOMIC);
+    if (!skb)
+        return -ENOMEM;
+
+    seq = atomic_inc_return(&seq_counter);
+    header = genlmsg_put(skb, 0, seq, &gtp5g_genl_family, 0, GTP5G_CMD_BUFFER_GTPU);
+    if (!header)
+    {
+        nlmsg_free(skb);
+        return -ENOMEM;
+    }
+
+    err = nla_put_u16(skb, GTP5G_BUFFER_ID, pdr->id);
+    if (err != 0)
+    {
+        nlmsg_free(skb);
+        return err;
+    }
+
+    err = nla_put_u64_64bit(skb, GTP5G_BUFFER_SEID, pdr->seid, GTP5G_BUFFER_PAD);
+    if (err != 0)
+    {
+        nlmsg_free(skb);
+        return err;
+    }
+
+    err = nla_put_u16(skb, GTP5G_BUFFER_ACTION, pdr->far->action);
+    if (err != 0)
+    {
+        nlmsg_free(skb);
+        return err;
+    }
+
+    attr = nla_reserve(skb, GTP5G_BUFFER_PACKET, skb_in->len);
+    if (!attr)
+    {
+        nlmsg_free(skb);
+        return -EINVAL;
+    }
+    skb_copy_bits(skb_in, 0, nla_data(attr), skb_in->len);
+
+    genlmsg_end(skb, header);
+    genlmsg_multicast_netns(&gtp5g_genl_family, net, skb, 0, GTP5G_GENL_MCGRP, GFP_ATOMIC);
     return 0;
 }
 
@@ -771,10 +841,17 @@ err:
 static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct pdr *pdr)
 {
-    // TODO: handle nonlinear part
-    if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
-        GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
-        ++pdr->dl_drop_cnt;
+    if (pdr_addr_is_netlink(pdr)) {
+        if (netlink_send(pdr, skb, dev_net(dev)) < 0) {
+            GTP5G_ERR(dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
+            ++pdr->dl_drop_cnt;
+        }
+    } else {
+        // TODO: handle nonlinear part
+        if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
+            GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
+            ++pdr->dl_drop_cnt;
+        }
     }
 
     dev_kfree_skb(skb);

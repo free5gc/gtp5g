@@ -159,6 +159,10 @@ static const struct genl_ops gtp5g_genl_ops[] = {
     },
 };
 
+static const struct genl_multicast_group gtp5g_genl_mcgrps[] = {
+	[GTP5G_GENL_MCGRP] = { .name = "gtp5g" },
+};
+
 struct genl_family gtp5g_genl_family __ro_after_init = {
     .name       = "gtp5g",
     .version    = 0,
@@ -168,4 +172,6 @@ struct genl_family gtp5g_genl_family __ro_after_init = {
     .module     = THIS_MODULE,
     .ops        = gtp5g_genl_ops,
     .n_ops      = ARRAY_SIZE(gtp5g_genl_ops),
+    .mcgrps     = gtp5g_genl_mcgrps,
+    .n_mcgrps   = ARRAY_SIZE(gtp5g_genl_mcgrps),
 };
