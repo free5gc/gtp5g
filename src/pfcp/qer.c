@@ -25,7 +25,7 @@ void qer_context_delete(struct qer *qer)
 {
     struct gtp5g_dev *gtp = netdev_priv(qer->dev);
     struct hlist_head *head;
-    struct pdr *pdr;
+    struct qPdrNode *qpNode;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     if (!qer)
@@ -36,9 +36,9 @@ void qer_context_delete(struct qer *qer)
 
     seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
-    hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
-        if (find_qer_id_in_pdr(pdr, qer->id)) {
-            unix_sock_client_delete(pdr);
+    hlist_for_each_entry_rcu(qpNode, head, hlist_related_qer) {
+        if (qpNode->pdr != NULL && find_qer_id_in_pdr(qpNode->pdr, qer->id)) {
+            unix_sock_client_delete(qpNode->pdr);
         }
     }
 
@@ -63,15 +63,15 @@ struct qer *find_qer_by_id(struct gtp5g_dev *gtp, u64 seid, u32 qer_id)
 
 void qer_update(struct qer *qer, struct gtp5g_dev *gtp)
 {
-    struct pdr *pdr;
+    struct qPdrNode *qpNode;
     struct hlist_head *head;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
-    hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
-        if (find_qer_id_in_pdr(pdr, qer->id)) {
-            unix_sock_client_update(pdr);
+    hlist_for_each_entry_rcu(qpNode, head, hlist_related_qer) {
+        if (qpNode->pdr != NULL && find_qer_id_in_pdr(qpNode->pdr, qer->id)) {
+            unix_sock_client_update(qpNode->pdr);
         }
     }
 }
@@ -89,34 +89,68 @@ void qer_append(u64 seid, u32 qer_id, struct qer *qer, struct gtp5g_dev *gtp)
 int qer_get_pdr_ids(u16 *ids, int n, struct qer *qer, struct gtp5g_dev *gtp)
 {
     struct hlist_head *head;
-    struct pdr *pdr;
+    struct qPdrNode *qpNode;
     int i;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     i = 0;
-    hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
+    hlist_for_each_entry_rcu(qpNode, head, hlist_related_qer) {
         if (i >= n)
             break;
-        if (find_qer_id_in_pdr(pdr, qer->id)) {
-            ids[i++] = pdr->id;
+        if (qpNode->pdr != NULL && find_qer_id_in_pdr(qpNode->pdr, qer->id)) {
+            ids[i++] = qpNode->pdr->id;
         }
     }
     return i;
 }
 
-void qer_set_pdr(u64 seid, u32 *qer_ids, u32 qer_num, struct hlist_node *node, struct gtp5g_dev *gtp)
+void del_related_qer_hash(struct gtp5g_dev *gtp, struct pdr *pdr)
+{
+    u32 i, j;
+    struct qPdrNode *qPNode = NULL ;
+    struct qPdrNode *to_be_del = NULL ;
+    char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
+
+    for (j = 0; j < pdr->qer_num; j++) {
+        seid_qer_id_to_hex_str(pdr->seid, pdr->qer_ids[j], seid_qer_id_hexstr);
+        i = str_hashfn(seid_qer_id_hexstr) % gtp->hash_size;
+        hlist_for_each_entry_rcu(qPNode, &gtp->related_qer_hash[i], hlist_related_qer) {
+            if (qPNode->pdr != NULL &&  qPNode->pdr->seid == pdr->seid && qPNode->pdr->id == pdr->id) {
+                to_be_del = qPNode;
+                break;    
+            }      
+        }
+        if (to_be_del){
+            hlist_del(&to_be_del->hlist_related_qer);
+            kfree(to_be_del);
+        }
+    }
+}
+
+int qer_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
 {
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     u32 i, j;
+    struct qPdrNode *qPNode = NULL;
 
-    if (!hlist_unhashed(node))
-        hlist_del_rcu(node);
+    if (!pdr)
+        return -1;
 
-    for (j = 0; j < qer_num; j++) {
-        seid_qer_id_to_hex_str(seid, qer_ids[j], seid_qer_id_hexstr);
+    // clean old qPNode
+    del_related_qer_hash(gtp, pdr);
+
+    for (j = 0; j < pdr->qer_num; j++) {
+        seid_qer_id_to_hex_str(pdr->seid, pdr->qer_ids[j], seid_qer_id_hexstr);
         i = str_hashfn(seid_qer_id_hexstr) % gtp->hash_size;
-        hlist_add_head_rcu(node, &gtp->related_qer_hash[i]);
+
+        qPNode = kzalloc(sizeof(*qPNode), GFP_ATOMIC);
+        if (!qPNode) {
+            return -ENOMEM;
+        }
+        qPNode->pdr = pdr;
+        hlist_add_head_rcu(&qPNode->hlist_related_qer, &gtp->related_qer_hash[i]);    
     }
+    return 0;
 }

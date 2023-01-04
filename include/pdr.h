@@ -50,12 +50,17 @@ struct pdi {
 
 #define QER_ID_SIZE sizeof(u32)
 #define URR_ID_SIZE sizeof(u32)
+
+struct qPdrNode {
+    struct hlist_node hlist_related_qer;
+    struct pdr *pdr;
+};
+
 struct pdr {
     struct hlist_node hlist_id;
     struct hlist_node hlist_i_teid;
     struct hlist_node hlist_addr;
     struct hlist_node hlist_related_far;
-    struct hlist_node hlist_related_qer;
     struct hlist_node hlist_related_urr;
 
     u64 seid;
