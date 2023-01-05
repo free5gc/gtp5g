@@ -16,6 +16,7 @@
 #include <net/netns/generic.h>
 #include "net.h"
 #include "util.h"
+#include "far.h"
 
 static int pdr_fill(struct pdr *, struct gtp5g_dev *, struct genl_info *);
 static int parse_pdi(struct pdr *, struct nlattr *);

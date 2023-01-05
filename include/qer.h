@@ -6,6 +6,7 @@
 #include <linux/net.h>
 
 #include "dev.h"
+#include "pdr.h"
 
 struct qer {
     struct hlist_node hlist_id;
@@ -32,9 +33,6 @@ struct qer {
     struct net_device *dev;
     struct rcu_head rcu_head;
 };
-
-// to avoid circular dependency(pdr import qer, qer import pdr) problem lead to compile failed
-struct pdr;
 
 extern void qer_context_delete(struct qer *);
 extern struct qer *find_qer_by_id(struct gtp5g_dev *, u64, u32);

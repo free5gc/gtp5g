@@ -4,6 +4,7 @@
 #include "dev.h"
 #include "urr.h"
 #include "pdr.h"
+#include "far.h"
 #include "seid.h"
 #include "hash.h"
 #include "log.h"

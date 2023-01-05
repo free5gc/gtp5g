@@ -9,8 +9,6 @@
 #include <linux/un.h>
 #include <net/ip.h>
 
-#include "far.h"
-#include "qer.h"
 #include "urr.h"
 
 #define SEID_U32ID_HEX_STR_LEN 24
@@ -51,8 +49,8 @@ struct pdi {
 #define QER_ID_SIZE sizeof(u32)
 #define URR_ID_SIZE sizeof(u32)
 
-struct qPdrNode {
-    struct hlist_node hlist_related_qer;
+struct pdr_node {
+    struct hlist_node hlist;
     struct pdr *pdr;
 };
 
