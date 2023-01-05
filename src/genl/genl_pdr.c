@@ -187,6 +187,7 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
         return -ENOENT;
     }
 
+    del_related_urr_hash(gtp, pdr);
     del_related_qer_hash(gtp, pdr);
     pdr_context_delete(pdr);
     rcu_read_unlock();
@@ -464,7 +465,10 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     pdr->af = AF_INET;
     pdr->far = find_far_by_id(gtp, pdr->seid, *pdr->far_id);
     far_set_pdr(pdr->seid, *pdr->far_id, &pdr->hlist_related_far, gtp);
-    urr_set_pdr(pdr->seid, pdr->urr_ids, pdr->urr_num, &pdr->hlist_related_urr, gtp);
+
+    err = urr_set_pdr(pdr, gtp);
+    if (err) 
+        return err;
 
     err = qer_set_pdr(pdr, gtp);
     if (err)

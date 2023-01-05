@@ -54,12 +54,16 @@ struct pdr_node {
     struct pdr *pdr;
 };
 
+struct uPdrNode {
+    struct hlist_node hlist_related_urr;
+    struct pdr *pdr;
+};
+
 struct pdr {
     struct hlist_node hlist_id;
     struct hlist_node hlist_i_teid;
     struct hlist_node hlist_addr;
     struct hlist_node hlist_related_far;
-    struct hlist_node hlist_related_urr;
 
     u64 seid;
     u16 id;
