@@ -37,7 +37,8 @@ void qer_context_delete(struct qer *qer)
     seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr_node, head, hlist) {
-        if (pdr_node->pdr != NULL && find_qer_id_in_pdr(pdr_node->pdr, qer->id)) {
+        if (pdr_node->pdr != NULL &&
+            find_qer_id_in_pdr(pdr_node->pdr, qer->id)) {
             unix_sock_client_delete(pdr_node->pdr);
         }
     }
@@ -117,7 +118,9 @@ void del_related_qer_hash(struct gtp5g_dev *gtp, struct pdr *pdr)
         seid_qer_id_to_hex_str(pdr->seid, pdr->qer_ids[j], seid_qer_id_hexstr);
         i = str_hashfn(seid_qer_id_hexstr) % gtp->hash_size;
         hlist_for_each_entry_rcu(pdr_node, &gtp->related_qer_hash[i], hlist) {
-            if (pdr_node->pdr != NULL &&  pdr_node->pdr->seid == pdr->seid && pdr_node->pdr->id == pdr->id) {
+            if (pdr_node->pdr != NULL &&  
+                pdr_node->pdr->seid == pdr->seid && 
+                pdr_node->pdr->id == pdr->id) {
                 to_be_del = pdr_node;
                 break;    
             }      

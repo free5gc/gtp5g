@@ -46,7 +46,8 @@ void far_context_delete(struct far *far)
     seid_far_id_to_hex_str(far->seid, far->id, seid_far_id_hexstr);
     head = &gtp->related_far_hash[str_hashfn(seid_far_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr_node, head, hlist) {
-        if (pdr_node->pdr->seid == far->seid && *pdr_node->pdr->far_id == far->id) {
+        if (pdr_node->pdr->seid == far->seid &&
+            *pdr_node->pdr->far_id == far->id) {
             pdr_node->pdr->far = NULL;
             unix_sock_client_delete(pdr_node->pdr);
         }
@@ -81,7 +82,8 @@ void far_update(struct far *far, struct gtp5g_dev *gtp, u8 *flag,
     seid_far_id_to_hex_str(far->seid, far->id, seid_far_id_hexstr);
     head = &gtp->related_far_hash[str_hashfn(seid_far_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr_node, head, hlist) {
-        if (pdr_node->pdr->seid == far->seid && *pdr_node->pdr->far_id == far->id) {
+        if (pdr_node->pdr->seid == far->seid &&
+            *pdr_node->pdr->far_id == far->id) {
             if (flag != NULL && *flag == 1) {
                 epkt_info->role_addr = pdr_node->pdr->role_addr_ipv4.s_addr;
                 epkt_info->sk = pdr_node->pdr->sk;
@@ -115,7 +117,8 @@ int far_get_pdr_ids(u16 *ids, int n, struct far *far, struct gtp5g_dev *gtp)
     hlist_for_each_entry_rcu(pdr_node, head, hlist) {
         if (i >= n)
             break;
-        if (pdr_node->pdr->seid == far->seid && *pdr_node->pdr->far_id == far->id)
+        if (pdr_node->pdr->seid == far->seid &&
+            *pdr_node->pdr->far_id == far->id)
             ids[i++] = pdr_node->pdr->id;
     }
     return i;
@@ -131,7 +134,9 @@ void del_related_far_hash(struct gtp5g_dev *gtp, struct pdr *pdr)
     seid_far_id_to_hex_str(pdr->seid, *pdr->far_id, seid_far_id_hexstr);
     i = str_hashfn(seid_far_id_hexstr) % gtp->hash_size;
     hlist_for_each_entry_rcu(pdr_node, &gtp->related_far_hash[i], hlist) {
-        if (pdr_node->pdr != NULL &&  pdr_node->pdr->seid == pdr->seid && pdr_node->pdr->id == pdr->id) {
+        if (pdr_node->pdr != NULL &&
+            pdr_node->pdr->seid == pdr->seid &&
+            pdr_node->pdr->id == pdr->id) {
             to_be_del = pdr_node;
             break;    
         }      
