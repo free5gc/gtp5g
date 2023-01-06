@@ -155,6 +155,8 @@ int far_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
 
     if (!pdr)
         return -1;
+    
+    del_related_far_hash(gtp, pdr);
 
     seid_far_id_to_hex_str(pdr->seid, *pdr->far_id, seid_far_id_hexstr);
     i = str_hashfn(seid_far_id_hexstr) % gtp->hash_size;

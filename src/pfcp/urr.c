@@ -223,6 +223,9 @@ int urr_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
     u32 i, j;
     struct pdr_node *pdr_node = NULL;
 
+    if (!pdr)
+        return -1;
+
     // clean old pdr_node
     del_related_urr_hash(gtp, pdr);
 
