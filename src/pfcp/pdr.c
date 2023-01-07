@@ -3,6 +3,7 @@
 #include "dev.h"
 #include "link.h"
 #include "pdr.h"
+#include "far.h"
 #include "gtp.h"
 #include "genl_pdr.h"
 #include "genl_far.h"
@@ -86,14 +87,6 @@ void pdr_context_delete(struct pdr *pdr)
     if (!hlist_unhashed(&pdr->hlist_addr))
         hlist_del_rcu(&pdr->hlist_addr);
 
-    if (!hlist_unhashed(&pdr->hlist_related_far))
-        hlist_del_rcu(&pdr->hlist_related_far);
-
-    if (!hlist_unhashed(&pdr->hlist_related_qer))
-        hlist_del_rcu(&pdr->hlist_related_qer);
-
-    if (!hlist_unhashed(&pdr->hlist_related_urr))
-        hlist_del_rcu(&pdr->hlist_related_urr);
     call_rcu(&pdr->rcu_head, pdr_context_free);
 }
 
