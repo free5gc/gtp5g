@@ -8,6 +8,7 @@
 
 #include "pktinfo.h"
 #include "bar.h"
+#include "pdr.h"
 
 #define SEID_U32ID_HEX_STR_LEN 24
 
@@ -60,6 +61,7 @@ extern void far_update(struct far *, struct gtp5g_dev *, u8 *,
         struct gtp5g_emark_pktinfo *);
 extern void far_append(u64, u32, struct far *, struct gtp5g_dev *);
 extern int far_get_pdr_ids(u16 *, int, struct far *, struct gtp5g_dev *);
-extern void far_set_pdr(u64, u32, struct hlist_node *, struct gtp5g_dev *);
+extern int far_set_pdr(struct pdr *, struct gtp5g_dev *);
+extern void del_related_far_hash(struct gtp5g_dev *, struct pdr *);
 
 #endif // __FAR_H__

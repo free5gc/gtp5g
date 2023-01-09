@@ -44,7 +44,6 @@ EXTRA_CFLAGS += -I $(PWD)/include
 
 5G_GTPU	:= src/gtpu/dev.o \
 			src/gtpu/encap.o \
-			src/gtpu/gtp.o \
 			src/gtpu/hash.o \
 			src/gtpu/link.o \
 			src/gtpu/net.o \

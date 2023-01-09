@@ -6,6 +6,7 @@
 #include <linux/net.h>
 
 #include "dev.h"
+#include "pdr.h"
 
 struct qer {
     struct hlist_node hlist_id;
@@ -38,6 +39,7 @@ extern struct qer *find_qer_by_id(struct gtp5g_dev *, u64, u32);
 extern void qer_update(struct qer *, struct gtp5g_dev *);
 extern void qer_append(u64, u32, struct qer *, struct gtp5g_dev *);
 extern int qer_get_pdr_ids(u16 *, int, struct qer *, struct gtp5g_dev *);
-extern void qer_set_pdr(u64, u32 *, u32, struct hlist_node *, struct gtp5g_dev *);
+extern int qer_set_pdr(struct pdr *, struct gtp5g_dev *);
+extern void del_related_qer_hash(struct gtp5g_dev *, struct pdr *);
 
 #endif // __QER_H__

@@ -9,8 +9,6 @@
 #include <linux/un.h>
 #include <net/ip.h>
 
-#include "far.h"
-#include "qer.h"
 #include "urr.h"
 
 #define SEID_U32ID_HEX_STR_LEN 24
@@ -50,13 +48,16 @@ struct pdi {
 
 #define QER_ID_SIZE sizeof(u32)
 #define URR_ID_SIZE sizeof(u32)
+
+struct pdr_node {
+    struct hlist_node hlist;
+    struct pdr *pdr;
+};
+
 struct pdr {
     struct hlist_node hlist_id;
     struct hlist_node hlist_i_teid;
     struct hlist_node hlist_addr;
-    struct hlist_node hlist_related_far;
-    struct hlist_node hlist_related_qer;
-    struct hlist_node hlist_related_urr;
 
     u64 seid;
     u16 id;
@@ -108,5 +109,10 @@ extern void pdr_update_hlist_table(struct pdr *, struct gtp5g_dev *);
 extern void unix_sock_client_delete(struct pdr *);
 extern int unix_sock_client_new(struct pdr *);
 extern int unix_sock_client_update(struct pdr *);
+
+static inline bool pdr_addr_is_netlink(struct pdr *pdr)
+{
+    return (pdr->addr_unix.sun_path[0] == '/' && pdr->addr_unix.sun_path[1] == 0);
+}
 
 #endif // __PDR_H__

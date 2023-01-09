@@ -40,6 +40,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *, struct sk_buff *);
 static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, unsigned int);
 static int gtp5g_fwd_skb_encap(struct sk_buff *, struct net_device *,
         unsigned int, struct pdr *, uint64_t);
+static int netlink_send(struct pdr *, struct sk_buff *, struct net *);
 static int unix_sock_send(struct pdr *, void *, u32, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
     struct net_device *, struct gtp5g_pktinfo *, 
@@ -228,10 +229,12 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     unsigned int hdrlen = sizeof(struct udphdr) + sizeof(struct gtpv1_hdr);
     struct gtpv1_hdr *gtpv1;
     struct pdr *pdr;
-    int gtpv1_hdr_len;
+    unsigned int pull_len = hdrlen;
+    u8 gtp_type;
+    u32 teid;
 
-    if (!pskb_may_pull(skb, hdrlen)) {
-        GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
+    if (!pskb_may_pull(skb, pull_len)) {
+        GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
         return -1;
     }
 
@@ -242,41 +245,75 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         return 1;
     }
 
-    if (gtpv1->type == GTPV1_MSG_TYPE_ECHO_REQ) {
+    gtp_type = gtpv1->type;
+    teid = gtpv1->tid;
+    if (gtp_type == GTPV1_MSG_TYPE_ECHO_REQ) {
         GTP5G_INF(gtp->dev, "GTP-C message type is GTP echo request: %#x\n",
-            gtpv1->type);
+            gtp_type);
 
         return gtp1c_handle_echo_req(skb, gtp);
     }
 
-    if (gtpv1->type != GTPV1_MSG_TYPE_TPDU && gtpv1->type != GTPV1_MSG_TYPE_EMARK) {
+    if (gtp_type != GTPV1_MSG_TYPE_TPDU && gtp_type != GTPV1_MSG_TYPE_EMARK) {
         GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU or End Marker: %#x\n",
-            gtpv1->type);
+            gtp_type);
         return 1;
     }
 
-    gtpv1_hdr_len = get_gtpu_header_len(gtpv1, skb);
-    // pskb_may_pull() may be called in get_gtpu_header_len(), so gtpv1 may be invalidated here.
-    if (gtpv1_hdr_len < 0) {
-        GTP5G_ERR(gtp->dev, "Invalid extension header length or else\n");
-        return -1;
+    /** TS 29.281 Chapter 5.1 and Figure 5.1-1
+     * GTP-U header at least 8 byte
+     *
+     * This field shall be present if and only if any one or more of the S, PN and E flags are set.
+     * This field means seq number (2 Octect), N-PDU number (1 Octet) and  Next ext hdr type (1 Octet).
+     *
+     * TODO: Validate the Reserved flag set or not, if it is set then protocol error
+     */
+    if (gtpv1->flags & GTPV1_HDR_FLG_MASK) {
+        u8 *ext_hdr = NULL;
+        hdrlen += sizeof(struct gtp1_hdr_opt);
+        pull_len = hdrlen;
+        if (!pskb_may_pull(skb, pull_len)) {
+            GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
+            return -1;
+        }
+
+        /** TS 29.281 Chapter 5.2 and Figure 5.2.1-1
+         * The length of the Extension header shall be defined in a variable length of 4 octets,
+         * i.e. m+1 = n*4 octets, where n is a positive integer.
+         */
+        while (*(ext_hdr = (u8 *)(skb->data + hdrlen - 1))) {
+            u8 ext_hdr_type = *ext_hdr;
+            pull_len = hdrlen + 1; // 1 byte for the length of extension hdr
+            if (!pskb_may_pull(skb, pull_len)) {
+                GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
+                return -1;
+            }
+            hdrlen += (*((u8 *)(skb->data + hdrlen))) * 4; // total length of extension hdr
+            pull_len = hdrlen;
+            if (!pskb_may_pull(skb, pull_len)) {
+                GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
+                return -1;
+            }
+            switch (ext_hdr_type) {
+                case GTPV1_NEXT_EXT_HDR_TYPE_85:
+                {
+                    // ext_pdu_sess_ctr_t *etype85 = (ext_pdu_sess_ctr_t *) (skb->data + hdrlen);
+                    // pdu_sess_ctr_t *pdu_sess_info = &etype85->pdu_sess_ctr;
+
+                    // Commented the below code due to support N9 packet downlink
+                    // if (pdu_sess_info->type_spare == PDU_SESSION_INFO_TYPE0)
+                    //     return -1;
+            
+                    //TODO: validate pdu_sess_ctr
+                    break;
+                }
+            }
+        }
     }
 
-    hdrlen = sizeof(struct udphdr) + gtpv1_hdr_len;
-    if (!pskb_may_pull(skb, hdrlen)) {
-        GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
-        return -1;
-    }
-    // pskb_may_pull() is called, so gtpv1 may be invalidated here.
-
-    // recalculation gtpv1
-    gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
-    pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, gtpv1->tid, gtpv1->type);
-    // pskb_may_pull() is called in pdr_find_by_gtp1u(), so gtpv1 may be invalidated here.
-    // recalculation gtpv1
-    gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+    pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, teid, gtp_type);
     if (!pdr) {
-        GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(gtpv1->tid));
+        GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(teid));
         return -1;
     }
 
@@ -286,8 +323,11 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev, 
     struct pdr *pdr)
 {
-    pdr->ul_drop_cnt++;
-    GTP5G_INF(NULL, "PDR (%u) UL_DROP_CNT (%llu)", pdr->id, pdr->ul_drop_cnt);
+    struct gtpv1_hdr *gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+    if (gtp1->type == GTPV1_MSG_TYPE_TPDU) {
+        pdr->ul_drop_cnt++;
+        GTP5G_INF(NULL, "PDR (%u) UL_DROP_CNT (%llu)", pdr->id, pdr->ul_drop_cnt);
+    }
     dev_kfree_skb(skb);
     return 0;
 }
@@ -295,21 +335,92 @@ static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev,
 static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev, 
     unsigned int hdrlen, struct pdr *pdr)
 {
-    // Get rid of the GTP-U + UDP headers.
-    if (iptunnel_pull_header(skb,
-            hdrlen, 
-            skb->protocol,
-            !net_eq(sock_net(pdr->sk), dev_net(dev)))) {
-        GTP5G_ERR(dev, "Failed to pull GTP-U and UDP headers\n");
-        return -1;
-    }
+    struct gtpv1_hdr *gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+    if (gtp1->type == GTPV1_MSG_TYPE_TPDU) {
+        // Get rid of the GTP-U + UDP headers.
+        if (iptunnel_pull_header(skb,
+                hdrlen,
+                skb->protocol,
+                !net_eq(sock_net(pdr->sk), dev_net(dev)))) {
+            GTP5G_ERR(dev, "Failed to pull GTP-U and UDP headers\n");
+            return -1;
+        }
 
-    if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
-        GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
-        ++pdr->ul_drop_cnt;
+        if (pdr_addr_is_netlink(pdr)) {
+            if (netlink_send(pdr, skb, dev_net(dev)) < 0) {
+                GTP5G_ERR(dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
+                ++pdr->ul_drop_cnt;
+            }
+        } else {
+            if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
+                GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
+                ++pdr->ul_drop_cnt;
+            }
+        }
     }
-
     dev_kfree_skb(skb);
+    return 0;
+}
+
+/* Function netlink_{...} are used to handle buffering */
+// Send PDR ID, FAR action and buffered packet to user space
+static int netlink_send(struct pdr *pdr, struct sk_buff *skb_in, struct net *net)
+{
+    struct sk_buff *skb;
+    static atomic_t seq_counter;
+    u32 seq;
+    void *header;
+    struct nlattr *attr;
+    int err;
+
+    skb = genlmsg_new(
+        nla_total_size_64bit(8) +
+            nla_total_size(2) +
+            nla_total_size(2) +
+            nla_total_size(skb_in->len),
+        GFP_ATOMIC);
+    if (!skb)
+        return -ENOMEM;
+
+    seq = atomic_inc_return(&seq_counter);
+    header = genlmsg_put(skb, 0, seq, &gtp5g_genl_family, 0, GTP5G_CMD_BUFFER_GTPU);
+    if (!header)
+    {
+        nlmsg_free(skb);
+        return -ENOMEM;
+    }
+
+    err = nla_put_u16(skb, GTP5G_BUFFER_ID, pdr->id);
+    if (err != 0)
+    {
+        nlmsg_free(skb);
+        return err;
+    }
+
+    err = nla_put_u64_64bit(skb, GTP5G_BUFFER_SEID, pdr->seid, GTP5G_BUFFER_PAD);
+    if (err != 0)
+    {
+        nlmsg_free(skb);
+        return err;
+    }
+
+    err = nla_put_u16(skb, GTP5G_BUFFER_ACTION, pdr->far->action);
+    if (err != 0)
+    {
+        nlmsg_free(skb);
+        return err;
+    }
+
+    attr = nla_reserve(skb, GTP5G_BUFFER_PACKET, skb_in->len);
+    if (!attr)
+    {
+        nlmsg_free(skb);
+        return -EINVAL;
+    }
+    skb_copy_bits(skb_in, 0, nla_data(attr), skb_in->len);
+
+    genlmsg_end(skb, header);
+    genlmsg_multicast_netns(&gtp5g_genl_family, net, skb, 0, GTP5G_GENL_MCGRP, GFP_ATOMIC);
     return 0;
 }
 
@@ -544,7 +655,7 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
         // The NOCP flag may only be set if the BUFF flag is set.
         // The DUPL flag may be set with any of the DROP, FORW, BUFF and NOCP flags.
         switch(far->action & FAR_ACTION_MASK) {
-        case FAR_ACTION_DROP: 
+        case FAR_ACTION_DROP:
             rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
         case FAR_ACTION_FORW:
@@ -575,14 +686,15 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     struct forwarding_parameter *fwd_param = far->fwd_param;
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
-    struct gtpv1_hdr *gtp1;
+    struct gtpv1_hdr *gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     struct iphdr *iph;
     struct udphdr *uh;
     struct pcpu_sw_netstats *stats;
     int ret;
-    u64 volume;
+    u64 volume = 0;
 
-    volume = ip4_rm_header(skb, hdrlen);
+    if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
+        volume = ip4_rm_header(skb, hdrlen);
 
     if (fwd_param) {
         if ((fwd_policy = fwd_param->fwd_policy))
@@ -590,7 +702,6 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
         if ((hdr_creation = fwd_param->hdr_creation)) {
             // Just modify the teid and packet dest ip
-            gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
             gtp1->tid = hdr_creation->teid;
 
             skb_push(skb, 20); // L3 Header Length
@@ -601,7 +712,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                     "due to pdr->pdi->f_teid not exist\n");
                 return -1;
             }
-            
+
             iph->saddr = pdr->pdi->f_teid->gtpu_addr_ipv4.s_addr;
             iph->daddr = hdr_creation->peer_addr_ipv4.s_addr;
             iph->check = 0;
@@ -620,6 +731,11 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             }
             return 0;
         }
+    }
+
+    if (gtp1->type != GTPV1_MSG_TYPE_TPDU) {
+        GTP5G_WAR(dev, "Uplink: GTPv1 msg type is not TPDU\n");
+        return -1;
     }
 
     // Get rid of the GTP-U + UDP headers.
@@ -729,10 +845,17 @@ err:
 static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct pdr *pdr)
 {
-    // TODO: handle nonlinear part
-    if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
-        GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
-        ++pdr->dl_drop_cnt;
+    if (pdr_addr_is_netlink(pdr)) {
+        if (netlink_send(pdr, skb, dev_net(dev)) < 0) {
+            GTP5G_ERR(dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
+            ++pdr->dl_drop_cnt;
+        }
+    } else {
+        // TODO: handle nonlinear part
+        if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
+            GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
+            ++pdr->dl_drop_cnt;
+        }
     }
 
     dev_kfree_skb(skb);

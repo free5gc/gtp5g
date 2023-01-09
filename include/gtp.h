@@ -89,7 +89,4 @@ typedef struct gtp1_hdr_ext_pdu_sess_ctr {
     __u8            next_ehdr_type;
 } __attribute__((packed)) ext_pdu_sess_ctr_t;
 
-
-extern int get_gtpu_header_len(struct gtpv1_hdr *,  struct sk_buff *);
-
 #endif // __GTP5G_GTP_H__
