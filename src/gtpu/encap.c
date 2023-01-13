@@ -160,6 +160,7 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     struct rtable *rt;
     struct flowi4 fl4;
     struct iphdr *iph;
+    struct udphdr *udph;
 
     __u8   flags = 0;
     __be16 seq_number = 0;
@@ -200,6 +201,7 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     gtp_pkt->recov.cnt = 0;
 
     iph = ip_hdr(skb);
+    udph = udp_hdr(skb);
   
     rt = ip4_find_route(skb, iph, gtp->sk1u, gtp->dev, 
         iph->daddr ,
@@ -216,7 +218,7 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
                     iph->tos,
                     ip4_dst_hoplimit(&rt->dst),
                     0,
-                    htons(GTP1U_PORT), htons(GTP1U_PORT),
+                    udph->dest, udph->source,
                     !net_eq(sock_net(gtp->sk1u),
                         dev_net(gtp->dev)),
                     false);
