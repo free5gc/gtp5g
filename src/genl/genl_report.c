@@ -17,7 +17,6 @@
 #include "urr.h"
 
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *, struct urr *);
-static int gtp5g_genl_fill_ur(struct sk_buff *, struct urr *);
 static int gtp5g_genl_fill_multi_ur(struct sk_buff *, u32 , u32 , u32 , struct urr **, int );
 static int parse_sess_urr(struct sess_urrs *, struct nlattr *);
 
@@ -190,7 +189,9 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
     nest_volume_measurement = nla_nest_start(skb, GTP5G_UR_VOLUME_MEASUREMENT);
     if (!nest_volume_measurement)
         return -EMSGSIZE;
-
+    printk("GTP5G_UR_VOLUME_MEASUREMENT: %lld, %lld, %lld, %lld, %lld, %lld",
+    urr->bytes.totalVolume
+    , urr->bytes.uplinkVolume, urr->bytes.downlinkVolume, urr->bytes.totalPktNum, urr->bytes.uplinkPktNum ,urr->bytes.downlinkPktNum);
     if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOVOL, urr->bytes.totalVolume , 0))
         return -EMSGSIZE;
     if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UVOL, urr->bytes.uplinkVolume, 0))
@@ -210,7 +211,7 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
     return 0;
 }
 
-static int gtp5g_genl_fill_ur(struct sk_buff *skb, struct urr *urr)
+int gtp5g_genl_fill_ur(struct sk_buff *skb, struct urr *urr, u32 reporting_trigger)
 {
     struct nlattr *nest_usage_report;
 
@@ -227,7 +228,14 @@ static int gtp5g_genl_fill_ur(struct sk_buff *skb, struct urr *urr)
     if (nla_put_u64_64bit(skb, GTP5G_UR_END_TIME, urr->end_time, 0))
         return -EMSGSIZE;
     if (gtp5g_genl_fill_volume_measurement(skb, urr))
-        return -EMSGSIZE;
+    return -EMSGSIZE;     
+
+
+    if (reporting_trigger > 0) {
+        if (nla_put_u32(skb, GTP5G_UR_USAGE_REPORT_TRIGGER, reporting_trigger))
+            return -EMSGSIZE;
+    }
+
     nla_nest_end(skb, nest_usage_report);
 
     return 0;
@@ -244,7 +252,7 @@ int gtp5g_genl_fill_multi_ur(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         goto genlmsg_fail;
 
     for (i = 0; i < urr_num; i++) {
-        gtp5g_genl_fill_ur(skb, urrs[i]);
+        gtp5g_genl_fill_ur(skb, urrs[i], 0);
     }
 
     genlmsg_end(skb, genlh);
@@ -265,7 +273,7 @@ int gtp5g_genl_fill_usage_reports(struct sk_buff *skb, u32 snd_portid, u32 snd_s
     if (!genlh)
         goto genlmsg_fail;
 
-    gtp5g_genl_fill_ur(skb, urr);
+    gtp5g_genl_fill_ur(skb, urr, 0);
 
     genlmsg_end(skb, genlh);
 
@@ -280,7 +288,6 @@ static int parse_sess_urr(struct sess_urrs *sess_urr ,struct nlattr *a){
     struct nlattr *attrs[GTP5G_UR_ATTR_MAX + 1];
     int err;
 
-    printk("start parse urr\n");
     if (!sess_urr) {
         sess_urr= kzalloc(sizeof(sess_urr), GFP_ATOMIC);
         if (!sess_urr)
@@ -295,13 +302,9 @@ static int parse_sess_urr(struct sess_urrs *sess_urr ,struct nlattr *a){
         sess_urr->urrid = nla_get_u32(attrs[GTP5G_URR_ID]);
     }
 
-    printk("start parse urr id\n");
     if (attrs[GTP5G_URR_SEID]) {
         sess_urr->seid = nla_get_u64(attrs[GTP5G_URR_SEID]);
     }
-    printk("start parse session id\n");
 
-
-    printk("Recieve sess[%lld] urr [%d]query\n", sess_urr->seid, sess_urr->urrid);
     return 0;
 }
