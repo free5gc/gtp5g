@@ -129,6 +129,7 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
     u64 seid;
     u32 urr_id;
     struct sk_buff *skb_ack;
+    struct urr **urrs;
     int err;
 
     if (!info->attrs[GTP5G_LINK])
@@ -174,19 +175,24 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
     }
 
     urr->end_time = ktime_get_real();
+    urrs = kzalloc(sizeof(struct urr *) * 1 , GFP_KERNEL);
+
+    urrs[0] = urr;
     err = gtp5g_genl_fill_usage_reports(skb_ack,
             NETLINK_CB(skb).portid,
             info->snd_seq,
             info->nlhdr->nlmsg_type,
-            urr);
+            &urr, 1);
 
     if (err) {
         kfree_skb(skb_ack);
+        kfree(urrs);
         rcu_read_unlock();
         return err;
     }
 
     urr_context_delete(urr);
+    kfree(urrs);
     rcu_read_unlock();
 
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid); 

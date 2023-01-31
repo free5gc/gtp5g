@@ -17,16 +17,15 @@
 #include "urr.h"
 
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *, struct urr *);
-static int gtp5g_genl_fill_multi_ur(struct sk_buff *, u32 , u32 , u32 , struct urr **, int );
 static int parse_sess_urr(struct sess_urrs *, struct nlattr *);
 
-int gtp5g_genl_get_multi_usage_report(struct sk_buff *skb, struct genl_info *info)
+int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
 {
     struct gtp5g_dev *gtp;
     struct urr *urr;
     int ifindex;
     int netnsfd;
-    u64 urr_num, i;
+    u32 urr_num, i;
     struct sk_buff *skb_ack;
     int err;
     struct nlattr *hdr = nlmsg_attrdata(info->nlhdr, 0);
@@ -38,16 +37,37 @@ int gtp5g_genl_get_multi_usage_report(struct sk_buff *skb, struct genl_info *inf
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
 
-    if (!info->attrs[GTP5G_URR_NUM]) 
-        return -EINVAL;
-    urr_num = nla_get_u32(info->attrs[GTP5G_URR_NUM]);
-
     if (info->attrs[GTP5G_NET_NS_FD])
         netnsfd = nla_get_u32(info->attrs[GTP5G_NET_NS_FD]);
     else
         netnsfd = -1;
 
+    if (!info->attrs[GTP5G_URR_NUM]) 
+        return -EINVAL;
+    urr_num = nla_get_u32(info->attrs[GTP5G_URR_NUM]);
+
+    rcu_read_lock();
     sessurrs = kzalloc(urr_num * sizeof(struct sess_urrs), GFP_KERNEL);
+
+    if (info->attrs[GTP5G_SESS_URRS]) {
+        err =  parse_sess_urr(&sessurrs[i++], info->attrs[GTP5G_SESS_URRS]);
+        if (err)
+            return err;
+    }
+
+    hdr = nla_next(hdr, &remaining);
+    while (nla_ok(hdr,remaining)) {
+        switch (nla_type(hdr)) {
+        case GTP5G_SESS_URRS:
+            err = parse_sess_urr(&sessurrs[i++], hdr);
+            if (err) {
+                rcu_read_unlock();
+                return err;
+            }
+            break;
+        }
+        hdr = nla_next(hdr, &remaining);
+    }
 
     gtp = gtp5g_find_dev(sock_net(skb->sk), ifindex, netnsfd);
     if (!gtp) {
@@ -55,22 +75,7 @@ int gtp5g_genl_get_multi_usage_report(struct sk_buff *skb, struct genl_info *inf
         return -ENODEV;
     }
 
-    hdr = nla_next(hdr, &remaining);
-    while (nla_ok(hdr, remaining)) {
-        switch (nla_type(hdr)) {
-        case GTP5G_SESS_URRS:
-            err = parse_sess_urr(&sessurrs[i++], hdr);
-            if (err)
-                return err;
-            break;
-        }
-        hdr = nla_next(hdr, &remaining);
-    }
-    printk("finish parse\n");
-    rcu_read_lock();
-
     urrs = kzalloc(sizeof(struct urr *) * urr_num , GFP_KERNEL);
-
     for (i = 0; i < urr_num; i++) {
         urr = find_urr_by_id(gtp, sessurrs[i].seid, sessurrs[i].urrid);
         if (!urr) {
@@ -88,7 +93,7 @@ int gtp5g_genl_get_multi_usage_report(struct sk_buff *skb, struct genl_info *inf
         urrs[i] = urr;
     }
 
-    err = gtp5g_genl_fill_multi_ur(skb_ack,
+    err = gtp5g_genl_fill_usage_reports(skb_ack,
     NETLINK_CB(skb).portid,
     info->snd_seq,
     info->nlhdr->nlmsg_type,
@@ -110,78 +115,6 @@ int gtp5g_genl_get_multi_usage_report(struct sk_buff *skb, struct genl_info *inf
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid); 
 }
 
-int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
-{
-    struct gtp5g_dev *gtp;
-    struct urr *urr;
-    int ifindex;
-    int netnsfd;
-    u64 seid;
-    u32 urr_id;
-    struct sk_buff *skb_ack;
-    int err;
-
-    if (!info->attrs[GTP5G_LINK])
-        return -EINVAL;
-    ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
-
-    if (info->attrs[GTP5G_NET_NS_FD])
-        netnsfd = nla_get_u32(info->attrs[GTP5G_NET_NS_FD]);
-    else
-        netnsfd = -1;
-
-    rcu_read_lock();
-
-    gtp = gtp5g_find_dev(sock_net(skb->sk), ifindex, netnsfd);
-    if (!gtp) {
-        rcu_read_unlock();
-        return -ENODEV;
-    }
-
-    if (info->attrs[GTP5G_URR_SEID]) {
-        seid = nla_get_u64(info->attrs[GTP5G_URR_SEID]);
-    } else {
-        seid = 0;
-    }
-
-    if (info->attrs[GTP5G_URR_ID]) {
-        urr_id = nla_get_u32(info->attrs[GTP5G_URR_ID]);
-    } else {
-        rcu_read_unlock();
-        return -ENODEV;
-    }
-
-    urr = find_urr_by_id(gtp, seid, urr_id);
-    if (!urr) {
-        rcu_read_unlock();
-        return -ENOENT;
-    }
-
-    skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
-    if (!skb_ack) {
-        rcu_read_unlock();
-        return -ENOMEM;
-    }
-
-    urr->end_time = ktime_get_real();
-    err = gtp5g_genl_fill_usage_reports(skb_ack,
-            NETLINK_CB(skb).portid,
-            info->snd_seq,
-            info->nlhdr->nlmsg_type,
-            urr);
-    urr->start_time = ktime_get_real();
-
-    if (err) {
-        kfree_skb(skb_ack);
-        rcu_read_unlock();
-        return err;
-    }
-    rcu_read_unlock();
-
-    return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid); 
-}
-
-
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *urr)
 {
     struct nlattr *nest_volume_measurement;
@@ -189,9 +122,6 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
     nest_volume_measurement = nla_nest_start(skb, GTP5G_UR_VOLUME_MEASUREMENT);
     if (!nest_volume_measurement)
         return -EMSGSIZE;
-    printk("GTP5G_UR_VOLUME_MEASUREMENT: %lld, %lld, %lld, %lld, %lld, %lld",
-    urr->bytes.totalVolume
-    , urr->bytes.uplinkVolume, urr->bytes.downlinkVolume, urr->bytes.totalPktNum, urr->bytes.uplinkPktNum ,urr->bytes.downlinkPktNum);
     if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOVOL, urr->bytes.totalVolume , 0))
         return -EMSGSIZE;
     if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UVOL, urr->bytes.uplinkVolume, 0))
@@ -241,8 +171,8 @@ int gtp5g_genl_fill_ur(struct sk_buff *skb, struct urr *urr, u32 reporting_trigg
     return 0;
 }
 
-int gtp5g_genl_fill_multi_ur(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
-    u32 type, struct urr **urrs, int urr_num)
+int gtp5g_genl_fill_usage_reports(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
+    u32 type, struct urr **urrs, u32 urr_num)
 {
     int i;
     void *genlh;
@@ -254,26 +184,6 @@ int gtp5g_genl_fill_multi_ur(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     for (i = 0; i < urr_num; i++) {
         gtp5g_genl_fill_ur(skb, urrs[i], 0);
     }
-
-    genlmsg_end(skb, genlh);
-
-    return 0;
-
-genlmsg_fail:
-    genlmsg_cancel(skb, genlh);
-    return -EMSGSIZE;
-}
-
-int gtp5g_genl_fill_usage_reports(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
-    u32 type, struct urr *urr)
-{
-    void *genlh;
-    genlh = genlmsg_put(skb, snd_portid, snd_seq,
-            &gtp5g_genl_family, 0, type);
-    if (!genlh)
-        goto genlmsg_fail;
-
-    gtp5g_genl_fill_ur(skb, urr, 0);
 
     genlmsg_end(skb, genlh);
 

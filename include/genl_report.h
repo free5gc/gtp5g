@@ -6,7 +6,7 @@
 
 /* Nest in GTP5G_UR_VOLUME_MEASUREMENT */
 enum gtp5g_usage_report_volume_measurement_attrs {
-    GTP5G_UR_VOLUME_MEASUREMENT_FLAGS = 15,
+    GTP5G_UR_VOLUME_MEASUREMENT_FLAGS = 13,
 
     GTP5G_UR_VOLUME_MEASUREMENT_TOVOL,
     GTP5G_UR_VOLUME_MEASUREMENT_UVOL,
@@ -49,8 +49,7 @@ struct sess_urrs {
 };
 
 extern int gtp5g_genl_get_usage_report(struct sk_buff *, struct genl_info *);
-extern int gtp5g_genl_get_multi_usage_report(struct sk_buff *, struct genl_info *);
-extern int gtp5g_genl_fill_usage_reports(struct sk_buff *, u32, u32, u32, struct urr *);
+extern int gtp5g_genl_fill_usage_reports(struct sk_buff *, u32, u32, u32, struct urr **, u32);
 extern int gtp5g_genl_fill_ur(struct sk_buff *, struct urr *, u32);
 
 #endif // __GENL_URR_H__
