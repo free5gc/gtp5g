@@ -756,8 +756,13 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
     stats = this_cpu_ptr(skb->dev->tstats);
     u64_stats_update_begin(&stats->syncp);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
+    u64_stats_inc(&stats->rx_packets);
+    u64_stats_add(&stats->rx_bytes, skb->len);
+#else
     stats->rx_packets++;
     stats->rx_bytes += skb->len;
+#endif
     u64_stats_update_end(&stats->syncp);
 
     pdr->ul_pkt_cnt++;
