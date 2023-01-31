@@ -575,9 +575,10 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink, struct net_de
                     ret = 0;
                     goto err1;
                 }
-                if (urr->trigger & URR_RPT_TRIGGER_START){
+                if (urr->trigger & URR_RPT_TRIGGER_START && uplink){
                     triggers[report_num] = USAR_TRIGGER_START;
                     urrs[report_num++] = urr;
+                    urr_quota_exhaust_action(urr, gtp);
                 }
 
                 if (urr->info & URR_INFO_MBQE) {
