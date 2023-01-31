@@ -110,8 +110,24 @@ int unix_sock_client_new(struct pdr *pdr)
         return -EINVAL;
     }
 
-    if (pdr_addr_is_netlink(pdr))
+    if (pdr_addr_is_netlink(pdr)){
+        psock = &pdr->sock_for_ur;
+        addr = &pdr->addr_unix_ur;
+
+        err = sock_create(AF_UNIX, SOCK_DGRAM, 0, psock);
+        if (err) {
+            return err;
+        }
+
+        err = (*psock)->ops->connect(*psock, (struct sockaddr *)addr,
+                sizeof(addr->sun_family) + strlen(addr->sun_path), 0);
+        if (err) {
+            unix_sock_client_delete(pdr);
+            return err;
+        }
+
         return 0;
+    }
 
     err = sock_create(AF_UNIX, SOCK_DGRAM, 0, psock);
     if (err) {

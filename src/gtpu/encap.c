@@ -432,7 +432,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u32 report_num)
 {
     struct msghdr msg;
     struct kvec *kov;
-
+    struct socket *socket = pdr->sock_for_ur;
     int msg_kovlen;
     int total_kov_len = 0;
     int i, rt;
@@ -441,7 +441,14 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u32 report_num)
     u16 self_hdr[2] = {pdr->id, pdr->far->action};
     u32 self_num_hdr[1] = {report_num};
 
-    if (!pdr->sock_for_buf) {
+    if (pdr_addr_is_netlink(pdr)){
+        if (!pdr->sock_for_ur) {
+            GTP5G_ERR(NULL, "Failed Socket report is NULL\n");
+            return -EINVAL;
+        }
+
+        socket = pdr->sock_for_ur;
+    } else if(!socket) {
         GTP5G_ERR(NULL, "Failed Socket buffer is NULL\n");
         return -EINVAL;
     }
@@ -487,7 +494,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u32 report_num)
     msg.msg_controllen = 0;
     msg.msg_flags = MSG_DONTWAIT;
 
-    rt = sock_sendmsg(pdr->sock_for_buf, &msg);
+    rt = sock_sendmsg(socket, &msg);
     kfree(kov);
 
     return rt;
