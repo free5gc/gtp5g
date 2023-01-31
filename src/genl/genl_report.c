@@ -51,8 +51,10 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
 
     if (info->attrs[GTP5G_SESS_URRS]) {
         err =  parse_sess_urr(&sessurrs[i++], info->attrs[GTP5G_SESS_URRS]);
-        if (err)
+        if (err){
+            kfree(sessurrs);
             return err;
+        }
     }
 
     hdr = nla_next(hdr, &remaining);
@@ -61,6 +63,7 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
         case GTP5G_SESS_URRS:
             err = parse_sess_urr(&sessurrs[i++], hdr);
             if (err) {
+                kfree(sessurrs);
                 rcu_read_unlock();
                 return err;
             }
@@ -79,6 +82,8 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
     for (i = 0; i < urr_num; i++) {
         urr = find_urr_by_id(gtp, sessurrs[i].seid, sessurrs[i].urrid);
         if (!urr) {
+            kfree(sessurrs);
+            kfree(urrs);
             rcu_read_unlock();
             return -ENOENT;
         }
@@ -103,12 +108,14 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
     for (i = 0; i < urr_num; i++){
         urrs[i]->start_time = ktime_get_real();
         if (err) {
+            kfree(sessurrs);
+            kfree(urrs); 
             kfree_skb(skb_ack);
             rcu_read_unlock();
             return err;
         }
     }
-
+    kfree(sessurrs);
     kfree(urrs);
     rcu_read_unlock();
 
