@@ -432,7 +432,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u32 report_num)
 {
     struct msghdr msg;
     struct kvec *kov;
-    struct socket *socket = pdr->sock_for_ur;
+    struct socket *sock = pdr->sock_for_buf;
     int msg_kovlen;
     int total_kov_len = 0;
     int i, rt;
@@ -442,15 +442,11 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u32 report_num)
     u32 self_num_hdr[1] = {report_num};
 
     if (pdr_addr_is_netlink(pdr)){
-        if (!pdr->sock_for_ur) {
+        sock = pdr->sock_for_ur;
+        if (!sock) {
             GTP5G_ERR(NULL, "Failed Socket report is NULL\n");
-            return -EINVAL;
-        }
-
-        socket = pdr->sock_for_ur;
-    } else if(!socket) {
-        GTP5G_ERR(NULL, "Failed Socket buffer is NULL\n");
-        return -EINVAL;
+            return -EINVAL; 
+        } 
     }
 
     memset(&msg, 0, sizeof(msg));
@@ -494,7 +490,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u32 report_num)
     msg.msg_controllen = 0;
     msg.msg_flags = MSG_DONTWAIT;
 
-    rt = sock_sendmsg(socket, &msg);
+    rt = sock_sendmsg(sock, &msg);
     kfree(kov);
 
     return rt;
@@ -566,11 +562,6 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                         urr->trigger, urr->id, pdr->id);
                     ret = 0;
                     goto err1;
-                }
-                if (urr->trigger & URR_RPT_TRIGGER_START && uplink){
-                    triggers[report_num] = USAR_TRIGGER_START;
-                    urrs[report_num++] = urr;
-                    urr_quota_exhaust_action(urr, gtp);
                 }
 
                 if (urr->info & URR_INFO_MBQE) {

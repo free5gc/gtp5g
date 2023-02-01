@@ -110,6 +110,7 @@ int unix_sock_client_new(struct pdr *pdr)
         return -EINVAL;
     }
 
+    // Temp solution: create socket for usage report notification
     if (pdr_addr_is_netlink(pdr)){
         psock = &pdr->sock_for_ur;
         addr = &pdr->addr_unix_ur;
