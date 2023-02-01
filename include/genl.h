@@ -36,6 +36,8 @@ enum gtp5g_cmd {
 
     GTP5G_CMD_BUFFER_GTPU,
 
+    GTP5G_CMD_GET_MULTI_REPORTS,
+    
     __GTP5G_CMD_MAX,
 };
 #define GTP5G_CMD_MAX (__GTP5G_CMD_MAX - 1)
