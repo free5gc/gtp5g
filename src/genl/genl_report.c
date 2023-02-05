@@ -209,7 +209,6 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *u
     if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DPACKET, urr->bytes.downlinkPktNum, 0))
         return -EMSGSIZE;
 
-    nla_put_u8(skb, GTP5G_UR_VOLUME_MEASUREMENT_END, 1);
     nla_nest_end(skb, nest_volume_measurement);
 
     memset(&urr->bytes, 0, sizeof(struct VolumeMeasurement));
@@ -231,12 +230,11 @@ static int gtp5g_genl_fill_ur(struct sk_buff *skb, struct urr *urr)
         return -EMSGSIZE;
     if (nla_put_u64_64bit(skb, GTP5G_UR_END_TIME, urr->end_time, 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_SEID, urr->seid, 0))
-        return -EMSGSIZE;
     if (gtp5g_genl_fill_volume_measurement(skb, urr))
         return -EMSGSIZE;
+    if (nla_put_u64_64bit(skb, GTP5G_UR_SEID, urr->seid, 0))
+        return -EMSGSIZE;
 
-    nla_put_u8(skb, GTP5G_UR_END, 1);
     nla_nest_end(skb, nest_usage_report);
 
     return 0;
