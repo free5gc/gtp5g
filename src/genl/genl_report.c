@@ -123,7 +123,7 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
     hdr = nla_next(hdr, &remaining);
     while (nla_ok(hdr,remaining)) {
         switch (nla_type(hdr)) {
-        case GTP5G_SEID_URR:
+        case GTP5G_URR_MULTI_SEID_URRID:
             seid_urrs[i] = kzalloc(sizeof(struct seid_urr *), GFP_KERNEL);
             err = parse_seid_urr(seid_urrs[i++], hdr);
             if (err) {

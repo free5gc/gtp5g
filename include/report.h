@@ -49,8 +49,4 @@ struct user_report {
     ktime_t end_time;
 } __attribute__((packed));
 
-struct seid_urr {
-    u64 seid;
-    u32 urrid;
-};
 #endif // __REPORT_H__

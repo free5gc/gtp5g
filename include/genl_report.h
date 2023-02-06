@@ -36,8 +36,6 @@ enum gtp5g_usage_report_attrs {
 
 enum gtp5g_multi_usage_report_attrs {
     GTP5G_UR = 5,
-    GTP5G_SEID_URR,
-    GTP5G_URR_NUM,
 
     __GTP5G_URS_ATTR_MAX,
 };
