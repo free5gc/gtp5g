@@ -97,8 +97,8 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
     int ifindex;
     int netnsfd;
     u32 urr_num, i = 0;
-    struct sk_buff *skb_ack;
-    int err;
+    struct sk_buff *skb_ack = NULL;
+    int err = 0;
     struct nlattr *hdr = nlmsg_attrdata(info->nlhdr, 0);
     int remaining = nlmsg_attrlen(info->nlhdr, 0);
     struct seid_urr **seid_urrs;
@@ -124,12 +124,10 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
     while (nla_ok(hdr,remaining)) {
         switch (nla_type(hdr)) {
         case GTP5G_URR_MULTI_SEID_URRID:
-            seid_urrs[i] = kzalloc(sizeof(struct seid_urr *), GFP_KERNEL);
+            seid_urrs[i] = kzalloc(sizeof(struct seid_urr), GFP_KERNEL);
             err = parse_seid_urr(seid_urrs[i++], hdr);
             if (err) {
-                kfree(seid_urrs);
-                rcu_read_unlock();
-                return err;
+                goto fail;
             }
             break;
         }
@@ -138,27 +136,22 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
 
     gtp = gtp5g_find_dev(sock_net(skb->sk), ifindex, netnsfd);
     if (!gtp) {
-        kfree(seid_urrs);
-        rcu_read_unlock();
-        return -ENODEV;
+        err = -ENODEV;
+        goto fail;
     }
 
     urrs = kzalloc(sizeof(struct urr *) * urr_num , GFP_KERNEL);
     for (i = 0; i < urr_num; i++) {
         urr = find_urr_by_id(gtp, seid_urrs[i]->seid, seid_urrs[i]->urrid);
         if (!urr) {
-            kfree(seid_urrs);
-            kfree(urrs);
-            rcu_read_unlock();
-            return -ENOENT;
+            err =  -ENOENT;
+            goto fail;
         }
 
         skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
         if (!skb_ack) {
-            kfree(seid_urrs);
-            kfree(urrs);
-            rcu_read_unlock();
-            return -ENOMEM;
+            err =  -ENOMEM;
+            goto fail;
         }
 
         urr->end_time = ktime_get_real();
@@ -166,26 +159,38 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
     }
 
     err = gtp5g_genl_fill_multi_usage_reports(skb_ack,
-    NETLINK_CB(skb).portid,
-    info->snd_seq,
-    info->nlhdr->nlmsg_type,
-    urrs, urr_num);
-        
+            NETLINK_CB(skb).portid,
+            info->snd_seq,
+            info->nlhdr->nlmsg_type,
+            urrs, urr_num);
+    if (err) {
+        goto fail;
+    }
+
     for (i = 0; i < urr_num; i++) {
         urrs[i]->start_time = ktime_get_real();
-        if (err) {
-            kfree(seid_urrs);
-            kfree(urrs); 
+    }
+
+fail:
+    if (urrs)
+        kfree(urrs);
+    if (seid_urrs) {
+        for (i = 0; i < urr_num; i++) {
+            if (seid_urrs[i])
+                kfree(seid_urrs[i]);
+        }
+        kfree(seid_urrs);
+    }
+    
+    if (err){
+        if (skb_ack)
             kfree_skb(skb_ack);
             rcu_read_unlock();
-            return err;
-        }
+        return err;
     }
-    kfree(seid_urrs);
-    kfree(urrs);
     rcu_read_unlock();
 
-    return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid); 
+    return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 }
 
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct urr *urr)
