@@ -182,12 +182,13 @@ fail:
         kfree(seid_urrs);
     }
     
-    if (err){
+    if (err) {
         if (skb_ack)
             kfree_skb(skb_ack);
-            rcu_read_unlock();
+        rcu_read_unlock();
         return err;
     }
+
     rcu_read_unlock();
 
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
