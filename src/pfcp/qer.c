@@ -118,12 +118,12 @@ void del_related_qer_hash(struct gtp5g_dev *gtp, struct pdr *pdr)
         seid_qer_id_to_hex_str(pdr->seid, pdr->qer_ids[j], seid_qer_id_hexstr);
         i = str_hashfn(seid_qer_id_hexstr) % gtp->hash_size;
         hlist_for_each_entry_rcu(pdr_node, &gtp->related_qer_hash[i], hlist) {
-            if (pdr_node->pdr != NULL &&  
-                pdr_node->pdr->seid == pdr->seid && 
+            if (pdr_node->pdr != NULL &&
+                pdr_node->pdr->seid == pdr->seid &&
                 pdr_node->pdr->id == pdr->id) {
                 to_be_del = pdr_node;
-                break;    
-            }      
+                break;
+            }
         }
         if (to_be_del){
             hlist_del(&to_be_del->hlist);
@@ -153,7 +153,7 @@ int qer_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
             return -ENOMEM;
         }
         pdr_node->pdr = pdr;
-        hlist_add_head_rcu(&pdr_node->hlist, &gtp->related_qer_hash[i]);    
+        hlist_add_head_rcu(&pdr_node->hlist, &gtp->related_qer_hash[i]);
     }
     return 0;
 }

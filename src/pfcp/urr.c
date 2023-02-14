@@ -38,7 +38,7 @@ void urr_context_delete(struct urr *urr)
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr_node, head, hlist) {
-        if (pdr_node->pdr != NULL && 
+        if (pdr_node->pdr != NULL &&
             find_urr_id_in_pdr(pdr_node->pdr, urr->id)) {
             unix_sock_client_delete(pdr_node->pdr);
         }
@@ -72,7 +72,7 @@ void urr_update(struct urr *urr, struct gtp5g_dev *gtp)
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr_node, head, hlist) {
-        if (pdr_node->pdr != NULL && 
+        if (pdr_node->pdr != NULL &&
             find_urr_id_in_pdr(pdr_node->pdr, urr->id)) {
             unix_sock_client_update(pdr_node->pdr);
         }
@@ -203,12 +203,12 @@ void del_related_urr_hash(struct gtp5g_dev *gtp, struct pdr *pdr)
         seid_urr_id_to_hex_str(pdr->seid, pdr->urr_ids[j], seid_urr_id_hexstr);
         i = str_hashfn(seid_urr_id_hexstr) % gtp->hash_size;
         hlist_for_each_entry_rcu(pdr_node, &gtp->related_urr_hash[i], hlist) {
-            if (pdr_node->pdr != NULL &&  
-                pdr_node->pdr->seid == pdr->seid && 
+            if (pdr_node->pdr != NULL &&
+                pdr_node->pdr->seid == pdr->seid &&
                 pdr_node->pdr->id == pdr->id) {
-                to_be_del = pdr_node;  
-                break;  
-            }      
+                to_be_del = pdr_node;
+                break;
+            }
         }
         if (to_be_del){
             hlist_del(&to_be_del->hlist);
@@ -232,13 +232,13 @@ int urr_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
     for (j = 0; j < pdr->urr_num; j++) {
         seid_urr_id_to_hex_str(pdr->seid, pdr->urr_ids[j], seid_urr_id_hexstr);
         i = str_hashfn(seid_urr_id_hexstr) % gtp->hash_size;
-        
+
         pdr_node = kzalloc(sizeof(*pdr_node), GFP_ATOMIC);
         if (!pdr_node) {
             return -ENOMEM;
         }
         pdr_node->pdr = pdr;
-        hlist_add_head_rcu(&pdr_node->hlist, &gtp->related_urr_hash[i]);    
+        hlist_add_head_rcu(&pdr_node->hlist, &gtp->related_urr_hash[i]);
     }
     return 0;
 }

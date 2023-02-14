@@ -189,7 +189,7 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
     urr_context_delete(urr);
     rcu_read_unlock();
 
-    return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid); 
+    return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 }
 
 int gtp5g_genl_get_urr(struct sk_buff *skb, struct genl_info *info)

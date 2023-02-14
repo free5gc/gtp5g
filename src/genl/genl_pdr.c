@@ -331,7 +331,7 @@ static void set_pdr_qfi(struct pdr *pdr, struct gtp5g_dev *gtp){
     struct qer *qer;
 
     // TS 38.415 QFI range {0..2^6-1}
-    for (i = 0; i < pdr->qer_num; i++) {   
+    for (i = 0; i < pdr->qer_num; i++) {
         qer = find_qer_by_id(gtp, pdr->seid, pdr->qer_ids[i]);
         if (qer && qer->qfi > 0) {
             pdr->qfi = qer->qfi;
@@ -472,11 +472,11 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     pdr->far = find_far_by_id(gtp, pdr->seid, *pdr->far_id);
 
     err = far_set_pdr(pdr, gtp);
-    if (err) 
+    if (err)
         return err;
 
     err = urr_set_pdr(pdr, gtp);
-    if (err) 
+    if (err)
         return err;
 
     err = qer_set_pdr(pdr, gtp);
@@ -907,7 +907,7 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         if (nla_put_u32(skb, GTP5G_PDR_URR_ID, pdr->urr_ids[i]))
             goto genlmsg_fail;
     }
-    
+
     if (pdr->role_addr_ipv4.s_addr) {
         if (nla_put_u32(skb, GTP5G_PDR_ROLE_ADDR_IPV4, pdr->role_addr_ipv4.s_addr))
             goto genlmsg_fail;

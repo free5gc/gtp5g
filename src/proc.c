@@ -235,13 +235,13 @@ static int gtp5g_qer_read(struct seq_file *s, void *v)
     return 0;
 }
 
-static int gtp5g_urr_read(struct seq_file *s, void *v) 
+static int gtp5g_urr_read(struct seq_file *s, void *v)
 {
     if (!proc_urr_id) {
         seq_printf(s, "Given URR ID does not exists\n");
         return -1;
     }
-    
+
     seq_printf(s, "URR: \n");
     seq_printf(s, "\t SEID : %llu\n", proc_urr.seid);
     seq_printf(s, "\t ID : %u\n", proc_urr.id);
@@ -266,7 +266,7 @@ static int gtp5g_urr_read(struct seq_file *s, void *v)
 }
 
 static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
-    size_t len, loff_t *dptr) 
+    size_t len, loff_t *dptr)
 {
     char buf[128], dev_name[32];
     u8 found = 0;
@@ -278,13 +278,13 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);
         goto err;
     }
-    
+
     buf[buf_len] = 0;
     if (sscanf(buf, "%s %llu %hu", dev_name, &proc_seid, &proc_pdr_id) != 3) {
         GTP5G_ERR(NULL, "proc write of PDR Dev & ID: %s is not valid\n", buf);
         goto err;
     }
-    
+
     list_for_each_entry_rcu(gtp, &proc_gtp5g_dev, proc_list) {
         if (strcmp(dev_name, netdev_name(gtp->dev)) == 0) {
             found = 1;
@@ -301,12 +301,12 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
         GTP5G_ERR(NULL, "Given SEID : %llu PDR ID : %u not exists\n", proc_seid, proc_pdr_id);
         goto err;
     }
-    
+
     memset(&proc_pdr, 0, sizeof(proc_pdr));
     proc_pdr.id = pdr->id;
     proc_pdr.seid = pdr->seid;
     proc_pdr.precedence = pdr->precedence;
-    
+
     if (pdr->outer_header_removal) 
         proc_pdr.ohr = *pdr->outer_header_removal;
     
@@ -362,13 +362,13 @@ static ssize_t proc_far_write(struct file *filp, const char __user *buffer,
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);
         goto err;
     }
-    
+
     buf[buf_len] = 0;
     if (sscanf(buf, "%s %llu %u", dev_name, &proc_seid, &proc_far_id) != 3) {
         GTP5G_ERR(NULL, "proc write of FAR Dev & ID: %s is not valid\n", buf);
         goto err;
     }
-    
+
     list_for_each_entry_rcu(gtp, &proc_gtp5g_dev, proc_list) {
         if (strcmp(dev_name, netdev_name(gtp->dev)) == 0) {
             found = 1;
@@ -385,12 +385,12 @@ static ssize_t proc_far_write(struct file *filp, const char __user *buffer,
         GTP5G_ERR(NULL, "Given FAR ID : %u not exists\n", proc_far_id);
         goto err;
     }
-    
+
     memset(&proc_far, 0, sizeof(proc_far));
     proc_far.id = far->id;
     proc_far.seid = far->seid;
     proc_far.action = far->action;
-   
+
     if (far->fwd_param) {
         if (far->fwd_param->hdr_creation) {
             proc_far.description = far->fwd_param->hdr_creation->description;
@@ -413,18 +413,18 @@ static ssize_t proc_qer_write(struct file *filp, const char __user *buffer,
     unsigned long buf_len = min(sizeof(buf) - 1, len);
     struct qer *qer;
     struct gtp5g_dev *gtp;
-    
+
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);
         goto err;
     }
-    
+
     buf[buf_len] = 0;
     if (sscanf(buf, "%s %llu %u", dev_name, &proc_seid, &proc_qer_id) != 3) {
         GTP5G_ERR(NULL, "proc write of QER Dev & ID: %s is not valid\n", buf);
         goto err;
     }
-    
+
     list_for_each_entry_rcu(gtp, &proc_gtp5g_dev, proc_list) {
         if (strcmp(dev_name, netdev_name(gtp->dev)) == 0) {
             found = 1;
@@ -441,7 +441,7 @@ static ssize_t proc_qer_write(struct file *filp, const char __user *buffer,
         GTP5G_ERR(NULL, "Given QER ID : %u not exists\n", proc_qer_id);
         goto err;
     }
-    
+
     memset(&proc_qer, 0, sizeof(proc_qer));
     proc_qer.id = qer->id;
     proc_qer.seid = qer->seid;
@@ -461,18 +461,18 @@ static ssize_t proc_urr_write(struct file *filp, const char __user *buffer,
     unsigned long buf_len = min(sizeof(buf) - 1, len);
     struct urr *urr;
     struct gtp5g_dev *gtp;
-    
+
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);
         goto err;
     }
-    
+
     buf[buf_len] = 0;
     if (sscanf(buf, "%s %llu %u", dev_name, &proc_seid, &proc_urr_id) != 3) {
         GTP5G_ERR(NULL, "proc write of URR Dev & ID: %s is not valid\n", buf);
         goto err;
     }
-    
+
     list_for_each_entry_rcu(gtp, &proc_gtp5g_dev, proc_list) {
         if (strcmp(dev_name, netdev_name(gtp->dev)) == 0) {
             found = 1;
@@ -489,7 +489,7 @@ static ssize_t proc_urr_write(struct file *filp, const char __user *buffer,
         GTP5G_ERR(NULL, "Given URR ID : %u not exists\n", proc_urr_id);
         goto err;
     }
-    
+
     memset(&proc_urr, 0, sizeof(proc_urr));
     proc_urr.id = urr->id;
     proc_urr.seid = urr->seid;
@@ -667,7 +667,7 @@ int create_proc(void)
         goto remove_far_proc;
     }
 
-    proc_gtp5g_urr = proc_create("urr", (S_IFREG | S_IRUGO | S_IWUGO), 
+    proc_gtp5g_urr = proc_create("urr", (S_IFREG | S_IRUGO | S_IWUGO),
         proc_gtp5g, &proc_gtp5g_urr_ops);
     if (!proc_gtp5g_urr) {
         GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/urr\n");

@@ -305,7 +305,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
                     // Commented the below code due to support N9 packet downlink
                     // if (pdu_sess_info->type_spare == PDU_SESSION_INFO_TYPE0)
                     //     return -1;
-            
+
                     //TODO: validate pdu_sess_ctr
                     break;
                 }
@@ -445,7 +445,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u32 report_num)
     if (pdr_addr_is_netlink(pdr)) {
         sock = pdr->sock_for_ur;
     }
-    
+
     if (!sock) {
         GTP5G_ERR(NULL, "Failed Socket is NULL\n");
         return -EINVAL;
@@ -556,7 +556,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
         mnop = false;
         if (urr->info & URR_INFO_MNOP)
             mnop = true;
-        
+
         if (!(urr->info & URR_INFO_INAM)) {
             if (urr->method & URR_METHOD_VOLUM) {
                 if (urr->trigger == 0) {
@@ -571,7 +571,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                     urrs[report_num++] = urr;
                     urr_quota_exhaust_action(urr, gtp);
                 }
-                
+
                 if (urr->info & URR_INFO_MBQE) {
                     // TODO: gtp5g isn't support QoS enforcement yet
                     // Currently MBQE Volume = MAQE Volume

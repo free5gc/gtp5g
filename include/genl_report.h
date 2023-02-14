@@ -29,7 +29,7 @@ enum gtp5g_usage_report_attrs {
     GTP5G_UR_START_TIME,
     GTP5G_UR_END_TIME,
     GTP5G_UR_SEID,
-    
+
     __GTP5G_UR_ATTR_MAX,
 };
 #define GTP5G_UR_ATTR_MAX (__GTP5G_UR_ATTR_MAX - 1)

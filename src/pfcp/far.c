@@ -138,13 +138,13 @@ void del_related_far_hash(struct gtp5g_dev *gtp, struct pdr *pdr)
             pdr_node->pdr->seid == pdr->seid &&
             pdr_node->pdr->id == pdr->id) {
             to_be_del = pdr_node;
-            break;    
-        }      
+            break;
+        }
     }
     if (to_be_del){
         hlist_del(&to_be_del->hlist);
         kfree(to_be_del);
-    }    
+    }
 }
 
 int far_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
@@ -155,7 +155,7 @@ int far_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
 
     if (!pdr)
         return -1;
-    
+
     del_related_far_hash(gtp, pdr);
 
     seid_far_id_to_hex_str(pdr->seid, *pdr->far_id, seid_far_id_hexstr);

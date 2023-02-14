@@ -38,7 +38,7 @@ EXTRA_CFLAGS += -I $(PWD)/include
 
 5G_MOD := src/gtp5g.o
 
-5G_LOG	:= src/log.o 
+5G_LOG	:= src/log.o
 
 5G_UTIL	:= src/util.o
 
@@ -68,10 +68,10 @@ EXTRA_CFLAGS += -I $(PWD)/include
 
 5G_PROC := src/proc.o
 
-# Build files 
+# Build files
 obj-m += $(MODULE_NAME).o
 $(MODULE_NAME)-objs := $(5G_MOD) $(5G_LOG) $(5G_UTIL) $(5G_GTPU) \
-						$(5G_GENL) $(5G_PFCP) $(5G_PROC) 
+						$(5G_GENL) $(5G_PFCP) $(5G_PROC)
 
 default: module
 

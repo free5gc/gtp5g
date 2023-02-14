@@ -113,7 +113,7 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
     else
         netnsfd = -1;
 
-    if (!info->attrs[GTP5G_URR_NUM]) 
+    if (!info->attrs[GTP5G_URR_NUM])
         return -EINVAL;
     urr_num = nla_get_u32(info->attrs[GTP5G_URR_NUM]);
 
@@ -181,7 +181,7 @@ fail:
         }
         kfree(seid_urrs);
     }
-    
+
     if (err) {
         if (skb_ack)
             kfree_skb(skb_ack);
@@ -190,7 +190,6 @@ fail:
     }
 
     rcu_read_unlock();
-
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 }
 
@@ -259,7 +258,7 @@ static int parse_seid_urr(struct seid_urr *seid_urr, struct nlattr *a)
     if (err){
         return err;
     }
-    
+
     if (attrs[GTP5G_URR_ID]) {
         seid_urr->urrid = nla_get_u32(attrs[GTP5G_URR_ID]);
     }

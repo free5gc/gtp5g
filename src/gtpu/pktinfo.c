@@ -14,10 +14,10 @@
 #include "log.h"
 
 u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen){
-    struct iphdr *iph; 
-    struct tcphdr *tcp; 
+    struct iphdr *iph;
+    struct tcphdr *tcp;
     u64 volume;
-    
+
     iph = ip_hdr(skb);
     volume = skb->len - hdrlen - iph->ihl * 4;
 
