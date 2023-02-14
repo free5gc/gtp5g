@@ -174,7 +174,7 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
     }
 
     urr->end_time = ktime_get_real();
-    err = gtp5g_genl_fill_usage_reports(skb_ack,
+    err = gtp5g_genl_fill_usage_report(skb_ack,
             NETLINK_CB(skb).portid,
             info->snd_seq,
             info->nlhdr->nlmsg_type,
