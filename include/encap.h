@@ -6,6 +6,14 @@
 #include "dev.h"
 #include "pktinfo.h"
 
+enum gtp5g_msg_type_attrs {
+    GTP5G_BUFFER = 5,
+    GTP5G_REPORT,
+
+    __GTP5G_MSG_TYPE_ATTR_MAX,
+};
+#define GTP5G_MSG_TYPE_ATTR_MAX (__GTP5G_MSG_TYPE_ATTR_MAX - 1);
+
 enum gtp5g_buffer_attrs {
     /* gtp5g_device_attrs in this part */
 

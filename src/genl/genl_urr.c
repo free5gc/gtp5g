@@ -130,6 +130,7 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
     u32 urr_id;
     struct sk_buff *skb_ack;
     int err;
+    struct user_report *report;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -173,13 +174,15 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
         return -ENOMEM;
     }
 
-    urr->end_time = ktime_get_real();
+    report = kzalloc(sizeof(struct user_report), GFP_KERNEL);
+    convert_urr_to_report(urr, report);
     err = gtp5g_genl_fill_usage_report(skb_ack,
             NETLINK_CB(skb).portid,
             info->snd_seq,
             info->nlhdr->nlmsg_type,
-            urr);
+            report);
 
+    kfree(report);
     if (err) {
         kfree_skb(skb_ack);
         rcu_read_unlock();

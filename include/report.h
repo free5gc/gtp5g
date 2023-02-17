@@ -47,6 +47,8 @@ struct user_report {
     u32 queryUrrRef;
     ktime_t start_time;
     ktime_t end_time;
+
+    u64 seid;
 } __attribute__((packed));
 
 #endif // __REPORT_H__
