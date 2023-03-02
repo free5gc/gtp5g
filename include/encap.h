@@ -7,7 +7,7 @@
 #include "pktinfo.h"
 
 enum gtp5g_msg_type_attrs {
-    GTP5G_BUFFER = 5,
+    GTP5G_BUFFER = 1,
     GTP5G_REPORT,
 
     __GTP5G_MSG_TYPE_ATTR_MAX,

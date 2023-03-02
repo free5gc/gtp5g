@@ -591,6 +591,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                     triggers[report_num] = USAR_TRIGGER_START;
                     urrs[report_num++] = urr;
                     urr_quota_exhaust_action(urr, gtp);
+                    GTP5G_TRC(NULL, "URR (%u) Start of Service Data Flow, stop measure until recieve quota", urr->id);
                 }
 
                 if (urr->info & URR_INFO_MBQE) {
@@ -637,20 +638,20 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
             if (netlink_send(pdr, skb, dev_net(pdr->dev), report, report_num) < 0) {
                 GTP5G_ERR(pdr->dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
                 ++pdr->dl_drop_cnt;
+                goto err1;
             }
         } else {
             if (unix_sock_send(pdr, report, len, report_num) < 0) {
                 GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
                 ret = -1;
-                kfree(report);
                 goto err1;
             }
         }          
-        
-
     }
 
 err1:
+    if (report) 
+        kfree(report);
     kfree(urrs);
     kfree(triggers);
     return ret;
