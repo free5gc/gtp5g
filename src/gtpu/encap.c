@@ -40,7 +40,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *, struct sk_buff *);
 static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, unsigned int);
 static int gtp5g_fwd_skb_encap(struct sk_buff *, struct net_device *,
         unsigned int, struct pdr *, uint64_t);
-static int netlink_send(struct pdr *, struct sk_buff *, struct net *, struct user_report *, u32);
+static int netlink_send(struct pdr *, struct sk_buff *, struct net *, struct usage_report *, u32);
 static int unix_sock_send(struct pdr *, void *, u32, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
     struct net_device *, struct gtp5g_pktinfo *, 
@@ -366,7 +366,7 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
 /* Function netlink_{...} are used to handle buffering */
 // Send PDR ID, FAR action and buffered packet to user space
-static int netlink_send(struct pdr *pdr, struct sk_buff *skb_in, struct net *net, struct user_report *reports, u32 report_num)
+static int netlink_send(struct pdr *pdr, struct sk_buff *skb_in, struct net *net, struct usage_report *reports, u32 report_num)
 {
     struct sk_buff *skb;
     static atomic_t seq_counter;
@@ -555,7 +555,7 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
     return false;
 }
 
-int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
+int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink) {
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i;
     int ret = 1;
@@ -564,12 +564,16 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
     u32 *triggers;
     u32 report_num = 0;
     struct urr *urr, **urrs;
-    struct user_report *report;
+    struct usage_report *report;
     bool mnop;
     struct sk_buff *skb;
     
     urrs = kzalloc(sizeof(struct urr *) * pdr->urr_num , GFP_ATOMIC);
     triggers = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);
+    if (!urrs || !triggers) {
+        ret = -1;
+        goto err1;
+    }
 
     for (i = 0; i < pdr->urr_num; i++) {
         urr = find_urr_by_id(gtp, pdr->seid,  pdr->urr_ids[i]);
@@ -650,10 +654,15 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
     }
 
 err1:
-    if (report) 
+    if (report) {
         kfree(report);
-    kfree(urrs);
-    kfree(triggers);
+    }
+    if (urrs) {
+        kfree(urrs);
+    }
+    if (triggers) {
+        kfree(triggers);
+    }
     return ret;
 }
 

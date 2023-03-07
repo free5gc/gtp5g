@@ -26,7 +26,7 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
     int netnsfd;
     u64 seid;
     u32 urr_id;
-    int err;
+    int err = 0;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -42,9 +42,8 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
 
     gtp = gtp5g_find_dev(sock_net(skb->sk), ifindex, netnsfd);
     if (!gtp) {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -ENODEV;
+        err = -ENODEV;
+        goto end;
     }
 
     if (info->attrs[GTP5G_URR_SEID]) {
@@ -53,53 +52,45 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
         seid = 0;
     }
 
-    if (info->attrs[GTP5G_URR_ID]) {
-        urr_id = nla_get_u32(info->attrs[GTP5G_URR_ID]);
-    } else {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -ENODEV;
+    if (!info->attrs[GTP5G_URR_ID]) {
+        err = -ENODEV;
+        goto end;
     }
+    urr_id = nla_get_u32(info->attrs[GTP5G_URR_ID]);
 
     urr = find_urr_by_id(gtp, seid, urr_id);
     if (urr) {
         if (info->nlhdr->nlmsg_flags & NLM_F_EXCL) {
-            rcu_read_unlock();
-            rtnl_unlock();
-            return -EEXIST;
+            err = -EEXIST;
+            goto end;
         }
         if (!(info->nlhdr->nlmsg_flags & NLM_F_REPLACE)) {
-            rcu_read_unlock();
-            rtnl_unlock();
-            return -EOPNOTSUPP;
+            err = -EOPNOTSUPP;
+            goto end;
         }
         err = urr_fill(urr, gtp, info);
         if (err) {
             urr_context_delete(urr);
-            return err;
+            goto end;
         }
-        rcu_read_unlock();
-        rtnl_unlock();
-        return 0;
+
+        goto end;
     }
 
     if (info->nlhdr->nlmsg_flags & NLM_F_REPLACE) {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -ENOENT;
+        err = -ENOENT;
+        goto end;
     }
 
     if (info->nlhdr->nlmsg_flags & NLM_F_APPEND) {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -EOPNOTSUPP;
+        err = -EOPNOTSUPP;
+        goto end;
     }
 
     urr = kzalloc(sizeof(*urr), GFP_ATOMIC);
     if (!urr) {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -ENOMEM;
+        err = -ENOMEM;
+        goto end;
     }
 
     urr->dev = gtp->dev;
@@ -108,16 +99,15 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
     err = urr_fill(urr, gtp, info);
     if (err) {
         urr_context_delete(urr);
-        rcu_read_unlock();
-        rtnl_unlock();
-        return err;
+        goto end;
     }
 
     urr_append(seid, urr_id, urr, gtp);
 
+end:
     rcu_read_unlock();
     rtnl_unlock();
-    return 0;
+    return err;
 }
 
 int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
@@ -129,8 +119,8 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
     u64 seid;
     u32 urr_id;
     struct sk_buff *skb_ack;
-    int err;
-    struct user_report *report;
+    int err = 0;
+    struct usage_report *report;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -145,8 +135,8 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
 
     gtp = gtp5g_find_dev(sock_net(skb->sk), ifindex, netnsfd);
     if (!gtp) {
-        rcu_read_unlock();
-        return -ENODEV;
+        err = -ENODEV;
+        goto fail;
     }
 
     if (info->attrs[GTP5G_URR_SEID]) {
@@ -155,27 +145,32 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
         seid = 0;
     }
 
-    if (info->attrs[GTP5G_URR_ID]) {
-        urr_id = nla_get_u32(info->attrs[GTP5G_URR_ID]);
-    } else {
-        rcu_read_unlock();
-        return -ENODEV;
+    if (!info->attrs[GTP5G_URR_ID]) {
+        err = -ENODEV;
+        goto fail;
     }
+    urr_id = nla_get_u32(info->attrs[GTP5G_URR_ID]);
 
     urr = find_urr_by_id(gtp, seid, urr_id);
     if (!urr) {
-        rcu_read_unlock();
-        return -ENOENT;
+        err = -ENOENT;
+        goto fail;
     }
 
     skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
     if (!skb_ack) {
-        rcu_read_unlock();
-        return -ENOMEM;
+        err = -ENOMEM;
+        goto fail;
     }
 
-    report = kzalloc(sizeof(struct user_report), GFP_KERNEL);
+    report = kzalloc(sizeof(struct usage_report), GFP_KERNEL);
+    if (!report) {
+        err = -ENOMEM;
+        goto fail;
+    }
+
     convert_urr_to_report(urr, report);
+
     err = gtp5g_genl_fill_usage_report(skb_ack,
             NETLINK_CB(skb).portid,
             info->snd_seq,
@@ -183,15 +178,18 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
             report);
 
     kfree(report);
+
+fail:
     if (err) {
-        kfree_skb(skb_ack);
+        if (skb_ack) {
+            kfree_skb(skb_ack);
+        }
         rcu_read_unlock();
         return err;
     }
 
     urr_context_delete(urr);
     rcu_read_unlock();
-
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 }
 
@@ -204,7 +202,7 @@ int gtp5g_genl_get_urr(struct sk_buff *skb, struct genl_info *info)
     u64 seid;
     u32 urr_id;
     struct sk_buff *skb_ack;
-    int err;
+    int err = 0;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -219,8 +217,8 @@ int gtp5g_genl_get_urr(struct sk_buff *skb, struct genl_info *info)
 
     gtp = gtp5g_find_dev(sock_net(skb->sk), ifindex, netnsfd);
     if (!gtp) {
-        rcu_read_unlock();
-        return -ENODEV;
+        err = -ENODEV;
+        goto fail;
     }
 
     if (info->attrs[GTP5G_URR_SEID]) {
@@ -229,23 +227,22 @@ int gtp5g_genl_get_urr(struct sk_buff *skb, struct genl_info *info)
         seid = 0;
     }
 
-    if (info->attrs[GTP5G_URR_ID]) {
-        urr_id = nla_get_u32(info->attrs[GTP5G_URR_ID]);
-    } else {
-        rcu_read_unlock();
-        return -ENODEV;
+    if (!info->attrs[GTP5G_URR_ID]) {
+        err = -ENODEV;
+        goto fail;
     }
+    urr_id = nla_get_u32(info->attrs[GTP5G_URR_ID]);
 
     urr = find_urr_by_id(gtp, seid, urr_id);
     if (!urr) {
-        rcu_read_unlock();
-        return -ENOENT;
+        err = -ENOENT;
+        goto fail;
     }
 
     skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
     if (!skb_ack) {
-        rcu_read_unlock();
-        return -ENOMEM;
+        err = -ENOMEM;
+        goto fail;
     }
 
     err = gtp5g_genl_fill_urr(skb_ack,
@@ -253,13 +250,17 @@ int gtp5g_genl_get_urr(struct sk_buff *skb, struct genl_info *info)
             info->snd_seq,
             info->nlhdr->nlmsg_type,
             urr);
+
+fail:
     if (err) {
-        kfree_skb(skb_ack);
+        if (skb_ack) {
+            kfree_skb(skb_ack);
+        }
         rcu_read_unlock();
         return err;
     }
-    rcu_read_unlock();
 
+    rcu_read_unlock();
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid); 
 }
 
@@ -507,8 +508,9 @@ static int gtp5g_genl_fill_urr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     return 0;
 
 genlmsg_fail:
-    if (ids)
+    if (ids) {
         kfree(ids);
+    }
     genlmsg_cancel(skb, genlh);
     return -EMSGSIZE;
 }
