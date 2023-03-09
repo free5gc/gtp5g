@@ -561,10 +561,10 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink) {
     int ret = 1;
     u64 volume;
     u64 len;
-    u32 *triggers;
     u32 report_num = 0;
-    struct urr *urr, **urrs;
-    struct usage_report *report;
+    u32 *triggers = NULL;
+    struct urr *urr, **urrs = NULL;
+    struct usage_report *report = NULL;
     bool mnop;
     struct sk_buff *skb;
     
