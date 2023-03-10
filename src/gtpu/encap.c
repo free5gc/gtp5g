@@ -633,6 +633,11 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink) {
         len = sizeof(*report) * report_num;
 
         report = kzalloc(len, GFP_ATOMIC);
+        if (!report) {
+            ret = -1;
+            goto err1;
+        }
+
         for (i = 0; i < report_num; i++) {
             convert_urr_to_report(urrs[i], &report[i]);
             report[i].trigger = triggers[i];
