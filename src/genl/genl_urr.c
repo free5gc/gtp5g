@@ -120,7 +120,7 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
     u32 urr_id;
     struct sk_buff *skb_ack;
     int err = 0;
-    struct usage_report *report;
+    struct usage_report *report = NULL;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;

@@ -28,7 +28,7 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
     u32 urr_id;
     struct sk_buff *skb_ack;
     int err = 0;
-    struct usage_report *report;
+    struct usage_report *report = NULL;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -112,7 +112,7 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
     struct nlattr *hdr = nlmsg_attrdata(info->nlhdr, 0);
     int remaining = nlmsg_attrlen(info->nlhdr, 0);
     struct seid_urr **seid_urrs;
-    struct usage_report **reports;
+    struct usage_report **reports = NULL;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
