@@ -26,7 +26,7 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
     int netnsfd;
     u64 seid;
     u32 urr_id;
-    struct sk_buff *skb_ack;
+    struct sk_buff *skb_ack = NULL;
     int err = 0;
     struct usage_report *report = NULL;
 
