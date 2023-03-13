@@ -103,7 +103,7 @@ fail:
 int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *info)
 {
     struct gtp5g_dev *gtp;
-    struct urr *urr;
+    struct urr *urr = NULL;
     int ifindex;
     int netnsfd;
     u32 urr_num, report_num = 0, i = 0;
