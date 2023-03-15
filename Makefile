@@ -4,6 +4,10 @@ ifneq (,$(findstring 1, $(RHEL8)))
 	RHEL8FLAG := -DRHEL8
 endif
 
+PWD := $(shell pwd)
+MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
+MAKEFILE_DIR := $(shell dirname $(MAKEFILE_PATH))
+
 CONFIG_MODULE_SIG=n
 MODULE_NAME = gtp5g
 MOD_KERNEL_PATH := kernel/drivers/net
@@ -34,7 +38,7 @@ MY_CFLAGS += -g -DDEBUG $(RHEL8FLAG)
 EXTRA_CFLAGS += -Wno-misleading-indentation -Wuninitialized
 CC += ${MY_CFLAGS}
 
-EXTRA_CFLAGS += -I $(PWD)/include
+EXTRA_CFLAGS += -I $(MAKEFILE_DIR)/include
 
 5G_MOD := src/gtp5g.o
 
