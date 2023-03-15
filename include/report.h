@@ -39,7 +39,7 @@ struct VolumeMeasurement{
     u64 downlinkPktNum;
 }__attribute__((packed));
 
-struct user_report {
+struct usage_report {
     u32 urrid; 					/* 8.2.54 URR_ID */
     u32 trigger ;
     struct VolumeMeasurement volmeasurement;
@@ -47,6 +47,8 @@ struct user_report {
     u32 queryUrrRef;
     ktime_t start_time;
     ktime_t end_time;
+
+    u64 seid;
 } __attribute__((packed));
 
 #endif // __REPORT_H__

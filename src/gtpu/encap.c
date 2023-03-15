@@ -40,7 +40,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *, struct sk_buff *);
 static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, unsigned int);
 static int gtp5g_fwd_skb_encap(struct sk_buff *, struct net_device *,
         unsigned int, struct pdr *, uint64_t);
-static int netlink_send(struct pdr *, struct sk_buff *, struct net *);
+static int netlink_send(struct pdr *, struct sk_buff *, struct net *, struct usage_report *, u32);
 static int unix_sock_send(struct pdr *, void *, u32, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
     struct net_device *, struct gtp5g_pktinfo *, 
@@ -349,7 +349,7 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
         }
 
         if (pdr_addr_is_netlink(pdr)) {
-            if (netlink_send(pdr, skb, dev_net(dev)) < 0) {
+            if (netlink_send(pdr, skb, dev_net(dev), NULL, 0) < 0) {
                 GTP5G_ERR(dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
                 ++pdr->ul_drop_cnt;
             }
@@ -366,21 +366,27 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
 /* Function netlink_{...} are used to handle buffering */
 // Send PDR ID, FAR action and buffered packet to user space
-static int netlink_send(struct pdr *pdr, struct sk_buff *skb_in, struct net *net)
+static int netlink_send(struct pdr *pdr, struct sk_buff *skb_in, struct net *net, struct usage_report *reports, u32 report_num)
 {
     struct sk_buff *skb;
     static atomic_t seq_counter;
     u32 seq;
     void *header;
     struct nlattr *attr;
-    int err;
+    int i, err;
+    struct nlattr *nest_msg_type;
 
-    skb = genlmsg_new(
-        nla_total_size_64bit(8) +
-            nla_total_size(2) +
-            nla_total_size(2) +
-            nla_total_size(skb_in->len),
-        GFP_ATOMIC);
+    if (reports != NULL) {
+        skb = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
+    } else {
+        skb = genlmsg_new(
+            nla_total_size_64bit(8) +
+                nla_total_size(2) +
+                nla_total_size(2) +
+                nla_total_size(skb_in->len),
+            GFP_ATOMIC);
+    }
+
     if (!skb)
         return -ENOMEM;
 
@@ -392,34 +398,48 @@ static int netlink_send(struct pdr *pdr, struct sk_buff *skb_in, struct net *net
         return -ENOMEM;
     }
 
-    err = nla_put_u16(skb, GTP5G_BUFFER_ID, pdr->id);
-    if (err != 0)
-    {
-        nlmsg_free(skb);
-        return err;
-    }
+    if (reports != NULL) {
+        nest_msg_type = nla_nest_start(skb, GTP5G_REPORT);
 
-    err = nla_put_u64_64bit(skb, GTP5G_BUFFER_SEID, pdr->seid, GTP5G_BUFFER_PAD);
-    if (err != 0)
-    {
-        nlmsg_free(skb);
-        return err;
-    }
+        for (i = 0; i < report_num; i++) {
+            gtp5g_genl_fill_ur(skb, &reports[i]);
+        }
+        
+        nla_nest_end(skb, nest_msg_type);
+    } else {
+        nest_msg_type = nla_nest_start(skb, GTP5G_BUFFER);
 
-    err = nla_put_u16(skb, GTP5G_BUFFER_ACTION, pdr->far->action);
-    if (err != 0)
-    {
-        nlmsg_free(skb);
-        return err;
-    }
+        err = nla_put_u16(skb, GTP5G_BUFFER_ID, pdr->id);
+        if (err != 0)
+        {
+            nlmsg_free(skb);
+            return err;
+        }
 
-    attr = nla_reserve(skb, GTP5G_BUFFER_PACKET, skb_in->len);
-    if (!attr)
-    {
-        nlmsg_free(skb);
-        return -EINVAL;
+        err = nla_put_u64_64bit(skb, GTP5G_BUFFER_SEID, pdr->seid, GTP5G_BUFFER_PAD);
+        if (err != 0)
+        {
+            nlmsg_free(skb);
+            return err;
+        }
+
+        err = nla_put_u16(skb, GTP5G_BUFFER_ACTION, pdr->far->action);
+        if (err != 0)
+        {
+            nlmsg_free(skb);
+            return err;
+        }
+
+        attr = nla_reserve(skb, GTP5G_BUFFER_PACKET, skb_in->len);
+        if (!attr)
+        {
+            nlmsg_free(skb);
+            return -EINVAL;
+        }
+        skb_copy_bits(skb_in, 0, nla_data(attr), skb_in->len);
+
+        nla_nest_end(skb, nest_msg_type);
     }
-    skb_copy_bits(skb_in, 0, nla_data(attr), skb_in->len);
 
     genlmsg_end(skb, header);
     genlmsg_multicast_netns(&gtp5g_genl_family, net, skb, 0, GTP5G_GENL_MCGRP, GFP_ATOMIC);
@@ -535,20 +555,25 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
     return false;
 }
 
-int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
+int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink) {
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i;
     int ret = 1;
     u64 volume;
     u64 len;
-    u32 *triggers;
     u32 report_num = 0;
-    struct urr *urr, **urrs;
-    struct user_report *report;
+    u32 *triggers = NULL;
+    struct urr *urr, **urrs = NULL;
+    struct usage_report *report = NULL;
     bool mnop;
-
+    struct sk_buff *skb;
+    
     urrs = kzalloc(sizeof(struct urr *) * pdr->urr_num , GFP_ATOMIC);
     triggers = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);
+    if (!urrs || !triggers) {
+        ret = -1;
+        goto err1;
+    }
 
     for (i = 0; i < pdr->urr_num; i++) {
         urr = find_urr_by_id(gtp, pdr->seid,  pdr->urr_ids[i]);
@@ -570,6 +595,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
                     triggers[report_num] = USAR_TRIGGER_START;
                     urrs[report_num++] = urr;
                     urr_quota_exhaust_action(urr, gtp);
+                    GTP5G_TRC(NULL, "URR (%u) Start of Service Data Flow, stop measure until recieve quota", urr->id);
                 }
 
                 if (urr->info & URR_INFO_MBQE) {
@@ -607,34 +633,41 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
         len = sizeof(*report) * report_num;
 
         report = kzalloc(len, GFP_ATOMIC);
-        for (i = 0; i < report_num; i++) {
-            urr = urrs[i];
-
-            urr->end_time = ktime_get_real();
-            report[i] = (struct user_report) {
-                    urr->id,
-                    triggers[i],
-                    urr->bytes,
-                    0,
-                    urr->start_time,
-                    urr->end_time
-            };
-
-            memset(&urr->bytes, 0, sizeof(struct VolumeMeasurement));
-            urr->start_time = ktime_get_real();
-        }
-
-        if (unix_sock_send(pdr, report, len, report_num) < 0) {
-            GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
+        if (!report) {
             ret = -1;
-            kfree(report);
             goto err1;
         }
+
+        for (i = 0; i < report_num; i++) {
+            convert_urr_to_report(urrs[i], &report[i]);
+            report[i].trigger = triggers[i];
+        }
+
+        if (pdr_addr_is_netlink(pdr)) {
+            if (netlink_send(pdr, skb, dev_net(pdr->dev), report, report_num) < 0) {
+                GTP5G_ERR(pdr->dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
+                ++pdr->dl_drop_cnt;
+                goto err1;
+            }
+        } else {
+            if (unix_sock_send(pdr, report, len, report_num) < 0) {
+                GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
+                ret = -1;
+                goto err1;
+            }
+        }          
     }
 
 err1:
-    kfree(urrs);
-    kfree(triggers);
+    if (report) {
+        kfree(report);
+    }
+    if (urrs) {
+        kfree(urrs);
+    }
+    if (triggers) {
+        kfree(triggers);
+    }
     return ret;
 }
 
@@ -860,7 +893,7 @@ static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct pdr *pdr)
 {
     if (pdr_addr_is_netlink(pdr)) {
-        if (netlink_send(pdr, skb, dev_net(dev)) < 0) {
+        if (netlink_send(pdr, skb, dev_net(dev), NULL, 0) < 0) {
             GTP5G_ERR(dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
             ++pdr->dl_drop_cnt;
         }
