@@ -3,7 +3,7 @@
 
 #include "genl.h"
 
-#define DRV_VERSION "0.7.3"
+#define DRV_VERSION "0.8.0"
 
 enum gtp5g_version {
     GTP5G_VERSION

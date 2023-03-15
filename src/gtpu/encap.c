@@ -410,29 +410,25 @@ static int netlink_send(struct pdr *pdr, struct sk_buff *skb_in, struct net *net
         nest_msg_type = nla_nest_start(skb, GTP5G_BUFFER);
 
         err = nla_put_u16(skb, GTP5G_BUFFER_ID, pdr->id);
-        if (err != 0)
-        {
+        if (err != 0) {
             nlmsg_free(skb);
             return err;
         }
 
         err = nla_put_u64_64bit(skb, GTP5G_BUFFER_SEID, pdr->seid, GTP5G_BUFFER_PAD);
-        if (err != 0)
-        {
+        if (err != 0) {
             nlmsg_free(skb);
             return err;
         }
 
         err = nla_put_u16(skb, GTP5G_BUFFER_ACTION, pdr->far->action);
-        if (err != 0)
-        {
+        if (err != 0) {
             nlmsg_free(skb);
             return err;
         }
 
         attr = nla_reserve(skb, GTP5G_BUFFER_PACKET, skb_in->len);
-        if (!attr)
-        {
+        if (!attr) {
             nlmsg_free(skb);
             return -EINVAL;
         }
