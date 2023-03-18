@@ -93,6 +93,9 @@ void pdr_context_delete(struct pdr *pdr)
 // Delete the AF_UNIX client
 void unix_sock_client_delete(struct pdr *pdr)
 {
+    if (!pdr || pdr_addr_is_netlink(pdr))
+        return;
+
     if (pdr->sock_for_buf)
         sock_release(pdr->sock_for_buf);
 
@@ -135,8 +138,12 @@ int unix_sock_client_new(struct pdr *pdr)
 // Handle PDR/FAR changed and affect buffering
 int unix_sock_client_update(struct pdr *pdr)
 {
-    
-    struct far *far = pdr->far;
+    struct far *far = NULL;
+
+    if (!pdr || pdr_addr_is_netlink(pdr))
+        return 0;
+
+    far = pdr->far;
 
     unix_sock_client_delete(pdr);
 
@@ -214,7 +221,7 @@ static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb,
 
         if (rule->sport_num + rule->dport_num > 0) {
             if (!(pptr = skb_header_pointer(skb, hdrlen + sizeof(struct iphdr), sizeof(_ports), _ports)))
-                       goto mismatch;
+                goto mismatch;
 
             if (!ports_match(rule->sport, rule->sport_num, ntohs(pptr[0])))
                 goto mismatch;
