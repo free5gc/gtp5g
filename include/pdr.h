@@ -77,10 +77,6 @@ struct pdr {
     struct sockaddr_un addr_unix;
     struct socket *sock_for_buf;
 
-    // Temp solution: for usage report notification
-    struct sockaddr_un addr_unix_ur;
-    struct socket *sock_for_ur;
-
     u16 af;
     struct in_addr role_addr_ipv4;
     struct sock *sk;
