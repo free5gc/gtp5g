@@ -436,11 +436,6 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
             str = nla_data(hdr);
             pdr->addr_unix.sun_family = AF_UNIX;
             strncpy(pdr->addr_unix.sun_path, str, nla_len(hdr));
-
-            // Temp solution: for usage report notification
-            str = "/tmp/free5gc_unix_sock";
-            pdr->addr_unix_ur.sun_family = AF_UNIX;
-            strncpy(pdr->addr_unix_ur.sun_path, str, strlen(str));
             break;
         case GTP5G_PDR_FAR_ID:
             if (!pdr->far_id) {

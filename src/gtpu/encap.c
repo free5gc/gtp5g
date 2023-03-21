@@ -457,9 +457,8 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u32 report_num)
     u16 self_hdr[2] = {pdr->id, pdr->far->action};
     u32 self_num_hdr[1] = {report_num};
 
-    // Temp solution: for usage report notification
     if (pdr_addr_is_netlink(pdr)) {
-        sock = pdr->sock_for_ur;
+        return -EINVAL;
     }
 
     if (!sock) {
@@ -641,8 +640,8 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink) {
 
         if (pdr_addr_is_netlink(pdr)) {
             if (netlink_send(pdr, skb, dev_net(pdr->dev), report, report_num) < 0) {
-                GTP5G_ERR(pdr->dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
-                ++pdr->dl_drop_cnt;
+                GTP5G_ERR(pdr->dev, "Failed to send report to netlink socket PDR(%u)", pdr->id);
+                ret = -1;
                 goto err1;
             }
         } else {
@@ -651,7 +650,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink) {
                 ret = -1;
                 goto err1;
             }
-        }          
+        }
     }
 
 err1:
