@@ -640,8 +640,8 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink) {
 
         if (pdr_addr_is_netlink(pdr)) {
             if (netlink_send(pdr, skb, dev_net(pdr->dev), report, report_num) < 0) {
-                GTP5G_ERR(pdr->dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
-                ++pdr->dl_drop_cnt;
+                GTP5G_ERR(pdr->dev, "Failed to send report to netlink socket PDR(%u)", pdr->id);
+                ret = -1;
                 goto err1;
             }
         } else {
