@@ -457,6 +457,10 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u32 report_num)
     u16 self_hdr[2] = {pdr->id, pdr->far->action};
     u32 self_num_hdr[1] = {report_num};
 
+    if (pdr_addr_is_netlink(pdr)) {
+        return -EINVAL;
+    }
+
     if (!sock) {
         GTP5G_ERR(NULL, "Failed Socket is NULL\n");
         return -EINVAL;

@@ -113,6 +113,10 @@ int unix_sock_client_new(struct pdr *pdr)
         return -EINVAL;
     }
 
+    if (pdr_addr_is_netlink(pdr)) {
+        return 0;
+    }
+
     err = sock_create(AF_UNIX, SOCK_DGRAM, 0, psock);
     if (err) {
         return err;
