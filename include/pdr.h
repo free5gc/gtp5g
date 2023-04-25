@@ -65,7 +65,7 @@ struct pdr {
     u8 *outer_header_removal;
     struct pdi *pdi;
     u32 *far_id;
-    struct far *far;
+    struct far __rcu *far;
     u32 *qer_ids; 
     u32 qer_num;
     u8  qfi;
@@ -108,7 +108,7 @@ extern void pdr_update_hlist_table(struct pdr *, struct gtp5g_dev *);
 
 extern void unix_sock_client_delete(struct pdr *);
 extern int unix_sock_client_new(struct pdr *);
-extern int unix_sock_client_update(struct pdr *);
+extern int unix_sock_client_update(struct pdr *, struct far *);
 
 static inline bool pdr_addr_is_netlink(struct pdr *pdr)
 {

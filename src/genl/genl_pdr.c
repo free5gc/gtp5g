@@ -404,6 +404,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     int err;
     struct nlattr *hdr = nlmsg_attrdata(info->nlhdr, 0);
     int remaining = nlmsg_attrlen(info->nlhdr, 0);
+    struct far *far;
 
     pdr->seid = 0;
 
@@ -468,7 +469,8 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
         return -EINVAL;
 
     pdr->af = AF_INET;
-    pdr->far = find_far_by_id(gtp, pdr->seid, *pdr->far_id);
+    far = find_far_by_id(gtp, pdr->seid, *pdr->far_id);
+    rcu_assign_pointer(pdr->far, far);
 
     err = far_set_pdr(pdr, gtp);
     if (err)
@@ -484,7 +486,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
 
     set_pdr_qfi(pdr, gtp);
 
-    if (unix_sock_client_update(pdr) < 0)
+    if (unix_sock_client_update(pdr, far) < 0)
         return -EINVAL;
 
     // Update hlist table

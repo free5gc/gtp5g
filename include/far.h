@@ -48,7 +48,7 @@ struct far {
     u64 seid;
     u32 id;
     u16 action;
-    struct forwarding_parameter *fwd_param;
+    struct forwarding_parameter __rcu *fwd_param;
     u8 *bar_id;
     struct bar *bar;
     struct net_device *dev;
