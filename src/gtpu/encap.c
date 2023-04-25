@@ -285,12 +285,18 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
          */
         while (*(ext_hdr = (u8 *)(skb->data + hdrlen - 1))) {
             u8 ext_hdr_type = *ext_hdr;
+            unsigned int extlen;
             pull_len = hdrlen + 1; // 1 byte for the length of extension hdr
             if (!pskb_may_pull(skb, pull_len)) {
                 GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
                 return -1;
             }
-            hdrlen += (*((u8 *)(skb->data + hdrlen))) * 4; // total length of extension hdr
+            extlen = (*((u8 *)(skb->data + hdrlen))) * 4; // total length of extension hdr
+            if (extlen == 0) {
+                GTP5G_ERR(gtp->dev, "Invalid extention header length\n");
+                return -1;
+            }
+            hdrlen += extlen;
             pull_len = hdrlen;
             if (!pskb_may_pull(skb, pull_len)) {
                 GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
