@@ -616,7 +616,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink) {
                         triggers[report_num] = USAR_TRIGGER_VOLQU;
                         urrs[report_num++] = urr;
                         urr_quota_exhaust_action(urr, gtp);
-                        GTP5G_LOG(NULL, "URR (%u) Quota Exhaust, stop measure", urr->id);
+                        GTP5G_INF(NULL, "URR (%u) Quota Exhaust, stop measure", urr->id);
                     }
                 }
             }
@@ -924,7 +924,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
 
     if (!pdr) {
-        GTP5G_TRC(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
+        GTP5G_INF(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
         return -ENOENT;
     }
 
