@@ -357,6 +357,7 @@ static ssize_t proc_far_write(struct file *filp, const char __user *buffer,
     unsigned long buf_len = min(sizeof(buf) - 1, len);
     struct far *far;
     struct gtp5g_dev *gtp;
+    struct forwarding_parameter *fwd_param;
 
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);
@@ -391,11 +392,12 @@ static ssize_t proc_far_write(struct file *filp, const char __user *buffer,
     proc_far.seid = far->seid;
     proc_far.action = far->action;
 
-    if (far->fwd_param) {
-        if (far->fwd_param->hdr_creation) {
-            proc_far.description = far->fwd_param->hdr_creation->description;
-            proc_far.teid = far->fwd_param->hdr_creation->teid;
-            proc_far.peer_addr4 = far->fwd_param->hdr_creation->peer_addr_ipv4.s_addr;
+    fwd_param = rcu_dereference(far->fwd_param);
+    if (fwd_param) {
+        if (fwd_param->hdr_creation) {
+            proc_far.description = fwd_param->hdr_creation->description;
+            proc_far.teid = fwd_param->hdr_creation->teid;
+            proc_far.peer_addr4 = fwd_param->hdr_creation->peer_addr_ipv4.s_addr;
         }
     }
 

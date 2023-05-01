@@ -17,7 +17,7 @@ static void far_context_free(struct rcu_head *head)
     if (!far)
         return;
 
-    fwd_param = far->fwd_param;
+    fwd_param = rcu_dereference(far->fwd_param);
     if (fwd_param) {
         if (fwd_param->hdr_creation)
             kfree(fwd_param->hdr_creation);
@@ -48,7 +48,7 @@ void far_context_delete(struct far *far)
     hlist_for_each_entry_rcu(pdr_node, head, hlist) {
         if (pdr_node->pdr->seid == far->seid &&
             *pdr_node->pdr->far_id == far->id) {
-            pdr_node->pdr->far = NULL;
+            rcu_assign_pointer(pdr_node->pdr->far, NULL);
             unix_sock_client_delete(pdr_node->pdr);
         }
     }
@@ -88,8 +88,8 @@ void far_update(struct far *far, struct gtp5g_dev *gtp, u8 *flag,
                 epkt_info->role_addr = pdr_node->pdr->role_addr_ipv4.s_addr;
                 epkt_info->sk = pdr_node->pdr->sk;
             }
-            pdr_node->pdr->far = far;
-            unix_sock_client_update(pdr_node->pdr);
+            rcu_assign_pointer(pdr_node->pdr->far, far);
+            unix_sock_client_update(pdr_node->pdr, far);
         }
     }
 }

@@ -133,14 +133,10 @@ int unix_sock_client_new(struct pdr *pdr)
 }
 
 // Handle PDR/FAR changed and affect buffering
-int unix_sock_client_update(struct pdr *pdr)
+int unix_sock_client_update(struct pdr *pdr, struct far *far)
 {
-    struct far *far = NULL;
-
     if (!pdr || pdr_addr_is_netlink(pdr))
         return 0;
-
-    far = pdr->far;
 
     unix_sock_client_delete(pdr);
 

@@ -463,6 +463,7 @@ static int far_fill(struct far *far, struct gtp5g_dev *gtp, struct genl_info *in
 {
     struct nlattr *attrs[GTP5G_FORWARDING_PARAMETER_ATTR_MAX + 1];
     int err;
+    struct forwarding_parameter *fwd_param;
 
     if (!far)
         return -EINVAL;
@@ -497,12 +498,14 @@ static int far_fill(struct far *far, struct gtp5g_dev *gtp, struct genl_info *in
                 NULL);
         if (err)
             return err;
-        if (!far->fwd_param) {
-            far->fwd_param = kzalloc(sizeof(*far->fwd_param), GFP_ATOMIC);
-            if (!far->fwd_param)
+        fwd_param = rcu_dereference(far->fwd_param);
+        if (!fwd_param) {
+            fwd_param = kzalloc(sizeof(*fwd_param), GFP_ATOMIC);
+            if (!fwd_param)
                 return -ENOMEM;
         }
-        err = forwarding_parameter_fill(far->fwd_param, attrs, flag, epkt_info);
+        err = forwarding_parameter_fill(fwd_param, attrs, flag, epkt_info);
+        rcu_assign_pointer(far->fwd_param, fwd_param);
         if (err)
             return err;
     }
@@ -546,12 +549,12 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         if (nla_put_u64_64bit(skb, GTP5G_FAR_SEID, far->seid, 0))
             goto genlmsg_fail;
     }
-    if (far->fwd_param) {
+    fwd_param = rcu_dereference(far->fwd_param);
+    if (fwd_param) {
         nest_fwd_param = nla_nest_start(skb, GTP5G_FAR_FORWARDING_PARAMETER);
         if (!nest_fwd_param)
             goto genlmsg_fail;
 
-        fwd_param = far->fwd_param;
         if (fwd_param->hdr_creation) {
             nest_hdr_creation = nla_nest_start(skb, GTP5G_FORWARDING_PARAMETER_OUTER_HEADER_CREATION);
             if (!nest_hdr_creation)

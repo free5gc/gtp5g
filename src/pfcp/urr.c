@@ -74,7 +74,7 @@ void urr_update(struct urr *urr, struct gtp5g_dev *gtp)
     hlist_for_each_entry_rcu(pdr_node, head, hlist) {
         if (pdr_node->pdr != NULL &&
             find_urr_id_in_pdr(pdr_node->pdr, urr->id)) {
-            unix_sock_client_update(pdr_node->pdr);
+            unix_sock_client_update(pdr_node->pdr, rcu_dereference(pdr_node->pdr->far));
         }
     }
 }
@@ -85,6 +85,7 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     struct pdr_node *pdr_node;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     u16 *actions = NULL, *pdrids = NULL;
+    struct far *far;
 
     if (urr->quota_exhausted) {
         GTP5G_WAR(NULL, "URR (%u) quota was already exhausted\n", urr->id);
@@ -105,9 +106,12 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     hlist_for_each_entry_rcu(pdr_node, head, hlist) {
         if (find_urr_id_in_pdr(pdr_node->pdr, urr->id)) {
             pdrids[urr->pdr_num] = pdr_node->pdr->id;
-            actions[urr->pdr_num++] = pdr_node->pdr->far->action;
+            far = rcu_dereference(pdr_node->pdr->far);
+            if (far != NULL) {
+                actions[urr->pdr_num++] = far->action;
 
-            pdr_node->pdr->far->action = FAR_ACTION_DROP;
+                far->action = FAR_ACTION_DROP;
+            }
         }
     }
 
@@ -135,6 +139,7 @@ void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     struct pdr_node *pdr_node;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     int i;
+    struct far *far;
 
     if (!urr->quota_exhausted) {
         GTP5G_WAR(NULL, "URR (%u) quota is not exhausted; should not reverse\n", urr->id);
@@ -148,8 +153,12 @@ void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     hlist_for_each_entry_rcu(pdr_node, head, hlist) {
         if (find_urr_id_in_pdr(pdr_node->pdr, urr->id)) {
             for (i = 0; i < urr->pdr_num; i++) {
-                if (urr->pdrids[i] == pdr_node->pdr->id)
-                    pdr_node->pdr->far->action = urr->actions[i];
+                if (urr->pdrids[i] == pdr_node->pdr->id) {
+                    far = rcu_dereference(pdr_node->pdr->far);
+                    if (far != NULL) {
+                        far->action = urr->actions[i];
+                    }
+                }
             }
         }
     }
