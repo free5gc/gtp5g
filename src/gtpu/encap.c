@@ -46,6 +46,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *,
     struct net_device *, struct gtp5g_pktinfo *, 
     struct pdr *, struct far *, uint64_t);
 
+/* When gtp5g newlink, establish the udp tunnel used in N3 interface */
 struct sock *gtp5g_encap_enable(int fd, int type, struct gtp5g_dev *gtp){
     struct udp_tunnel_sock_cfg tuncfg = {NULL};
     struct socket *sock;
@@ -103,6 +104,7 @@ void gtp5g_encap_disable(struct sock *sk)
     if (gtp) {
         gtp->sk1u = NULL;
         udp_sk(sk)->encap_type = 0;
+        // sk_user_data was protected by RCU
         rcu_assign_sk_user_data(sk, NULL);
         sock_put(sk);
     }
@@ -116,6 +118,9 @@ static void gtp5g_encap_disable_locked(struct sock *sk)
     rtnl_unlock();
 }
 
+/**
+ * Entry function for Uplink packets
+ * */
 static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
 {
     struct gtp5g_dev *gtp;
@@ -672,7 +677,7 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
     int rt = -1;
     u64 volume_mbqe = 0;
     struct far *far = rcu_dereference(pdr->far);
-    // struct qer *qer = pdr->qer;
+    // struct qer *qer = rcu_dereference(pdr->qer);
 
     if (!far) {
         GTP5G_ERR(pdr->dev, "FAR not exists for PDR(%u)\n", pdr->id);
@@ -936,7 +941,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
 
     /* TODO: QoS rule have to apply before apply FAR 
      * */
-    //qer = pdr->qer;
+    //qer = rcu_dereference(pdr->qer);
     //if (qer) {
     //    GTP5G_ERR(dev, "%s:%d QER Rule found, id(%#x) qfi(%#x) TODO\n", 
     //            __func__, __LINE__, qer->id, qer->qfi);

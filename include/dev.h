@@ -7,7 +7,7 @@
 
 struct gtp5g_dev {
     struct list_head list;
-    struct sock *sk1u;
+    struct sock *sk1u; // UDP socket from user space
     struct net_device *dev;
     unsigned int role;
     unsigned int hash_size;
