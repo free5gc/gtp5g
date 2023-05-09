@@ -169,7 +169,7 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
         goto fail;
     }
 
-    convert_urr_to_report(urr, report);
+    convert_urr_to_report(urr, report, true);
 
     err = gtp5g_genl_fill_usage_report(skb_ack,
             NETLINK_CB(skb).portid,
@@ -345,7 +345,7 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
         parse_volumeqouta(urr, info->attrs[GTP5G_URR_VOLUME_QUOTA]);
         urr->consumed = urr->bytes;
 
-        if (urr->volumequota.totalVolume == 0) {
+        if (urr->volumequota.totalVolume == 0 && urr->trigger == URR_RPT_TRIGGER_VOLQU) {
             urr_quota_exhaust_action(urr, gtp);
             GTP5G_INF(NULL, "URR (%u) Receive zero quota, stop measure", urr->id);
         } else if (urr->quota_exhausted) {

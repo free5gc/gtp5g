@@ -645,7 +645,11 @@ int check_urr(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool upli
         }
 
         for (i = 0; i < report_num; i++) {
-            convert_urr_to_report(urrs[i], &report[i]);
+            if (triggers[i] == USAR_TRIGGER_START){
+                convert_urr_to_report(urrs[i], &report[i], false);
+            } else {
+                convert_urr_to_report(urrs[i], &report[i], true);
+            }
             report[i].trigger = triggers[i];
         }
 
