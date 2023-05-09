@@ -14,27 +14,63 @@
 #include "log.h"
 
 u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen){
-    struct iphdr *iph;
+    struct iphdr *iph, *inner_iph;
     struct tcphdr *tcp;
+    struct udphdr *udp;
+    struct sk_buff *inner_skb, tmp;
     u64 volume;
 
-    iph = ip_hdr(skb);
-    volume = skb->len - hdrlen - iph->ihl * 4;
-
+    volume = skb->len;
+    // hdrlen included the header length of UDP
     // Deduct the header length of transport layer
-    switch (iph->protocol) {
-    case IPPROTO_TCP:
-        // tcp = (struct tcphdr *)(skb_transport_header(skb) + (iph->ihl << 2));
-        tcp = (struct tcphdr *)(skb_transport_header(skb));
-        volume -= tcp->doff * 4;
-        break;
-    case IPPROTO_UDP:
-        volume -= 8; // udp header len = 8B
-        break;
-    default:
-        break;
-	}
 
+    udp = udp_hdr(skb);
+
+    if (hdrlen == 0) {
+        iph = ip_hdr(skb);
+        volume -= (iph->ihl * 4);
+        switch (iph->protocol) {
+        case IPPROTO_TCP:
+            // tcp = (struct tcphdr *)(skb_transport_header(skb) + (iph->ihl << 2));
+            tcp = tcp_hdr(skb);
+            volume -= tcp->doff * 4;
+            break;
+        case IPPROTO_UDP:
+            volume -= 8; // udp header len = 8B
+            break;
+        default:
+            return 0;
+        }
+    } else if (hdrlen > 0) {
+        volume -= hdrlen;
+
+        tmp = *skb;
+        inner_skb = &tmp;
+
+        inner_skb->len -= hdrlen;
+        inner_skb->data += hdrlen;
+        inner_iph = (struct iphdr *)inner_skb->data;
+
+        volume -= inner_iph->ihl * 4;
+
+        // Deduct the header length of transport layer
+        switch (inner_iph->protocol) {
+        case IPPROTO_TCP:
+            // tcp = (struct tcphdr *)(skb_transport_header(skb) + (iph->ihl << 2));
+            inner_skb->len -= inner_iph->ihl * 4;
+            inner_skb->data += inner_iph->ihl * 4;
+
+            tcp =  (struct tcphdr *)inner_skb->data;
+            volume -= tcp->doff * 4;
+            break;
+        case IPPROTO_UDP:
+            volume -= 8; // udp header len = 8B
+            break;
+        default:
+            return 0;
+        }
+    }
+    
     return volume;
 }
 

@@ -887,9 +887,9 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     pdr->dl_byte_cnt += skb->len;
     GTP5G_INF(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
 
-    gtp5g_push_header(skb, pktinfo);
-
     volume = ip4_rm_header(skb, 0);
+
+    gtp5g_push_header(skb, pktinfo);
 
     if (pdr->urr_num != 0) {
         if (check_urr(pdr, far, volume, volume_mbqe, false) < 0)
