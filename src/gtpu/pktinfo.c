@@ -16,15 +16,10 @@
 u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen){
     struct iphdr *iph, *inner_iph;
     struct tcphdr *tcp;
-    struct udphdr *udp;
     struct sk_buff *inner_skb, tmp;
     u64 volume;
 
     volume = skb->len;
-    // hdrlen included the header length of UDP
-    // Deduct the header length of transport layer
-
-    udp = udp_hdr(skb);
 
     if (hdrlen == 0) {
         iph = ip_hdr(skb);
