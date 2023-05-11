@@ -34,7 +34,7 @@ u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen){
             volume -= 8; // udp header len = 8B
             break;
         default:
-            return 0;
+            break;
         }
     } else if (hdrlen > 0) {
         volume -= hdrlen;
