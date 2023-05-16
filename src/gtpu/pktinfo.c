@@ -52,12 +52,12 @@ u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen){
     skb_copy = &tmp;
 
     volume = skb->len;
-    // packets from N6
     if (hdrlen == 0) {
+        // packets from N6
         iph = ip_hdr(skb);
         volume -= network_and_transport_header_len(skb_copy);
-    // packets from N3/N9
     } else if (hdrlen > 0) {
+        // packets from N3/N9
         volume -= hdrlen;
 
         skb_copy->len -= hdrlen;
