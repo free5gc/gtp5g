@@ -13,57 +13,56 @@
 #include "pktinfo.h"
 #include "log.h"
 
-u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen){
-    struct iphdr *iph, *inner_iph;
+u64 network_and_transport_header_len(struct sk_buff *skb){
+    u64 hdrlen;
+    struct iphdr *iph;
     struct tcphdr *tcp;
-    struct sk_buff *inner_skb, tmp;
+    
+    iph = (struct iphdr *)skb->data;
+    hdrlen = iph->ihl * 4;
+
+    switch (iph->protocol) {
+        case IPPROTO_TCP:
+            // tcp = (struct tcphdr *)(skb_transport_header(skb) + (iph->ihl << 2));
+            skb->len -= iph->ihl * 4;
+            skb->data += iph->ihl * 4;
+
+            tcp =  (struct tcphdr *)skb->data;
+            hdrlen += tcp->doff * 4;
+
+            break;
+        case IPPROTO_UDP:
+            hdrlen +=  8; // udp header len = 8B
+            break;
+        default:
+            break;
+        }
+
+    return hdrlen;
+}
+
+u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen){
+    struct iphdr *iph;
+    struct sk_buff *skb_copy, tmp;
     u64 volume;
+
+    // To make sure cacaluting the len of skb will not move the data & len value 
+    // of the original skb
+    tmp = *skb;
+    skb_copy = &tmp;
 
     volume = skb->len;
 
     if (hdrlen == 0) {
         iph = ip_hdr(skb);
-        volume -= (iph->ihl * 4);
-        switch (iph->protocol) {
-        case IPPROTO_TCP:
-            // tcp = (struct tcphdr *)(skb_transport_header(skb) + (iph->ihl << 2));
-            tcp = tcp_hdr(skb);
-            volume -= tcp->doff * 4;
-            break;
-        case IPPROTO_UDP:
-            volume -= 8; // udp header len = 8B
-            break;
-        default:
-            break;
-        }
+        volume -= network_and_transport_header_len(skb_copy);
     } else if (hdrlen > 0) {
         volume -= hdrlen;
 
-        tmp = *skb;
-        inner_skb = &tmp;
+        skb_copy->len -= hdrlen;
+        skb_copy->data += hdrlen;
 
-        inner_skb->len -= hdrlen;
-        inner_skb->data += hdrlen;
-        inner_iph = (struct iphdr *)inner_skb->data;
-
-        volume -= inner_iph->ihl * 4;
-
-        // Deduct the header length of transport layer
-        switch (inner_iph->protocol) {
-        case IPPROTO_TCP:
-            // tcp = (struct tcphdr *)(skb_transport_header(skb) + (iph->ihl << 2));
-            inner_skb->len -= inner_iph->ihl * 4;
-            inner_skb->data += inner_iph->ihl * 4;
-
-            tcp =  (struct tcphdr *)inner_skb->data;
-            volume -= tcp->doff * 4;
-            break;
-        case IPPROTO_UDP:
-            volume -= 8; // udp header len = 8B
-            break;
-        default:
-            return 0;
-        }
+        volume -= network_and_transport_header_len(skb_copy);
     }
     
     return volume;
