@@ -8,6 +8,7 @@
 #include "dev.h"
 #include "report.h"
 
+#define DONT_SEND_UL_PACKET (-2)
 #define SEID_U32ID_HEX_STR_LEN 24
 // Measurement Method
 #define URR_METHOD_DURAT (1 << 0)

@@ -593,7 +593,7 @@ int check_urr(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool upli
                 if (urr->trigger == 0) {
                     GTP5G_ERR(pdr->dev, "no supported trigger(%u) in URR(%u) and related to PDR(%u)",
                         urr->trigger, urr->id, pdr->id);
-                    ret = 0;
+                    ret = 0; 
                     goto err1;
                 }
 
@@ -602,6 +602,7 @@ int check_urr(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool upli
                     urrs[report_num++] = urr;
                     urr_quota_exhaust_action(urr, gtp);
                     GTP5G_TRC(NULL, "URR (%u) Start of Service Data Flow, stop measure until recieve quota", urr->id);
+                    continue;
                 }
 
                 if (urr->info & URR_INFO_MBQE) {
@@ -645,11 +646,12 @@ int check_urr(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool upli
         }
 
         for (i = 0; i < report_num; i++) {
+            // TODO: FAR ID for Quota Action IE for indicating the action while no quota is granted
             if (triggers[i] == USAR_TRIGGER_START){
-                convert_urr_to_report(urrs[i], &report[i], false);
-            } else {
-                convert_urr_to_report(urrs[i], &report[i], true);
-            }
+                ret = DONT_SEND_UL_PACKET;
+            }                 
+            convert_urr_to_report(urrs[i], &report[i]);
+
             report[i].trigger = triggers[i];
         }
 
@@ -771,15 +773,23 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             uh = udp_hdr(skb);
             uh->check = 0;
 
+            if (pdr->urr_num != 0) {
+                ret = check_urr(pdr, far, volume, volume_mbqe, true);
+                if (ret < 0) {
+                    if (ret == DONT_SEND_UL_PACKET) {
+                        GTP5G_ERR(pdr->dev, "Should not foward the first uplink packet");
+                        return -1;
+                    } else {
+                        GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
+                    }
+                }
+            }
+
             if (ip_xmit(skb, pdr->sk, dev) < 0) {
                 GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
                 return -1;
             }
 
-            if (pdr->urr_num != 0) {
-                if (check_urr(pdr, far, volume, volume_mbqe, true) < 0)
-                    GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
-            }
             return 0;
         }
     }

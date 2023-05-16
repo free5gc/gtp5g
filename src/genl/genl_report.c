@@ -77,7 +77,7 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
         goto fail;
     }
 
-    convert_urr_to_report(urr, report, true);
+    convert_urr_to_report(urr, report);
 
     err = gtp5g_genl_fill_usage_report(skb_ack,
             NETLINK_CB(skb).portid,
@@ -169,7 +169,7 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
             goto fail;
         }
 
-        convert_urr_to_report(urr, reports[report_num++], true);
+        convert_urr_to_report(urr, reports[report_num++]);
     }
 
     skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
@@ -336,7 +336,7 @@ genlmsg_fail:
     return -EMSGSIZE;
 }
 
-void convert_urr_to_report(struct urr *urr, struct usage_report *report, bool report_vol)
+void convert_urr_to_report(struct urr *urr, struct usage_report *report)
 {
     urr->end_time = ktime_get_real();
     *report = (struct usage_report ) {

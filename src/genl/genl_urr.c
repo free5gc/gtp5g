@@ -169,7 +169,7 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
         goto fail;
     }
 
-    convert_urr_to_report(urr, report, true);
+    convert_urr_to_report(urr, report);
 
     err = gtp5g_genl_fill_usage_report(skb_ack,
             NETLINK_CB(skb).portid,
@@ -329,8 +329,14 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
     if (info->attrs[GTP5G_URR_MEASUREMENT_METHOD])
         urr->method = nla_get_u8(info->attrs[GTP5G_URR_MEASUREMENT_METHOD]);
 
-    if (info->attrs[GTP5G_URR_REPORTING_TRIGGER])
+    if (info->attrs[GTP5G_URR_REPORTING_TRIGGER]) {
         urr->trigger = nla_get_u32(info->attrs[GTP5G_URR_REPORTING_TRIGGER]);
+        if (urr->trigger == URR_RPT_TRIGGER_START) {
+            // Clean bytes to make sure the bytes are counted after the start of service data flow
+            // TODO: Should send the previous stroed bytes to CP first
+            memset(&urr->bytes, 0, sizeof(struct VolumeMeasurement));
+        }
+    }
 
     if (info->attrs[GTP5G_URR_MEASUREMENT_PERIOD])
         urr->period = nla_get_u32(info->attrs[GTP5G_URR_MEASUREMENT_PERIOD]);
