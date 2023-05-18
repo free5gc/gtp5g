@@ -42,7 +42,6 @@ u64 network_and_transport_header_len(struct sk_buff *skb){
 }
 
 u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen){
-    struct iphdr *iph;
     struct sk_buff *skb_copy, tmp;
     u64 volume;
 
@@ -54,7 +53,6 @@ u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen){
     volume = skb->len;
     if (hdrlen == 0) {
         // packets without gtp header
-        iph = ip_hdr(skb);
         volume -= network_and_transport_header_len(skb_copy);
     } else if (hdrlen > 0) {
         // packets with gtp header
