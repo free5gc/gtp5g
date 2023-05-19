@@ -593,7 +593,7 @@ int check_urr(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool upli
                 if (urr->trigger == 0) {
                     GTP5G_ERR(pdr->dev, "no supported trigger(%u) in URR(%u) and related to PDR(%u)",
                         urr->trigger, urr->id, pdr->id);
-                    ret = 0; 
+                    ret = 0;
                     goto err1;
                 }
 

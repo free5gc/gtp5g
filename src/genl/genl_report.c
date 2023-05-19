@@ -342,14 +342,13 @@ void convert_urr_to_report(struct urr *urr, struct usage_report *report)
     *report = (struct usage_report ) {
                 urr->id,
                 0,
-                (struct VolumeMeasurement) {0}  ,
+                urr->bytes,
                 0,
                 urr->start_time,
                 urr->end_time,
                 urr->seid
         };
 
-    report->volmeasurement = urr->bytes;
     memset(&urr->bytes, 0, sizeof(struct VolumeMeasurement));
 
     urr->start_time = ktime_get_real();
