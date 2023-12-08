@@ -751,6 +751,19 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     int ret;
     u64 volume = 0;
 
+    TrafficPolicer* tp;
+    Color color;
+    
+    tp = pdr->ul_policer;
+    
+    if (tp != NULL){
+        color = policePacket(tp, skb->len);
+        if (color == Red){
+            dev_kfree_skb(skb);
+            return 0;
+        }
+    }
+
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
         volume = ip4_rm_header(skb, hdrlen);
 
@@ -869,6 +882,18 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct outer_header_creation *hdr_creation;
     u64 volume;
     struct forwarding_parameter *fwd_param;
+
+    TrafficPolicer* tp;
+    Color color;
+
+    tp = pdr->dl_policer;
+    if (tp != NULL){
+        color = policePacket(tp, skb->len);
+        if (color == Red){
+            dev_kfree_skb(skb);
+            return 0;
+        }
+    }
 
     if (!far) {
         GTP5G_ERR(dev, "Unknown RAN address\n");

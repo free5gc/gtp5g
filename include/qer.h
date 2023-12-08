@@ -19,6 +19,9 @@ struct qer {
         uint32_t dl_high;
         uint8_t dl_low;
     } mbr;
+    u64 ul_mbr;
+    u64 dl_mbr;
+
     struct {
         uint32_t ul_high;
         uint8_t ul_low;
@@ -32,6 +35,8 @@ struct qer {
     uint8_t rcsr;
     struct net_device *dev;
     struct rcu_head rcu_head;
+
+    TrafficPolicer  *ul_policer, *dl_policer;   
 };
 
 extern void qer_context_delete(struct qer *);

@@ -10,6 +10,7 @@
 #include <net/ip.h>
 
 #include "urr.h"
+#include "trTCM.h"
 
 #define SEID_U32ID_HEX_STR_LEN 24
 
@@ -92,6 +93,8 @@ struct pdr {
     u64                     dl_pkt_cnt;
     u64                     ul_byte_cnt;
     u64                     dl_byte_cnt;
+
+    TrafficPolicer  *ul_policer, *dl_policer;   
 };
 
 extern void pdr_context_delete(struct pdr *);
