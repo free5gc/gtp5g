@@ -1,4 +1,7 @@
 #include <linux/ktime.h>
+
+#define MTU 1500
+
 typedef enum {
     Green,
     Yellow,

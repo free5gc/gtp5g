@@ -756,7 +756,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     
     tp = pdr->ul_policer;
     
-    if (tp != NULL){
+    if (get_qos_enable() && tp != NULL){
         color = policePacket(tp, skb->len);
         if (color == Red){
             dev_kfree_skb(skb);
@@ -887,7 +887,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     Color color;
 
     tp = pdr->dl_policer;
-    if (tp != NULL){
+    if (get_qos_enable() && tp != NULL){
         color = policePacket(tp, skb->len);
         if (color == Red){
             dev_kfree_skb(skb);
