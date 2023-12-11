@@ -5,7 +5,7 @@
 #include "trTCM.h"
 #include "log.h"
 
-TrafficPolicer* newTrafficPolicer(u64 cbs, u64 ebs, u64 tokenRate) {
+TrafficPolicer* newTrafficPolicer(u64 tokenRate) {
     TrafficPolicer* p = (TrafficPolicer*)kmalloc(sizeof(TrafficPolicer), GFP_KERNEL);
     if (p == NULL) {
         GTP5G_ERR(NULL, "traffic policer memory allocation error\n");
@@ -13,13 +13,13 @@ TrafficPolicer* newTrafficPolicer(u64 cbs, u64 ebs, u64 tokenRate) {
     
     p->tokenRate = tokenRate * 125 ; // Kbit/s to byte/s (*1000/8)
 
-    // 4ms as burst size
-    p->cbs = p->tokenRate / 250; // bytes
+    // 1ms as burst size
+    p->cbs = p->tokenRate / 125; // bytes
     p->ebs = p->cbs * 4; // bytes
 
     // fill buckets at the begining
-    p->tc = cbs; 
-    p->te = ebs; 
+    p->tc = p->cbs; 
+    p->te = p->ebs; 
 
     p->lastUpdate = ktime_get_ns();
 

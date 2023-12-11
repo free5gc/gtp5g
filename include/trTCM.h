@@ -1,7 +1,5 @@
 #include <linux/ktime.h>
 
-#define MTU 1500
-
 typedef enum {
     Green,
     Yellow,
@@ -21,6 +19,6 @@ typedef struct {
     spinlock_t lock;
 } TrafficPolicer;
 
-extern TrafficPolicer* newTrafficPolicer(u64, u64, u64);
+extern TrafficPolicer* newTrafficPolicer(u64);
 extern void refillTokens(TrafficPolicer*); 
 extern Color policePacket(TrafficPolicer*, int);

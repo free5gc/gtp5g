@@ -321,8 +321,8 @@ static int qer_fill(struct qer *qer, struct gtp5g_dev *gtp, struct genl_info *in
 
         qer->ul_mbr = concat_bit_rate(qer->mbr.ul_high, qer->mbr.ul_low);
         qer->dl_mbr = concat_bit_rate(qer->mbr.dl_high, qer->mbr.dl_low);
-        qer->ul_policer = newTrafficPolicer(MTU*10, MTU*2, qer->ul_mbr);
-        qer->dl_policer = newTrafficPolicer(MTU*10, MTU*2, qer->dl_mbr);
+        qer->ul_policer = newTrafficPolicer(qer->ul_mbr);
+        qer->dl_policer = newTrafficPolicer(qer->dl_mbr);
     }
 
     /* GBR */
