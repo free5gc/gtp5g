@@ -753,19 +753,21 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
     TrafficPolicer* tp;
     Color color;
+    u64 tp_v = skb->len;
     
+    if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
+        volume = ip4_rm_header(skb, hdrlen);
+
     tp = pdr->ul_policer;
-    
-    if (get_qos_enable() && tp != NULL){
-        color = policePacket(tp, skb->len);
+    if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
+        tp_v = volume;
+    if (tp != NULL){
+        color = policePacket(tp, tp_v);
         if (color == Red){
             dev_kfree_skb(skb);
             return 0;
         }
     }
-
-    if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
-        volume = ip4_rm_header(skb, hdrlen);
 
     if (fwd_param) {
         if ((fwd_policy = fwd_param->fwd_policy))
@@ -886,15 +888,6 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     TrafficPolicer* tp;
     Color color;
 
-    tp = pdr->dl_policer;
-    if (get_qos_enable() && tp != NULL){
-        color = policePacket(tp, skb->len);
-        if (color == Red){
-            dev_kfree_skb(skb);
-            return 0;
-        }
-    }
-
     if (!far) {
         GTP5G_ERR(dev, "Unknown RAN address\n");
         goto err;
@@ -932,6 +925,15 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     GTP5G_INF(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
 
     volume = ip4_rm_header(skb, 0);
+
+    tp = pdr->dl_policer;
+    if (tp != NULL){
+        color = policePacket(tp, volume);
+        if (color == Red){
+            dev_kfree_skb(skb);
+            return 0;
+        }
+    }
 
     gtp5g_push_header(skb, pktinfo);
 
