@@ -13,7 +13,7 @@
 #include "log.h"
 #include <linux/types.h>
 
-int qos_enable = 1;
+int qos_enable = 0; // set QoS disable as default value
 
 int get_qos_enable(){
     return qos_enable;
