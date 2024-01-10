@@ -273,7 +273,7 @@ static int gtp5g_urr_read(struct seq_file *s, void *v)
 
 static int gtp5g_qos_read(struct seq_file *s, void *v)
 {
-    printk(" gtp5g_qos_read");
+    GTP5G_TRC(NULL, "gtp5g_qos_read");
     seq_printf(s, "QoS Enable: %d\n", get_qos_enable());
     return 0;
 }
@@ -297,7 +297,7 @@ static ssize_t proc_qos_write(struct file *filp, const char __user *buffer,
     }
      
     set_qos_enable(qos_enable);
-    printk("qos enable:%d", get_qos_enable());
+    GTP5G_TRC(NULL, "qos enable:%d", get_qos_enable());
     return strnlen(buf, buf_len);
 err:
     return -1;

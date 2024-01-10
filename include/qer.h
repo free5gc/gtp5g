@@ -36,7 +36,8 @@ struct qer {
     struct net_device *dev;
     struct rcu_head rcu_head;
 
-    TrafficPolicer  *ul_policer, *dl_policer;   
+    TrafficPolicer  *ul_policer, *dl_policer;  
+    struct pdr *pdr; 
 };
 
 extern void qer_context_delete(struct qer *);

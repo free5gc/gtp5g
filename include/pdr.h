@@ -70,9 +70,9 @@ struct pdr {
     u32 *qer_ids; 
     u32 qer_num;
     u8  qfi;
+    struct qer *qer_with_rate;
     u32 *urr_ids;
     u32 urr_num;
-    struct urr *urr;
     
     /* deprecated: AF_UNIX socket for buffer */
     struct sockaddr_un addr_unix;
@@ -92,9 +92,7 @@ struct pdr {
     u64                     ul_pkt_cnt;
     u64                     dl_pkt_cnt;
     u64                     ul_byte_cnt;
-    u64                     dl_byte_cnt;
-
-    TrafficPolicer  *ul_policer, *dl_policer;   
+    u64                     dl_byte_cnt; 
 };
 
 extern void pdr_context_delete(struct pdr *);

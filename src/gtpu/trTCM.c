@@ -9,6 +9,7 @@ TrafficPolicer* newTrafficPolicer(u64 tokenRate) {
     TrafficPolicer* p = (TrafficPolicer*)kmalloc(sizeof(TrafficPolicer), GFP_KERNEL);
     if (p == NULL) {
         GTP5G_ERR(NULL, "traffic policer memory allocation error\n");
+        return NULL;
     }
     
     p->tokenRate = tokenRate * 125 ; // Kbit/s to byte/s (*1000/8)

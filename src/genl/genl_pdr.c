@@ -488,11 +488,12 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
 
     set_pdr_qfi(pdr, gtp);
 
+    // set qer with bit rate to pdr structure
     for (i = 0; i < pdr->qer_num; i++) {
         qer = find_qer_by_id(gtp, pdr->seid, pdr->qer_ids[i]);
-        if (qer->ul_policer!= NULL && qer->dl_policer!= NULL){
-            pdr->ul_policer = qer->ul_policer;
-            pdr->dl_policer = qer->dl_policer;
+        if (qer && qer->ul_policer!= NULL && qer->dl_policer!= NULL) {
+            pdr->qer_with_rate = qer;
+            qer->pdr = pdr;
             break;
         }   
     }

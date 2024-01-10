@@ -6,6 +6,7 @@
 #include "genl.h"
 #include "genl_qer.h"
 #include "qer.h"
+#include "hash.h"
 
 #include <linux/rculist.h>
 #include <net/netns/generic.h>
@@ -158,14 +159,14 @@ int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
         return -ENOENT;
     }
 
-    // free QoS traffic policer
-    if (qer->ul_policer != NULL){
-        kfree(qer->ul_policer);
-    }
-    if (qer->dl_policer != NULL){
-        kfree(qer->dl_policer);
-    }
-
+    // free QoS traffic policer & set related PDR qer_with_rate to NULL
+    kfree(qer->ul_policer);
+    qer->ul_policer = NULL;
+    kfree(qer->dl_policer);
+    qer->dl_policer = NULL;
+    if (qer->pdr)
+        qer->pdr->qer_with_rate = NULL;
+    
     qer_context_delete(qer);
     rcu_read_unlock();
 

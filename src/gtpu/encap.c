@@ -561,7 +561,7 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
     return false;
 }
 
-int check_urr(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool uplink, bool drop_pkt) {
+int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool uplink, bool drop_pkt) {
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i;
     int ret = 1;
@@ -611,8 +611,6 @@ int check_urr(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool upli
                 }
 
                 if (urr->info & URR_INFO_MBQE) {
-                    // TODO: gtp5g isn't support QoS enforcement yet
-                    // Currently MBQE Volume = MAQE Volume
                     volume = vol_mbqe;
                 } else {
                     volume = vol;
@@ -757,14 +755,15 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
         volume_mbqe = ip4_rm_header(skb, hdrlen);
 
-    tp = pdr->ul_policer;
-    if (get_qos_enable() && tp != NULL){
+    if (pdr->qer_with_rate != NULL)
+        tp = pdr->qer_with_rate->ul_policer;
+    if (get_qos_enable() && tp != NULL) {
         color = policePacket(tp, volume_mbqe);
     }
-    if (color == Red){
+    if (color == Red) {
         volume = 0;
         drop_pkt = true;
-    }else{
+    } else {
         volume = volume_mbqe;
     }
 
@@ -793,7 +792,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             uh->check = 0;
 
             if (pdr->urr_num != 0) {
-                ret = check_urr(pdr, far, volume, volume_mbqe, true, drop_pkt);
+                ret = update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, true, drop_pkt);
                 if (ret < 0) {
                     if (ret == DONT_SEND_UL_PACKET) {
                         GTP5G_ERR(pdr->dev, "Should not foward the first uplink packet");
@@ -804,8 +803,8 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                 }
             }
 
-            if (color == Red){
-                return -1;
+            if (color == Red) {
+                return COLOR_RED_DROP;
             }
             if (ip_xmit(skb, pdr->sk, dev) < 0) {
                 GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
@@ -855,12 +854,12 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     GTP5G_INF(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);    
  
     if (pdr->urr_num != 0) {
-        if (check_urr(pdr, far, volume, volume_mbqe, true, drop_pkt) < 0)
+        if (update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, true, drop_pkt) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
     
-    if (color == Red){
-        return -1;
+    if (color == Red) {
+        return COLOR_RED_DROP;
     }
     ret = netif_rx(skb);
     if (ret != NET_RX_SUCCESS) {
@@ -933,25 +932,26 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
 
     volume_mbqe = ip4_rm_header(skb, 0);
 
-    tp = pdr->dl_policer;
-    if (get_qos_enable() && tp != NULL){
+    if (pdr->qer_with_rate != NULL)
+        tp = pdr->qer_with_rate->dl_policer;
+    if (get_qos_enable() && tp != NULL) {
         color = policePacket(tp, volume_mbqe);
     }
-    if (color == Red){
+    if (color == Red) {
         volume = 0;
         drop_pkt = true;
-    }else{
+    } else {
         volume = volume_mbqe;
     }
 
     gtp5g_push_header(skb, pktinfo);
 
     if (pdr->urr_num != 0) {
-        if (check_urr(pdr, far, volume, volume_mbqe, false, drop_pkt) < 0)
+        if (update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, false, drop_pkt) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
-    if (color == Red){
-        return -1;
+    if (color == Red) {
+        return COLOR_RED_DROP;
     }
     return FAR_ACTION_FORW;
 err:
