@@ -529,6 +529,10 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
         return false;
     }
 
+    if (vol == 0) {
+        return false;
+    }
+
     if (mnop) {
         if (uplink) {
             volmeasure->uplinkPktNum++;
@@ -561,7 +565,7 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
     return false;
 }
 
-int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool uplink, bool drop_pkt) {
+int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool uplink) {
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i;
     int ret = 1;
@@ -574,11 +578,12 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
     bool mnop;
     struct sk_buff *skb;
     
-    // volume is zero(payload is zero), no need to add volume and packet count
-    if (vol == 0) {
+    // vol_mbqe(volume of measurement before QoS enforcement) is zero(payload is zero), 
+    // no need to add volume and packet count
+    if (vol_mbqe == 0){
         return ret;
     }
-    
+
     urrs = kzalloc(sizeof(struct urr *) * pdr->urr_num , GFP_ATOMIC);
     triggers = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);
     if (!urrs || !triggers) {
@@ -614,7 +619,6 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
                     volume = vol_mbqe;
                 } else {
                     volume = vol;
-                    mnop = (mnop && !drop_pkt);
                 }
                 // Caculate Volume measurement for each trigger
                 if (urr->trigger & URR_RPT_TRIGGER_VOLTH) {
@@ -750,7 +754,6 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
     TrafficPolicer* tp = NULL;
     Color color = Green;
-    bool drop_pkt = false;
     struct qer *qer_with_rate = NULL;
     
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
@@ -764,7 +767,6 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     }
     if (color == Red) {
         volume = 0;
-        drop_pkt = true;
     } else {
         volume = volume_mbqe;
     }
@@ -794,7 +796,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             uh->check = 0;
 
             if (pdr->urr_num != 0) {
-                ret = update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, true, drop_pkt);
+                ret = update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, true);
                 if (ret < 0) {
                     if (ret == DONT_SEND_UL_PACKET) {
                         GTP5G_ERR(pdr->dev, "Should not foward the first uplink packet");
@@ -856,7 +858,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     GTP5G_INF(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);    
  
     if (pdr->urr_num != 0) {
-        if (update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, true, drop_pkt) < 0)
+        if (update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, true) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
     
@@ -951,7 +953,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     gtp5g_push_header(skb, pktinfo);
 
     if (pdr->urr_num != 0) {
-        if (update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, false, drop_pkt) < 0)
+        if (update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, false) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
     if (color == Red) {
