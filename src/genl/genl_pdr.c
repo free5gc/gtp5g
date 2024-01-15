@@ -492,7 +492,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     for (i = 0; i < pdr->qer_num; i++) {
         qer = find_qer_by_id(gtp, pdr->seid, pdr->qer_ids[i]);
         if (qer && qer->ul_policer!= NULL && qer->dl_policer!= NULL) {
-            pdr->qer_with_rate = qer;
+            rcu_assign_pointer(pdr->qer_with_rate, qer);
             qer->pdr = pdr;
             break;
         }   

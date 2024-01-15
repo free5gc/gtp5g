@@ -70,7 +70,7 @@ struct pdr {
     u32 *qer_ids; 
     u32 qer_num;
     u8  qfi;
-    struct qer *qer_with_rate;
+    struct qer __rcu *qer_with_rate;
     u32 *urr_ids;
     u32 urr_num;
     

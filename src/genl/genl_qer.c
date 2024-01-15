@@ -165,7 +165,7 @@ int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
     kfree(qer->dl_policer);
     qer->dl_policer = NULL;
     if (qer->pdr)
-        qer->pdr->qer_with_rate = NULL;
+        rcu_assign_pointer(qer->pdr->qer_with_rate, NULL);
     
     qer_context_delete(qer);
     rcu_read_unlock();
