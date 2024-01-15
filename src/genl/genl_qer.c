@@ -159,14 +159,14 @@ int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
         return -ENOENT;
     }
 
-    // free QoS traffic policer & set related PDR qer_with_rate to NULL
+    // free QoS traffic policer 
     kfree(qer->ul_policer);
     qer->ul_policer = NULL;
     kfree(qer->dl_policer);
     qer->dl_policer = NULL;
-    if (qer->pdr)
-        rcu_assign_pointer(qer->pdr->qer_with_rate, NULL);
-    
+    // set related PDR qer_with_rate to NULL
+    set_pdr_qer_with_rate_null(qer, gtp);
+
     qer_context_delete(qer);
     rcu_read_unlock();
 
