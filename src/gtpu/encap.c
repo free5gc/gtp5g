@@ -574,6 +574,11 @@ int check_urr(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool upli
     bool mnop;
     struct sk_buff *skb;
     
+    // volume is zero(payload is zero), no need to add volume and packet count
+    if (vol == 0) {
+        return ret;
+    }
+    
     urrs = kzalloc(sizeof(struct urr *) * pdr->urr_num , GFP_ATOMIC);
     triggers = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);
     if (!urrs || !triggers) {
