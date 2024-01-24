@@ -1,6 +1,6 @@
 #include <linux/ktime.h>
 
-#define COLOR_RED_DROP -1
+#define COLOR_RED_DROP 0
 
 typedef enum {
     Green,

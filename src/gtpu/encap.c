@@ -702,12 +702,6 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
         goto out;
     }
 
-    //TODO: QER
-    //if (qer) {
-    //    printk_ratelimited("%s:%d QER Rule found, id(%#x) qfi(%#x)\n", __func__, __LINE__,
-    //        qer->id, qer->qfi);
-    //}
-
     // TODO: not reading the value of outer_header_removal now,
     // just check if it is assigned.
     if (pdr->outer_header_removal) {
@@ -754,7 +748,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
     TrafficPolicer* tp = NULL;
     Color color = Green;
-    struct qer *qer_with_rate = NULL;
+    struct qer __rcu *qer_with_rate = NULL;
     
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
         volume_mbqe = ip4_rm_header(skb, hdrlen);
@@ -808,6 +802,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             }
 
             if (color == Red) {
+                kfree_skb(skb);
                 return COLOR_RED_DROP;
             }
             if (ip_xmit(skb, pdr->sk, dev) < 0) {
@@ -863,6 +858,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     }
     
     if (color == Red) {
+        kfree_skb(skb);
         return COLOR_RED_DROP;
     }
     ret = netif_rx(skb);
@@ -896,7 +892,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     TrafficPolicer* tp = NULL;
     Color color = Green;
     bool drop_pkt = false;
-    struct qer *qer_with_rate = NULL;
+    struct qer __rcu *qer_with_rate = NULL;
     
 
     if (!far) {
@@ -957,6 +953,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
     if (color == Red) {
+        kfree_skb(skb);
         return COLOR_RED_DROP;
     }
     return FAR_ACTION_FORW;

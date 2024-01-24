@@ -12,6 +12,8 @@ TrafficPolicer* newTrafficPolicer(u64 tokenRate) {
         return NULL;
     }
     
+    spin_lock_init(&p->lock);
+    
     p->tokenRate = tokenRate * 125 ; // Kbit/s to byte/s (*1000/8)
 
     // 1ms as burst size
