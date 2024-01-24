@@ -580,7 +580,7 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
     
     // vol_mbqe(volume of measurement before QoS enforcement) is zero(payload is zero), 
     // no need to add volume and packet count
-    if (vol_mbqe == 0){
+    if (vol_mbqe == 0) {
         return ret;
     }
 

@@ -29,7 +29,6 @@ TrafficPolicer* newTrafficPolicer(u64 tokenRate) {
     return p;
 } 
 
-
 Color policePacket(TrafficPolicer* p, int pktLen) {
     u64 tokensToAdd;
     u64 tc, te;
@@ -45,7 +44,7 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
  
     tc = p->tc + tokensToAdd;
     te = p->te;
-    if (tc > p->cbs){
+    if (tc > p->cbs) {
         te += (tc - p->cbs);
         if (te > p->ebs){
             te = p->ebs;
@@ -53,7 +52,6 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
         tc = p->cbs; 
     }
    
-    
     if (p->tc >= pktLen) {
         p->tc = tc - pktLen;
         p->te = te;

@@ -78,7 +78,8 @@ struct proc_gtp5g_urr {
     s64     end_time;
 };
 
-struct proc_gtp5g_qos {
+struct proc_gtp5g_qos 
+{
     bool qos_enable;
 };
 
