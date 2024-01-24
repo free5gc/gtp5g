@@ -179,4 +179,5 @@ struct genl_family gtp5g_genl_family __ro_after_init = {
     .n_ops      = ARRAY_SIZE(gtp5g_genl_ops),
     .mcgrps     = gtp5g_genl_mcgrps,
     .n_mcgrps   = ARRAY_SIZE(gtp5g_genl_mcgrps),
+    .resv_start_op = GTP5G_ATTR_MAX,
 };
