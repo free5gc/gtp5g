@@ -891,10 +891,8 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
 
     TrafficPolicer* tp = NULL;
     Color color = Green;
-    bool drop_pkt = false;
     struct qer __rcu *qer_with_rate = NULL;
     
-
     if (!far) {
         GTP5G_ERR(dev, "Unknown RAN address\n");
         goto err;
@@ -941,7 +939,6 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     }
     if (color == Red) {
         volume = 0;
-        drop_pkt = true;
     } else {
         volume = volume_mbqe;
     }
