@@ -140,16 +140,18 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
     }
 
     switch (ret) {
-    case 1:
+    case PKT_PASS_TO_UPF:
         GTP5G_ERR(gtp->dev, "Pass up to the process\n");
         break;
-    case 0:
+    case PKT_SENT:
         break;
-    case -1:
-        GTP5G_ERR(gtp->dev, "GTP packet has been dropped\n");
+    case PKT_DROPPED:
+        GTP5G_TRC(gtp->dev, "GTP packet has been dropped\n");
         kfree_skb(skb);
         ret = 0;
         break;
+    default:
+        GTP5G_ERR(gtp->dev, "Unhandled return value from gtp1u_udp_encap_recv\n");
     }
 
     return ret;
@@ -242,14 +244,14 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 
     if (!pskb_may_pull(skb, pull_len)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
-        return -1;
+        return PKT_DROPPED;
     }
 
     gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     if ((gtpv1->flags >> 5) != GTP_V1) {
         GTP5G_ERR(gtp->dev, "GTP version is not v1: %#x\n",
             gtpv1->flags);
-        return 1;
+        return PKT_PASS_TO_UPF;
     }
 
     gtp_type = gtpv1->type;
@@ -264,7 +266,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     if (gtp_type != GTPV1_MSG_TYPE_TPDU && gtp_type != GTPV1_MSG_TYPE_EMARK) {
         GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU or End Marker: %#x\n",
             gtp_type);
-        return 1;
+        return PKT_PASS_TO_UPF;
     }
 
     /** TS 29.281 Chapter 5.1 and Figure 5.1-1
@@ -281,7 +283,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         pull_len = hdrlen;
         if (!pskb_may_pull(skb, pull_len)) {
             GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
-            return -1;
+            return PKT_DROPPED;
         }
 
         /** TS 29.281 Chapter 5.2 and Figure 5.2.1-1
@@ -294,18 +296,18 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
             pull_len = hdrlen + 1; // 1 byte for the length of extension hdr
             if (!pskb_may_pull(skb, pull_len)) {
                 GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
-                return -1;
+                return PKT_DROPPED;
             }
             extlen = (*((u8 *)(skb->data + hdrlen))) * 4; // total length of extension hdr
             if (extlen == 0) {
                 GTP5G_ERR(gtp->dev, "Invalid extention header length\n");
-                return -1;
+                return PKT_DROPPED;
             }
             hdrlen += extlen;
             pull_len = hdrlen;
             if (!pskb_may_pull(skb, pull_len)) {
                 GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
-                return -1;
+                return PKT_DROPPED;
             }
             switch (ext_hdr_type) {
                 case GTPV1_NEXT_EXT_HDR_TYPE_85:
@@ -327,7 +329,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, teid, gtp_type);
     if (!pdr) {
         GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(teid));
-        return -1;
+        return PKT_DROPPED;
     }
 
     return gtp5g_rx(pdr, skb, hdrlen, gtp->role);
@@ -793,7 +795,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                 ret = update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, true);
                 if (ret < 0) {
                     if (ret == DONT_SEND_UL_PACKET) {
-                        GTP5G_ERR(pdr->dev, "Should not foward the first uplink packet");
+                        GTP5G_INF(pdr->dev, "Should not foward the first uplink packet");
                         return -1;
                     } else {
                         GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
@@ -802,8 +804,8 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             }
 
             if (color == Red) {
-                kfree_skb(skb);
-                return COLOR_RED_DROP;
+                GTP5G_TRC(pdr->dev, "Drop red packet");
+                return PKT_DROPPED;
             }
             if (ip_xmit(skb, pdr->sk, dev) < 0) {
                 GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
@@ -858,8 +860,8 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     }
     
     if (color == Red) {
-        kfree_skb(skb);
-        return COLOR_RED_DROP;
+        GTP5G_TRC(pdr->dev, "Drop red packet");
+        return PKT_DROPPED;
     }
     ret = netif_rx(skb);
     if (ret != NET_RX_SUCCESS) {
@@ -950,8 +952,8 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
     if (color == Red) {
-        kfree_skb(skb);
-        return COLOR_RED_DROP;
+        GTP5G_TRC(pdr->dev, "Drop red packet");
+        return PKT_DROPPED;
     }
     return FAR_ACTION_FORW;
 err:
