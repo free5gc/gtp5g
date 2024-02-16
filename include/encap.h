@@ -6,8 +6,8 @@
 #include "dev.h"
 #include "pktinfo.h"
 
-#define PKT_PASS_TO_UPF 1
-#define PKT_SENT 0
+#define PKT_TO_APP 1
+#define PKT_FORWARDED 0
 #define PKT_DROPPED -1
 
 enum gtp5g_msg_type_attrs {

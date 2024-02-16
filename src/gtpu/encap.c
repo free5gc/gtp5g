@@ -140,10 +140,10 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
     }
 
     switch (ret) {
-    case PKT_PASS_TO_UPF:
-        GTP5G_ERR(gtp->dev, "Pass up to the process\n");
+    case PKT_TO_APP: // packet that gtp5g cannot handle
+        GTP5G_TRC(gtp->dev, "Pass up to the process\n");
         break;
-    case PKT_SENT:
+    case PKT_FORWARDED:
         break;
     case PKT_DROPPED:
         GTP5G_TRC(gtp->dev, "GTP packet has been dropped\n");
@@ -251,7 +251,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     if ((gtpv1->flags >> 5) != GTP_V1) {
         GTP5G_ERR(gtp->dev, "GTP version is not v1: %#x\n",
             gtpv1->flags);
-        return PKT_PASS_TO_UPF;
+        return PKT_TO_APP;
     }
 
     gtp_type = gtpv1->type;
@@ -266,7 +266,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     if (gtp_type != GTPV1_MSG_TYPE_TPDU && gtp_type != GTPV1_MSG_TYPE_EMARK) {
         GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU or End Marker: %#x\n",
             gtp_type);
-        return PKT_PASS_TO_UPF;
+        return PKT_TO_APP;
     }
 
     /** TS 29.281 Chapter 5.1 and Figure 5.1-1
@@ -343,8 +343,9 @@ static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev,
         pdr->ul_drop_cnt++;
         GTP5G_INF(NULL, "PDR (%u) UL_DROP_CNT (%llu)", pdr->id, pdr->ul_drop_cnt);
     }
-    dev_kfree_skb(skb);
-    return 0;
+    
+    // release skb in outer function
+    return PKT_DROPPED;
 }
 
 static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev, 
@@ -358,7 +359,7 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
                 skb->protocol,
                 !net_eq(sock_net(pdr->sk), dev_net(dev)))) {
             GTP5G_ERR(dev, "Failed to pull GTP-U and UDP headers\n");
-            return -1;
+            return PKT_DROPPED;
         }
 
         if (pdr_addr_is_netlink(pdr)) {
@@ -374,7 +375,7 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
         }
     }
     dev_kfree_skb(skb);
-    return 0;
+    return PKT_FORWARDED;
 }
 
 /* Function netlink_{...} are used to handle buffering */
@@ -796,7 +797,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                 if (ret < 0) {
                     if (ret == DONT_SEND_UL_PACKET) {
                         GTP5G_INF(pdr->dev, "Should not foward the first uplink packet");
-                        return -1;
+                        return PKT_DROPPED;
                     } else {
                         GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
                     }
@@ -809,10 +810,10 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             }
             if (ip_xmit(skb, pdr->sk, dev) < 0) {
                 GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
-                return -1;
+                return PKT_DROPPED;
             }
 
-            return 0;
+            return PKT_FORWARDED;
         }
     }
 
@@ -828,7 +829,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             !net_eq(sock_net(pdr->sk), 
             dev_net(dev)))) {
         GTP5G_ERR(dev, "Failed to pull GTP-U and UDP headers\n");
-        return -1;
+        return PKT_DROPPED;
     }
 
     /* Now that the UDP and the GTP header have been removed, set up the
@@ -868,7 +869,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
     }
 
-    return 0;
+    return PKT_FORWARDED;
 }
 
 static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev, 
