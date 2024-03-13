@@ -90,10 +90,10 @@ install:
 	modprobe udp_tunnel
 	$(DEPMOD)
 	modprobe $(MODULE_NAME)
-	echo "gtp5g" >> /etc/modules
+	echo "gtp5g" > /etc/modules-load.d/gtp5g.conf
 
 uninstall:
 	rm -f $(DESTDIR)/lib/modules/$(KVER)/$(MOD_KERNEL_PATH)/$(MODULE_NAME).ko
 	$(DEPMOD)
-	sed -zi "s/gtp5g\n//g" /etc/modules
+        rm -f /etc/modules-load.d/gtp5g.conf
 	rmmod -f  $(MODULE_NAME)
