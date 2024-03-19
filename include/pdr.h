@@ -114,6 +114,9 @@ extern int unix_sock_client_update(struct pdr *, struct far *);
 extern int get_qos_enable(void);
 extern void set_qos_enable(int);
 
+extern int get_seq_enable(void);
+extern void set_seq_enable(int);
+
 static inline bool pdr_addr_is_netlink(struct pdr *pdr)
 {
     return (pdr->addr_unix.sun_path[0] == '/' && pdr->addr_unix.sun_path[1] == 0);

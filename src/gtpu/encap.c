@@ -924,10 +924,12 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             iph, 
             hdr_creation,
             pdr->qfi, 
+            far->seq_number,
             rt, 
             &fl4, 
             dev);
 
+    far->seq_number++;
     pdr->dl_pkt_cnt++;
     pdr->dl_byte_cnt += skb->len;
     GTP5G_INF(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
