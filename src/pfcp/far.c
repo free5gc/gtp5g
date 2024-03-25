@@ -4,7 +4,7 @@
 #include "seid.h"
 #include "hash.h"
 
-int seq_enable = 0; // set Seq disable as default value
+int seq_enable = 1; // set Seq enable as default value
 
 int get_seq_enable()
 {
