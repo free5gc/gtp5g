@@ -95,5 +95,5 @@ install:
 uninstall:
 	rm -f $(DESTDIR)/lib/modules/$(KVER)/$(MOD_KERNEL_PATH)/$(MODULE_NAME).ko
 	$(DEPMOD)
-        rm -f /etc/modules-load.d/gtp5g.conf
+	rm -f /etc/modules-load.d/gtp5g.conf
 	rmmod -f  $(MODULE_NAME)
