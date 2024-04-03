@@ -5,7 +5,7 @@
 #include "trTCM.h"
 #include "log.h"
 
-TrafficPolicer* newTrafficPolicer(u64 tokenRate) {
+TrafficPolicer* newTrafficPolicer(u64 bitRate) {
     TrafficPolicer* p = (TrafficPolicer*)kmalloc(sizeof(TrafficPolicer), GFP_KERNEL);
     if (p == NULL) {
         GTP5G_ERR(NULL, "traffic policer memory allocation error\n");
@@ -14,10 +14,10 @@ TrafficPolicer* newTrafficPolicer(u64 tokenRate) {
     
     spin_lock_init(&p->lock);
     
-    p->tokenRate = tokenRate * 125 ; // Kbit/s to byte/s (*1000/8)
+    p->byteRate = bitRate * 125 ; // Kbit/s to byte/s (*1000/8)
 
     // 1ms as burst size
-    p->cbs = p->tokenRate / 125; // bytes
+    p->cbs = p->byteRate / 125; // bytes
     p->ebs = p->cbs * 4; // bytes
 
     // fill buckets at the begining
@@ -45,11 +45,12 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
     // the total time elapsed since the last token refill
     p->refillTokenTime = p->refillTokenTime + elapsed;
 
-    // use 8000000ns because the minimum token rate is 1 Kbit/s (125 bytes/s)
-    if (p->refillTokenTime >= 8000000) {
+    #define REFILL_TOKEN_INTERVAL 1000000 // ns (=1ms), 1 token = 1 byte
+    #define SECOND_TO_NANOSECOND 1000000000
+    if (p->refillTokenTime >= REFILL_TOKEN_INTERVAL) {
         // add at least one token
-        p->refillTokenTime = p->refillTokenTime - 8000000;
-        tokensToAdd = p->tokenRate / 125; 
+        p->refillTokenTime = p->refillTokenTime - REFILL_TOKEN_INTERVAL;
+        tokensToAdd = p->byteRate * (REFILL_TOKEN_INTERVAL  / SECOND_TO_NANOSECOND); 
     } else {
         tokensToAdd = 0;
     }
