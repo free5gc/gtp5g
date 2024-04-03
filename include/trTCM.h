@@ -15,6 +15,7 @@ typedef struct {
 
     u64 tokenRate; 
     u64 lastUpdate;
+    u64 refillTokenTime;
 
     spinlock_t lock;
 } TrafficPolicer;

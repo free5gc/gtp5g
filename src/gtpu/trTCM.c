@@ -26,13 +26,15 @@ TrafficPolicer* newTrafficPolicer(u64 tokenRate) {
 
     p->lastUpdate = ktime_get_ns();
 
+    p->refillTokenTime = 0;
+
     return p;
 } 
 
 Color policePacket(TrafficPolicer* p, int pktLen) {
-    u64 tokensToAdd;
-    u64 tc, te;
-    u64 elapsed;
+    u64 tokensToAdd = 0;
+    u64 tc, te = 0;
+    u64 elapsed = 0;
     u64 now = ktime_get_ns();
 
     spin_lock(&p->lock); 
@@ -40,7 +42,17 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
     elapsed = now - p->lastUpdate;
     p->lastUpdate = now;
 
-    tokensToAdd = elapsed * p->tokenRate / 1000000000;
+    // the total time elapsed since the last token refill
+    p->refillTokenTime = p->refillTokenTime + elapsed;
+
+    // use 8000000ns because the minimum token rate is 1 Kbit/s (125 bytes/s)
+    if (p->refillTokenTime >= 8000000) {
+        // add at least one token
+        p->refillTokenTime = p->refillTokenTime - 8000000;
+        tokensToAdd = p->tokenRate / 125; 
+    } else {
+        tokensToAdd = 0;
+    }
  
     tc = p->tc + tokensToAdd;
     te = p->te;
