@@ -5,6 +5,9 @@
 #include "trTCM.h"
 #include "log.h"
 
+#define REFILL_TOKEN_INTERVAL    10000000 // ns (=10ms)
+#define NANOSECONDS_PER_SECOND 1000000000
+
 TrafficPolicer* newTrafficPolicer(u64 bitRate) {
     TrafficPolicer* p = (TrafficPolicer*)kmalloc(sizeof(TrafficPolicer), GFP_KERNEL);
     if (p == NULL) {
@@ -32,7 +35,7 @@ TrafficPolicer* newTrafficPolicer(u64 bitRate) {
 } 
 
 Color policePacket(TrafficPolicer* p, int pktLen) {
-    u64 tokensToAdd = 0;
+    u64 refillTokens = 0;
     u64 tc, te = 0;
     u64 elapsed = 0;
     u64 now = ktime_get_ns();
@@ -45,17 +48,16 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
     // the total time elapsed since the last token refill
     p->refillTokenTime = p->refillTokenTime + elapsed;
 
-    #define REFILL_TOKEN_INTERVAL 1000000 // ns (=1ms), 1 token = 1 byte
-    #define SECOND_TO_NANOSECOND 1000000000
     if (p->refillTokenTime >= REFILL_TOKEN_INTERVAL) {
-        // add at least one token
-        p->refillTokenTime = p->refillTokenTime - REFILL_TOKEN_INTERVAL;
-        tokensToAdd = p->byteRate * (REFILL_TOKEN_INTERVAL  / SECOND_TO_NANOSECOND); 
+        u64 n = p->refillTokenTime / REFILL_TOKEN_INTERVAL;
+        p->refillTokenTime -= n * REFILL_TOKEN_INTERVAL;
+        // 1 token = 1 byte
+        refillTokens = p->byteRate * (n * REFILL_TOKEN_INTERVAL / NANOSECONDS_PER_SECOND);
     } else {
-        tokensToAdd = 0;
+        refillTokens = 0;
     }
  
-    tc = p->tc + tokensToAdd;
+    tc = p->tc + refillTokens;
     te = p->te;
     if (tc > p->cbs) {
         te += (tc - p->cbs);
