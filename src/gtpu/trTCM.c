@@ -52,7 +52,7 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
         u64 n = p->refillTokenTime / REFILL_TOKEN_INTERVAL;
         p->refillTokenTime -= n * REFILL_TOKEN_INTERVAL;
         // 1 token = 1 byte
-        refillTokens = p->byteRate * (n * REFILL_TOKEN_INTERVAL / NANOSECONDS_PER_SECOND);
+        refillTokens = p->byteRate * n * REFILL_TOKEN_INTERVAL / NANOSECONDS_PER_SECOND;
     } else {
         refillTokens = 0;
     }
