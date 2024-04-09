@@ -5,7 +5,6 @@
 #include "trTCM.h"
 #include "log.h"
 
-#define REFILL_TOKEN_INTERVAL    10000000 // ns (=10ms)
 #define NANOSECONDS_PER_SECOND 1000000000
 
 TrafficPolicer* newTrafficPolicer(u64 bitRate) {
@@ -48,13 +47,12 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
     // the total time elapsed since the last token refill
     p->refillTokenTime = p->refillTokenTime + elapsed;
 
-    if (p->refillTokenTime >= REFILL_TOKEN_INTERVAL) {
-        u64 n = p->refillTokenTime / REFILL_TOKEN_INTERVAL;
-        p->refillTokenTime -= n * REFILL_TOKEN_INTERVAL;
-        // 1 token = 1 byte
-        refillTokens = p->byteRate * n * REFILL_TOKEN_INTERVAL / NANOSECONDS_PER_SECOND;
-    } else {
-        refillTokens = 0;
+    refillTokens = p->byteRate * p->refillTokenTime / NANOSECONDS_PER_SECOND;
+
+    if (refillTokens > 0) {
+        u64 remainTime = p->refillTokenTime - 
+            (refillTokens * NANOSECONDS_PER_SECOND / p->byteRate);
+        p->refillTokenTime = remainTime;
     }
  
     tc = p->tc + refillTokens;
