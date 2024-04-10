@@ -50,7 +50,7 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
     refillTokens = p->byteRate * p->refillTokenTime / NANOSECONDS_PER_SECOND;
 
     if (refillTokens > 0) {
-        u64 remainTime = p->refillTokenTime - 
+        u64 remainTime = p->refillTokenTime -
             (refillTokens * NANOSECONDS_PER_SECOND / p->byteRate);
         p->refillTokenTime = remainTime;
     }
