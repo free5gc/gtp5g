@@ -5,6 +5,8 @@
 #include "trTCM.h"
 #include "log.h"
 
+#define MTU 1500
+#define MILLISECONDS_PER_SECOND 1000
 #define NANOSECONDS_PER_SECOND 1000000000
 
 TrafficPolicer* newTrafficPolicer(u64 bitRate) {
@@ -18,9 +20,13 @@ TrafficPolicer* newTrafficPolicer(u64 bitRate) {
     
     p->byteRate = bitRate * 125 ; // Kbit/s to byte/s (*1000/8)
 
-    // 1ms as burst size
-    p->cbs = p->byteRate / 125; // bytes
-    p->ebs = p->cbs * 4; // bytes
+    // 8ms as burst size
+    p->cbs = p->byteRate * 8 * 1 / MILLISECONDS_PER_SECOND; // bytes
+    if (p->cbs < MTU) {
+        p->cbs = MTU;
+    }
+
+    p->ebs = p->cbs * 2; // bytes, 2 times of cbs size
 
     // fill buckets at the begining
     p->tc = p->cbs; 
