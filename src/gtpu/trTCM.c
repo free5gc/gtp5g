@@ -9,7 +9,7 @@
 #define MILLISECONDS_PER_SECOND 1000
 #define NANOSECONDS_PER_SECOND 1000000000
 
-TrafficPolicer* newTrafficPolicer(u64 bitRate) {
+TrafficPolicer* newTrafficPolicer(u64 kbitRate) {
     TrafficPolicer* p = (TrafficPolicer*)kmalloc(sizeof(TrafficPolicer), GFP_KERNEL);
     if (p == NULL) {
         GTP5G_ERR(NULL, "traffic policer memory allocation error\n");
@@ -18,10 +18,10 @@ TrafficPolicer* newTrafficPolicer(u64 bitRate) {
     
     spin_lock_init(&p->lock);
     
-    p->byteRate = bitRate * 125 ; // Kbit/s to byte/s (*1000/8)
+    p->byteRate = kbitRate * 125 ; // Kbit/s to byte/s (*1000/8)
 
     // 8ms as burst size
-    p->cbs = p->byteRate * 8 * 1 / MILLISECONDS_PER_SECOND; // bytes
+    p->cbs = p->byteRate * 8 / MILLISECONDS_PER_SECOND; // bytes
     if (p->cbs < MTU) {
         p->cbs = MTU;
     }
