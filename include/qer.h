@@ -8,6 +8,13 @@
 #include "dev.h"
 #include "pdr.h"
 
+// TS 29.244 8.2.7 Gate Status
+// 0 OPEN, 1 CLOSED
+// 2, 3 For future use. Shall not be sent.
+// If received, shall be interpreted as the value "1"
+#define QER_UL_GATE_CLOSE (0x1 << 2)
+#define QER_DL_GATE_CLOSE (0x1 << 0)
+
 struct qer {
     struct hlist_node hlist_id;
     u64 seid;
