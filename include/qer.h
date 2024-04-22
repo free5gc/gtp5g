@@ -12,8 +12,8 @@
 // 0 OPEN, 1 CLOSED
 // 2, 3 For future use. Shall not be sent.
 // If received, shall be interpreted as the value "1"
-#define QER_UL_GATE_CLOSE   0b00001100
-#define QER_DL_GATE_CLOSE   0b00000011
+#define QER_UL_GATE_CLOSE (0x1 << 2)
+#define QER_DL_GATE_CLOSE (0x1 << 0)
 
 struct qer {
     struct hlist_node hlist_id;
