@@ -795,6 +795,9 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
             iph->saddr = pdr->pdi->f_teid->gtpu_addr_ipv4.s_addr;
             iph->daddr = hdr_creation->peer_addr_ipv4.s_addr;
+            if (hdr_creation->tosTc) {
+                iph->tos = hdr_creation->tosTc;
+            }
             iph->check = 0;
 
             uh = udp_hdr(skb);
