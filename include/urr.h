@@ -80,6 +80,7 @@ struct urr {
 
     // For usage report volume measurement
     struct VolumeMeasurement bytes;
+    struct VolumeMeasurement bytes2;
     struct VolumeMeasurement consumed;
 
     // for report time
@@ -108,5 +109,6 @@ extern void urr_append(u64, u32, struct urr *, struct gtp5g_dev *);
 extern int urr_get_pdr_ids(u16 *, int, struct urr *, struct gtp5g_dev *);
 extern int urr_set_pdr(struct pdr *, struct gtp5g_dev *);
 extern void del_related_urr_hash(struct gtp5g_dev *, struct pdr *);
+extern struct VolumeMeasurement *get_usage_report_counter(struct urr *, bool);
 
 #endif // __URR_H__
