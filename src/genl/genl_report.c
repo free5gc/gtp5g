@@ -338,18 +338,21 @@ genlmsg_fail:
 
 void convert_urr_to_report(struct urr *urr, struct usage_report *report)
 {
+    struct VolumeMeasurement *urr_counter 
+        = get_usage_report_counter(urr, true);
+    
     urr->end_time = ktime_get_real();
     *report = (struct usage_report ) {
                 urr->id,
                 0,
-                urr->bytes,
+                *urr_counter,
                 0,
                 urr->start_time,
                 urr->end_time,
                 urr->seid
         };
 
-    memset(&urr->bytes, 0, sizeof(struct VolumeMeasurement));
+    memset(urr_counter, 0, sizeof(struct VolumeMeasurement));
 
     urr->start_time = ktime_get_real();
 }
