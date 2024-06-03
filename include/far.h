@@ -28,6 +28,7 @@ struct outer_header_creation {
     u32 teid;
     struct in_addr peer_addr_ipv4;
     u16 port;
+    u8 tosTc;
 };
 
 struct forwarding_policy {
