@@ -40,8 +40,23 @@ enum gtp5g_multi_usage_report_attrs {
     __GTP5G_URS_ATTR_MAX,
 };
 
+enum gtp5g_ul_dl_report_attrs {
+    GTP5G_UPLINK_VOL_RX = 1,
+    GTP5G_UPLINK_VOL_TX,
+    GTP5G_DOWNLINK_VOL_RX,
+    GTP5G_DOWNLINK_VOL_TX,
+
+    GTP5G_UPLINK_PKT_RX,
+    GTP5G_UPLINK_PKT_TX,
+    GTP5G_DOWNLINK_PKT_RX,
+    GTP5G_DOWNLINK_PKT_TX,
+
+    __GTP5G_ULDL_ATTR_MAX,
+};
+
 extern int gtp5g_genl_get_usage_report(struct sk_buff *, struct genl_info *);
 extern int gtp5g_genl_get_multi_usage_reports(struct sk_buff *, struct genl_info *);
+extern int gtp5g_genl_get_ul_dl_report(struct sk_buff *, struct genl_info *);
 
 extern int gtp5g_genl_fill_ur(struct sk_buff *, struct usage_report *);
 extern int gtp5g_genl_fill_usage_report(struct sk_buff *, u32, u32, u32, struct usage_report *);
