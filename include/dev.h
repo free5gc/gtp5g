@@ -5,6 +5,13 @@
 #include <linux/rculist.h>
 #include <linux/socket.h>
 
+struct byte_pkt_cnt {
+    atomic_t                     ul_byte;
+    atomic_t                     dl_byte;
+    atomic_t                     ul_pkt;
+    atomic_t                     dl_pkt;
+};
+
 struct gtp5g_dev {
     struct list_head list;
     struct sock *sk1u; // UDP socket from user space
@@ -28,7 +35,12 @@ struct gtp5g_dev {
     
     /* Used by proc interface */
     struct list_head proc_list;
+
+    /* Packet Statistics */
+    struct byte_pkt_cnt rx, tx;    
 };
+
+extern void update_statistic(struct gtp5g_dev *, u64, int, uint);
 
 extern const struct net_device_ops gtp5g_netdev_ops;
 

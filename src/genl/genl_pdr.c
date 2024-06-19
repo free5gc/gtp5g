@@ -541,6 +541,10 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
             return err;
     }
 
+    if (attrs[GTP5G_PDI_SRC_INTF]) {
+        pdi->srcIntf = nla_get_u8(attrs[GTP5G_PDI_SRC_INTF]);
+    }
+
     if (attrs[GTP5G_PDI_SDF_FILTER]) {
         err = parse_sdf_filter(pdi, attrs[GTP5G_PDI_SDF_FILTER]);
         if (err)
