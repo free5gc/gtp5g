@@ -12,7 +12,7 @@ static int __init gtp5g_init(void)
 {
     int err;
 
-    GTP5G_LOG(NULL, "Gtp5g Module initialization Ver: %s\n", DRV_VERSION);
+    GTP5G_LOG(NULL, "aa Gtp5g Module initialization Ver: %s\n", DRV_VERSION);
 
     init_proc_gtp5g_dev_list();
 

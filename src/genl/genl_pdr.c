@@ -18,14 +18,20 @@
 #include "util.h"
 #include "far.h"
 
+#include "log.h"
+
 static int pdr_fill(struct pdr *, struct gtp5g_dev *, struct genl_info *);
 static int parse_pdi(struct pdr *, struct nlattr *);
 static int parse_f_teid(struct pdi *, struct nlattr *);
 static int parse_sdf_filter(struct pdi *, struct nlattr *);
 static int parse_ip_filter_rule(struct sdf_filter *, struct nlattr *);
+static int parse_epf_filter(struct list_head *, struct nlattr *);
+static int parse_mac_addr_fields(struct list_head *, struct nlattr *);
 
 static int gtp5g_genl_fill_rule(struct sk_buff *, struct ip_filter_rule *);
 static int gtp5g_genl_fill_sdf(struct sk_buff *, struct sdf_filter *);
+static int gtp5g_genl_fill_mac_addr(struct sk_buff *, struct mac_addr_fields *);
+static int gtp5g_genl_fill_epf(struct sk_buff *, struct epf_filter *);
 static int gtp5g_genl_fill_f_teid(struct sk_buff *, struct local_f_teid *);
 static int gtp5g_genl_fill_pdi(struct sk_buff *, struct pdi *);
 static int gtp5g_genl_fill_pdr(struct sk_buff *, u32, u32, u32, struct pdr *);
@@ -449,6 +455,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
             *pdr->far_id = nla_get_u32(hdr);
             break;
         case GTP5G_PDR_QER_ID:
+        GTP5G_LOG(NULL, "QER\n");
             err = set_pdr_qer_ids(pdr, nla_get_u32(hdr));
             if (err)
                 return err;
@@ -506,16 +513,29 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     return 0;
 }
 
+static int dump_epf_list(struct pdi *pdi) {
+    struct epf_filter *epf;
+    int i;
+
+    if (list_empty(&pdi->epf_list)) {
+        return 0;
+    }
+
+    i = 0;
+    list_for_each_entry(epf, &pdi->epf_list, list) {
+            GTP5G_LOG(NULL, "epf_%d\n", i++);
+    }
+
+    return 0;
+}
+
 static int parse_pdi(struct pdr *pdr, struct nlattr *a)
 {
-    struct nlattr *attrs[GTP5G_PDI_ATTR_MAX + 1];
     struct pdi *pdi;
     int err;
     char ip_str[40];
-
-    err = nla_parse_nested(attrs, GTP5G_PDI_ATTR_MAX, a, NULL, NULL);
-    if (err)
-        return err;
+    struct nlattr *attr;
+    int rem;
 
     if (!pdr->pdi) {
         pdr->pdi = kzalloc(sizeof(*pdr->pdi), GFP_ATOMIC);
@@ -523,34 +543,54 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
             return -ENOMEM;
     }
     pdi = pdr->pdi;
+    INIT_LIST_HEAD(&(pdi->epf_list));
 
-    if (attrs[GTP5G_PDI_UE_ADDR_IPV4]) {
-        if (!pdi->ue_addr_ipv4) {
-            pdi->ue_addr_ipv4 = kzalloc(sizeof(*pdi->ue_addr_ipv4), GFP_ATOMIC);
-            if (!pdi->ue_addr_ipv4)
-                return -ENOMEM;
-        }
-        pdi->ue_addr_ipv4->s_addr = nla_get_be32(attrs[GTP5G_PDI_UE_ADDR_IPV4]);
+    nla_for_each_nested(attr, a, rem) {
+        int type = nla_type(attr);
+        switch (type) {
+            case GTP5G_PDI_UE_ADDR_IPV4:
+                if (!pdi->ue_addr_ipv4) {
+                    pdi->ue_addr_ipv4 = kzalloc(sizeof(*pdi->ue_addr_ipv4), GFP_ATOMIC);
+                    if (!pdi->ue_addr_ipv4)
+                        return -ENOMEM;
+                }
+                pdi->ue_addr_ipv4->s_addr = nla_get_be32(attr);
+                ip_string(ip_str, pdi->ue_addr_ipv4->s_addr);
+                break;
+            case GTP5G_PDI_F_TEID: 
+                err = parse_f_teid(pdi, attr);
+                if (err)
+                    return err;
+                break;
+            case GTP5G_PDI_SRC_INTF:
+                pdi->srcIntf = nla_get_u8(attr);
+                break;
+            case GTP5G_PDI_SDF_FILTER:{
+                err = parse_sdf_filter(pdi, attr);
+                if (err)
+                    return err;
+                break;
+            }
+            case GTP5G_PDI_EPF_FILTER: {
+                struct list_head *last = &pdi->epf_list;
+                if (!list_empty(&pdi->epf_list)) {
+                    struct epf_filter *epf;
+                    epf = list_last_entry(&(pdi->epf_list), struct epf_filter, list);
+                    last = &epf->list;
+                }
+                
+                err = parse_epf_filter(last, attr);
+                if (err)
+                    return err;
 
-        ip_string(ip_str, pdi->ue_addr_ipv4->s_addr);
+                dump_epf_list(pdi);
+                break;
+            }
+            default:
+                GTP5G_ERR(NULL, "Not support PDI attribute type %d\n", type);
+                break;
+         }
     }
-
-    if (attrs[GTP5G_PDI_F_TEID]) {
-        err = parse_f_teid(pdi, attrs[GTP5G_PDI_F_TEID]);
-        if (err)
-            return err;
-    }
-
-    if (attrs[GTP5G_PDI_SRC_INTF]) {
-        pdi->srcIntf = nla_get_u8(attrs[GTP5G_PDI_SRC_INTF]);
-    }
-
-    if (attrs[GTP5G_PDI_SDF_FILTER]) {
-        err = parse_sdf_filter(pdi, attrs[GTP5G_PDI_SDF_FILTER]);
-        if (err)
-            return err;
-    }
-
     return 0;
 }
 
@@ -740,6 +780,126 @@ static int parse_ip_filter_rule(struct sdf_filter *sdf, struct nlattr *a)
     return 0;
 }
 
+static int parse_epf_filter(struct list_head *last, struct nlattr *a)
+{
+    struct epf_filter *epf ;
+    int err;
+
+    struct nlattr *attr;
+    int rem;
+
+    GTP5G_LOG(NULL, "parse_epf_filter\n");
+
+    epf= kzalloc(sizeof(struct epf_filter), GFP_ATOMIC);
+    INIT_LIST_HEAD(&epf->mac_list);
+
+    nla_for_each_nested(attr, a, rem) {
+        int type = nla_type(attr);
+        switch (type) {
+            case GTP5G_EPF_FILTER_ETHERNET_FILTER_ID:
+                break;
+            case GTP5G_EPF_FILTER_ETHERNET_FILTER_Properties:
+                break;
+            case GTP5G_EPF_FILTER_MACADDRESS: {
+                struct list_head *last_mac;
+                last_mac = &epf->mac_list;
+                if (!list_empty(&epf->mac_list)) {
+                    struct mac_addr_fields *macAddr;
+                    macAddr = list_last_entry(&epf->mac_list, struct mac_addr_fields, list);
+                    last_mac = &macAddr->list;
+                }
+                err = parse_mac_addr_fields(last_mac, attr);
+                if (err)
+                    return err;
+                break;
+            }
+            case GTP5G_EPF_FILTER_ETHERTYPE:
+                if (!epf->ethertype) {
+                    epf->ethertype = kzalloc(sizeof(*epf->ethertype), GFP_ATOMIC);
+                    if (!epf->ethertype)
+                        return -ENOMEM;
+                }
+                *epf->ethertype = nla_get_u16(attr);
+                break;
+            case GTP5G_EPF_FILTER_CTAG:
+                break;
+	        case GTP5G_EPF_FILTER_STAG:
+                break;
+	        case GTP5G_EPF_FILTER_SDF_FILTER:
+                break;
+            default:
+                GTP5G_ERR(NULL, "epf fitler not support attr type %d\n", type);
+        }
+    }
+    list_add_tail(&epf->list, last);
+
+    return 0;
+}
+
+static int parse_mac_addr_fields(struct list_head *last, struct nlattr *a)
+{
+    struct nlattr *attr;
+    int rem;
+    struct mac_addr_fields *macAddr;
+
+    macAddr = kzalloc(sizeof(struct mac_addr_fields), GFP_ATOMIC);
+    if (!macAddr)
+        return -ENOMEM;
+
+    nla_for_each_nested(attr, a, rem) {
+        int type = nla_type(attr);
+        switch (type) {
+            case GTP5G_MACADDRESS_SRC:
+                macAddr->src = kzalloc(ETH_ALEN, GFP_ATOMIC);
+                if (!macAddr->src)
+                    return -ENOMEM;
+
+                nla_memcpy(macAddr->src, attr, ETH_ALEN);
+                printk(KERN_INFO "src %x:%x:%x:%x:%x:%x\n", 
+                macAddr->src[0],
+                macAddr->src[1],
+                macAddr->src[2],
+                macAddr->src[3],
+                macAddr->src[4],
+                macAddr->src[5]);
+                break;
+            case GTP5G_MACADDRESS_DST:
+                macAddr->dst = kzalloc(ETH_ALEN, GFP_ATOMIC);
+                if (!macAddr->dst)
+                    return -ENOMEM;
+
+                nla_memcpy(macAddr->dst, attr, ETH_ALEN);
+                printk(KERN_INFO "dst %x:%x:%x:%x:%x:%x\n", 
+                macAddr->dst[0],
+                macAddr->dst[1],
+                macAddr->dst[2],
+                macAddr->dst[3],
+                macAddr->dst[4],
+                macAddr->dst[5]);
+                break;
+            case GTP5G_MACADDRESS_UPPER_SRC:
+                macAddr->upper_src = kzalloc(ETH_ALEN, GFP_ATOMIC);
+                if (!macAddr->upper_src)
+                    return -ENOMEM;
+
+                nla_memcpy(macAddr->upper_src, attr, ETH_ALEN);
+                break;
+            case GTP5G_MACADDRESS_UPPER_DST:
+                macAddr->upper_dst = kzalloc(ETH_ALEN, GFP_ATOMIC);
+                if (!macAddr->upper_dst)
+                    return -ENOMEM;
+
+                nla_memcpy(macAddr->upper_dst, attr, ETH_ALEN);
+                break;
+            default:
+                GTP5G_ERR(NULL, "Not support macAddr attr type %d\n", type);
+        }
+    }
+    list_add_tail(&macAddr->list, last);
+
+    return 0;
+}
+
 static int gtp5g_genl_fill_rule(struct sk_buff *skb, struct ip_filter_rule *rule)
 {
     struct nlattr *nest_rule;
@@ -803,7 +963,6 @@ genlmsg_fail:
     return -EMSGSIZE;
 }
 
-
 static int gtp5g_genl_fill_sdf(struct sk_buff *skb, struct sdf_filter *sdf)
 {
     struct nlattr *nest_sdf;
@@ -837,6 +996,63 @@ static int gtp5g_genl_fill_sdf(struct sk_buff *skb, struct sdf_filter *sdf)
     return 0;
 }
 
+static int gtp5g_genl_fill_mac_addr(struct sk_buff *skb, struct mac_addr_fields *macAddr)
+{
+    struct nlattr *nest_macAddr;
+
+    nest_macAddr = nla_nest_start(skb, GTP5G_EPF_FILTER_MACADDRESS);
+    if (!nest_macAddr)
+        return -EMSGSIZE;
+
+    if (macAddr->src) {
+        if (nla_put(skb, GTP5G_MACADDRESS_SRC, ETH_ALEN, macAddr->src))
+            return -EMSGSIZE;
+    }
+
+    if (macAddr->dst) {
+        if (nla_put(skb, GTP5G_MACADDRESS_DST, ETH_ALEN, macAddr->dst))
+            return -EMSGSIZE;
+    }
+
+    if (macAddr->upper_src) {
+        if (nla_put(skb, GTP5G_MACADDRESS_UPPER_SRC, ETH_ALEN, macAddr->upper_src))
+            return -EMSGSIZE;
+    }
+
+    if (macAddr->upper_dst) {
+        if (nla_put(skb, GTP5G_MACADDRESS_UPPER_DST, ETH_ALEN, macAddr->upper_dst))
+            return -EMSGSIZE;
+    }
+
+    nla_nest_end(skb, nest_macAddr);
+    
+    return 0;
+}
+
+static int gtp5g_genl_fill_epf(struct sk_buff *skb, struct epf_filter *epf)
+{
+    struct nlattr *nest_epf;
+
+    nest_epf = nla_nest_start(skb, GTP5G_PDI_EPF_FILTER);
+    if (!nest_epf)
+        return -EMSGSIZE;
+
+    if (epf->ethertype) {
+        if (nla_put_u16(skb, GTP5G_EPF_FILTER_ETHERTYPE, *epf->ethertype))
+            return -EMSGSIZE;
+    }
+
+    if (!list_empty(&epf->mac_list)) {
+        struct mac_addr_fields *macAddr;
+        list_for_each_entry(macAddr, &epf->mac_list, list) {
+            if (gtp5g_genl_fill_mac_addr(skb, macAddr))
+                return -EMSGSIZE;
+        }
+    }
+
+    nla_nest_end(skb, nest_epf);
+    return 0;
+}
 
 static int gtp5g_genl_fill_f_teid(struct sk_buff *skb, struct local_f_teid *f_teid)
 {
@@ -877,6 +1093,20 @@ static int gtp5g_genl_fill_pdi(struct sk_buff *skb, struct pdi *pdi)
         if (gtp5g_genl_fill_sdf(skb, pdi->sdf))
             return -EMSGSIZE;
     }
+
+    // LeoHung TODO
+    if (!list_empty(&pdi->epf_list)) {
+        struct epf_filter *epf;
+        list_for_each_entry(epf, &pdi->epf_list, list) {
+            if (gtp5g_genl_fill_epf(skb, epf))
+                return -EMSGSIZE;
+            }
+    }
+    // if (pdi->epf) {
+    //     if (gtp5g_genl_fill_epf(skb, pdi->epf))
+    //         return -EMSGSIZE;
+    // }
+
 
     nla_nest_end(skb, nest_pdi);
     return 0;

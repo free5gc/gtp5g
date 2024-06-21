@@ -38,7 +38,8 @@ enum gtp5g_pdi_attrs {
     GTP5G_PDI_F_TEID,
     GTP5G_PDI_SDF_FILTER,
     GTP5G_PDI_SRC_INTF,
-
+    GTP5G_PDI_EPF_FILTER, // Ethernet Packet Filter (EPF)
+    
     __GTP5G_PDI_ATTR_MAX,
 };
 #define GTP5G_PDI_ATTR_MAX 16
@@ -94,6 +95,31 @@ enum {
     __GTP5G_SDF_FILTER_DIRECTION_MAX,
 };
 #define GTP5G_SDF_FILTER_DIRECTION_MAX (__GTP5G_SDF_FILTER_DIRECTION_MAX - 1)
+
+/* Nest in GTP5G_PDI_EPF_FILTER */
+enum gtp5g_epf_filter_attrs {
+	GTP5G_EPF_FILTER_ETHERNET_FILTER_ID = 1,
+	GTP5G_EPF_FILTER_ETHERNET_FILTER_Properties,
+	GTP5G_EPF_FILTER_MACADDRESS,
+	GTP5G_EPF_FILTER_ETHERTYPE,
+	GTP5G_EPF_FILTER_CTAG,
+	GTP5G_EPF_FILTER_STAG,
+	GTP5G_EPF_FILTER_SDF_FILTER,
+
+    __GTP5G_EPF_FILTER_ATTR_MAX,
+};
+#define GTP5G_EPF_FILTER_ATTR_MAX (__GTP5G_EPF_FILTER_ATTR_MAX - 1)
+
+/* Nest in GTP5G_EPF_FILTER_MACADDRESS */
+enum gtp5g_mac_addr_attrs {
+	GTP5G_MACADDRESS_SRC = 1,
+	GTP5G_MACADDRESS_DST,
+	GTP5G_MACADDRESS_UPPER_SRC,
+	GTP5G_MACADDRESS_UPPER_DST,
+    
+    __GTP5G_MACADDRESS_ATTR_MAX,
+};
+#define GTP5G_MACADDRESS_ATTR_MAX (__GTP5G_MACADDRESS_ATTR_MAX - 1)
 
 extern int gtp5g_genl_add_pdr(struct sk_buff *, struct genl_info *);
 extern int gtp5g_genl_del_pdr(struct sk_buff *, struct genl_info *);

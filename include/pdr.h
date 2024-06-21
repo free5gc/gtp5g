@@ -44,11 +44,31 @@ struct sdf_filter {
 #define SRC_INTF_ACCESS 0
 #define SRC_INTF_CORE 1
 
+struct mac_addr_fields {
+    unsigned char *src;
+    unsigned char *dst;
+    unsigned char *upper_src;
+    unsigned char *upper_dst;
+    struct list_head list;
+};
+
+// #define MAX_MAC_ADDR_NUM (16)
+struct epf_filter {
+    // TODO: uint32_t *eth_filter_id;
+    // TODO: uint8_t *eth_filter_properties;
+    struct list_head mac_list;
+    uint16_t *ethertype;
+    // TODO: ctag, stag, sdf_filter
+
+    struct list_head list;
+};
+
 struct pdi {
     u8 srcIntf;
     struct in_addr *ue_addr_ipv4;
     struct local_f_teid *f_teid;
     struct sdf_filter *sdf;
+    struct list_head epf_list;
 };
 
 #define QER_ID_SIZE sizeof(u32)
