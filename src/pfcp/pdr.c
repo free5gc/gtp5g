@@ -128,6 +128,9 @@ void pdr_context_delete(struct pdr *pdr)
     if (!hlist_unhashed(&pdr->hlist_addr))
         hlist_del_rcu(&pdr->hlist_addr);
 
+    if (!hlist_unhashed(&pdr->hlist_mac))
+        hlist_del_rcu(&pdr->hlist_mac);
+
     call_rcu(&pdr->rcu_head, pdr_context_free);
 }
 
@@ -376,6 +379,39 @@ struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *gtp, struct sk_buff *skb,
     return NULL;
 }
 
+struct pdr *pdr_find_by_mac(struct gtp5g_dev *gtp, struct sk_buff *skb,
+        unsigned int hdrlen, char *macStr)
+{
+    struct hlist_head *head;
+    struct pdr *pdr;
+    struct pdi *pdi;
+
+    struct epf_filter *epf;
+    struct mac_addr_fields *macAddr;
+
+    head = &gtp->mac_hash[mac_hashfn(macStr) % gtp->hash_size];
+
+    hlist_for_each_entry_rcu(pdr, head, hlist_mac) {
+        pdi = pdr->pdi;
+
+        // TODO: Move the value we check into first level
+        if (list_empty(&pdi->epf_list))
+            continue;
+
+        // match mac addr
+        list_for_each_entry(epf, &pdi->epf_list, list) {
+            list_for_each_entry(macAddr, &epf->mac_list, list) {
+                if (0 == strncmp(macStr, macAddr->dst, ETH_ALEN)) {
+                    // TODO: check sdf which included in epf
+                    return pdr;
+                }
+            }
+        }
+    }
+
+    return NULL;
+}
+
 void pdr_append(u64 seid, u16 pdr_id, struct pdr *pdr, struct gtp5g_dev *gtp)
 {
     u32 i;
@@ -399,6 +435,9 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
 
     if (!hlist_unhashed(&pdr->hlist_addr))
         hlist_del_rcu(&pdr->hlist_addr);
+
+    if (!hlist_unhashed(&pdr->hlist_mac))
+        hlist_del_rcu(&pdr->hlist_mac);
 
     pdi = pdr->pdi;
     if (!pdi)
@@ -431,5 +470,39 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
             hlist_add_head_rcu(&pdr->hlist_addr, head);
         else
             hlist_add_behind_rcu(&pdr->hlist_addr, &last_ppdr->hlist_addr);
+    } else if (!list_empty(&pdi->epf_list)) {
+        // for ethernet PDU session
+        // case1: RAN--UL-->UPF
+        //      pdr is found by f_teid
+        // case2: RAN<--DL--UPF
+        //      pdr is found by destination MAC addr
+        // case3: RAN--iUPF--UL-->PSA
+        //      pdr is found by f_teid
+        // case4: RAN--iUPF<--DL--PSA
+        //      pdr is found by f_teid
+        // brief summary, only dest MAC is checked for pdr matching
+        // src MAC shall be checked for filtering pkt
+        struct epf_filter *epf;
+        list_for_each_entry(epf, &pdi->epf_list, list) {
+            if (!list_empty(&epf->mac_list)) {
+                struct mac_addr_fields *macAddr;
+                list_for_each_entry(macAddr, &epf->mac_list, list) {
+                    last_ppdr = NULL;
+                    // LeoHung TODO
+                    head = &gtp->mac_hash[mac_hashfn(macAddr->dst) % gtp->hash_size];
+                    hlist_for_each_entry_rcu(ppdr, head, hlist_mac) {
+                        if (pdr->precedence > ppdr->precedence)
+                            last_ppdr = ppdr;
+                        else
+                            break;
+                    }
+                    if (!last_ppdr)
+                        hlist_add_head_rcu(&pdr->hlist_mac, head);
+                    else
+                        hlist_add_behind_rcu(&pdr->hlist_mac, &last_ppdr->hlist_mac);
+                    }
+            }
+
+        }
     }
 }

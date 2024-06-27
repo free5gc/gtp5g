@@ -14,6 +14,7 @@
 #include <net/netns/generic.h>
 #include "net.h"
 
+#include "log.h"
 static int header_creation_fill(struct forwarding_parameter *,
                 struct nlattr **, u8 *,
                 struct gtp5g_emark_pktinfo *,
@@ -305,6 +306,7 @@ int gtp5g_genl_dump_far(struct sk_buff *skb, struct netlink_callback *cb)
 
         for (i = last_hash_entry_id; i < gtp->hash_size; i++) {
             hlist_for_each_entry_rcu(far, &gtp->far_id_hash[i], hlist_id) {
+                GTP5G_ERR(NULL, "getId=%d, far_id=%d\n",far_id, far->id);
                 if (far_id && far_id != far->id)
                     continue;
                 else
@@ -476,6 +478,8 @@ static int far_fill(struct far *far, struct gtp5g_dev *gtp, struct genl_info *in
 
     far->id = nla_get_u32(info->attrs[GTP5G_FAR_ID]);
     far->seq_number = 0;
+
+    GTP5G_ERR(NULL, "far_fill id:%d\n", far->id);
 
     if (info->attrs[GTP5G_FAR_SEID])
         far->seid = nla_get_u64(info->attrs[GTP5G_FAR_SEID]);

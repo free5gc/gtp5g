@@ -115,7 +115,9 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
         update_usage_statistic(gtp, skb->len, ret, SRC_INTF_CORE); // DL
         break;
     default:
-        ret = -EOPNOTSUPP;
+        // ethernet pkt
+        skb_dump("ether_", skb, true);
+        ret = gtp5g_handle_skb_ethernet(skb, dev, &pktinfo);
     }
     rcu_read_unlock();
 
@@ -152,6 +154,12 @@ int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
         GFP_KERNEL);
     if (gtp->addr_hash == NULL)
         return -ENOMEM;
+
+    gtp->mac_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
+        GFP_KERNEL);
+    if (gtp->mac_hash == NULL)
+        return -ENOMEM;
+
 
     gtp->i_teid_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
@@ -207,6 +215,7 @@ int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
 
     for (i = 0; i < hsize; i++) {
         INIT_HLIST_HEAD(&gtp->addr_hash[i]);
+        INIT_HLIST_HEAD(&gtp->mac_hash[i]);
         INIT_HLIST_HEAD(&gtp->i_teid_hash[i]);
         INIT_HLIST_HEAD(&gtp->pdr_id_hash[i]);
         INIT_HLIST_HEAD(&gtp->far_id_hash[i]);
@@ -240,6 +249,7 @@ err2:
     kfree(gtp->i_teid_hash);
 err1:
     kfree(gtp->addr_hash);
+    kfree(gtp->mac_hash);
     return -ENOMEM;
 }
 
@@ -267,6 +277,7 @@ void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
 
     synchronize_rcu();
     kfree(gtp->addr_hash);
+    kfree(gtp->mac_hash);
     kfree(gtp->i_teid_hash);
     kfree(gtp->pdr_id_hash);
     kfree(gtp->far_id_hash);

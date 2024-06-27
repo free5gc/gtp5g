@@ -1094,7 +1094,6 @@ static int gtp5g_genl_fill_pdi(struct sk_buff *skb, struct pdi *pdi)
             return -EMSGSIZE;
     }
 
-    // LeoHung TODO
     if (!list_empty(&pdi->epf_list)) {
         struct epf_filter *epf;
         list_for_each_entry(epf, &pdi->epf_list, list) {
@@ -1102,11 +1101,6 @@ static int gtp5g_genl_fill_pdi(struct sk_buff *skb, struct pdi *pdi)
                 return -EMSGSIZE;
             }
     }
-    // if (pdi->epf) {
-    //     if (gtp5g_genl_fill_epf(skb, pdi->epf))
-    //         return -EMSGSIZE;
-    // }
-
 
     nla_nest_end(skb, nest_pdi);
     return 0;

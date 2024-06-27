@@ -2,7 +2,7 @@
 #define __HASH_H__
 
 #include <linux/string.h>
-
+#include <linux/if_ether.h>
 #include <linux/jhash.h>
 
 extern u32 gtp5g_h_initval;
@@ -20,6 +20,11 @@ static inline u32 str_hashfn(char *str)
 static inline u32 ipv4_hashfn(__be32 ip)
 {
     return jhash_1word((__force u32)ip, gtp5g_h_initval);
+}
+
+static inline u32 mac_hashfn(char *macStr)
+{
+    return jhash(macStr, ETH_ALEN, 0);
 }
 
 #endif // __HASH_H__

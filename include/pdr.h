@@ -83,6 +83,7 @@ struct pdr {
     struct hlist_node hlist_id;
     struct hlist_node hlist_i_teid;
     struct hlist_node hlist_addr;
+    struct hlist_node hlist_mac;
 
     u64 seid;
     u16 id;
@@ -125,6 +126,8 @@ extern struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *, struct sk_buff *,
         unsigned int, u32, u8);
 extern struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *, struct sk_buff *,
         unsigned int, __be32);
+extern struct pdr *pdr_find_by_mac(struct gtp5g_dev *, struct sk_buff *,
+        unsigned int, char *);
 extern int find_qer_id_in_pdr(struct pdr *, u32);
 extern int find_urr_id_in_pdr(struct pdr *, u32);
 
