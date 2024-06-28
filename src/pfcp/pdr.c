@@ -394,7 +394,6 @@ struct pdr *pdr_find_by_mac(struct gtp5g_dev *gtp, struct sk_buff *skb,
     hlist_for_each_entry_rcu(pdr, head, hlist_mac) {
         pdi = pdr->pdi;
 
-        // TODO: Move the value we check into first level
         if (list_empty(&pdi->epf_list))
             continue;
 

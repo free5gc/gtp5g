@@ -65,6 +65,7 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     unsigned int role = GTP5G_ROLE_UPF;
     u32 fd1;
     int hashsize, err;
+    unsigned char *ether_n6_dev;
 
     gtp = netdev_priv(dev);
 
@@ -77,7 +78,7 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     if (IS_ERR(sk))
         return PTR_ERR(sk);
     gtp->sk1u = sk;
-    
+
     if (data[IFLA_GTP5G_ROLE]) {
         role = nla_get_u32(data[IFLA_GTP5G_ROLE]);
         if (role > GTP5G_ROLE_RAN) {
@@ -87,7 +88,7 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
         }
     }
     gtp->role = role;
-    
+
     if (!data[IFLA_GTP5G_PDR_HASHSIZE])
         hashsize = 1024;
     else
@@ -100,11 +101,26 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
         goto out_encap;
     }
 
+    if (data[IFLA_GTP5G_ETHERNET_N6_DEV]) {
+        int len;
+        len = nla_len(data[IFLA_GTP5G_ETHERNET_N6_DEV]);
+        if (len > 0) {
+            ether_n6_dev = kzalloc(len, GFP_ATOMIC);
+            if (!ether_n6_dev)
+                return -ENOMEM;
+            nla_strlcpy(ether_n6_dev, data[IFLA_GTP5G_ETHERNET_N6_DEV], len);
+            gtp->ether_n6_dev = dev_get_by_name(&init_net, ether_n6_dev);
+            if(!gtp->ether_n6_dev)
+                return -ENODEV;
+        }
+    }
+
     err = register_netdevice(dev);
     if (err < 0) {
         netdev_dbg(dev, "failed to register new netdev %d\n", err);
         gtp5g_hashtable_free(gtp);
         gtp5g_encap_disable(gtp->sk1u);
+        dev_put(gtp->ether_n6_dev);
         goto out_hashtable;
     }
 

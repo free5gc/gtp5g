@@ -900,11 +900,11 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     
     if (GTP5G_PDN_TYPE_ETHERNET == pdr->pdn_type) {
         struct gtp5g_dev *gtp = netdev_priv(dev);
-        if(!gtp->TSNdev){
-            GTP5G_ERR(dev, "TSN Device is not found\n");
+        if(!gtp->ether_n6_dev){
+            GTP5G_ERR(dev, "N6 device of ethernet is not found\n");
             return -ENODEV;
         }
-        skb->dev = gtp->TSNdev;
+        skb->dev = gtp->ether_n6_dev;
 
         skb_reset_mac_header(skb);
         
@@ -915,7 +915,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     } else {
         ret = netif_rx(skb);
         if (ret != NET_RX_SUCCESS) {
-            GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
+            GTP5G_INF(dev, "Uplink: Packet got dropped\n");
         }
     }
 
@@ -1094,8 +1094,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
 }
 
 
-// LeoHung
-// same as gtp5g_fwd_skb_ipv4, encap origin pkt with gtp then forward
+// Note. Same as gtp5g_fwd_skb_ipv4, encap origin pkt with gtp then forward
 static int gtp5g_fwd_skb_ethernet(struct sk_buff *skb,
     struct net_device *dev, struct gtp5g_pktinfo *pktinfo,
     struct pdr *pdr, struct far *far)
