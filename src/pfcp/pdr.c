@@ -488,7 +488,6 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
                 struct mac_addr_fields *macAddr;
                 list_for_each_entry(macAddr, &epf->mac_list, list) {
                     last_ppdr = NULL;
-                    // LeoHung TODO
                     head = &gtp->mac_hash[mac_hashfn(macAddr->dst) % gtp->hash_size];
                     hlist_for_each_entry_rcu(ppdr, head, hlist_mac) {
                         if (pdr->precedence > ppdr->precedence)
@@ -502,7 +501,6 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
                         hlist_add_behind_rcu(&pdr->hlist_mac, &last_ppdr->hlist_mac);
                     }
             }
-
         }
     }
 }

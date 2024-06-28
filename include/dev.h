@@ -16,6 +16,7 @@ struct gtp5g_dev {
     struct list_head list;
     struct sock *sk1u; // UDP socket from user space
     struct net_device *dev;
+    struct net_device *TSNdev;
     unsigned int role;
     unsigned int hash_size;
     struct hlist_head *pdr_id_hash;

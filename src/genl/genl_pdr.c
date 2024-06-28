@@ -455,7 +455,6 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
             *pdr->far_id = nla_get_u32(hdr);
             break;
         case GTP5G_PDR_QER_ID:
-        GTP5G_LOG(NULL, "QER\n");
             err = set_pdr_qer_ids(pdr, nla_get_u32(hdr));
             if (err)
                 return err;
@@ -469,6 +468,9 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
             err = set_pdr_urr_ids(pdr, nla_get_u32(hdr));
             if (err)
                 return err;
+            break;
+        case GTP5G_PDR_PDN_TYPE:
+            pdr->pdn_type = nla_get_u8(hdr);
             break;
         }
         hdr = nla_next(hdr, &remaining);
@@ -509,22 +511,6 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
 
     // Update hlist table
     pdr_update_hlist_table(pdr, gtp);
-
-    return 0;
-}
-
-static int dump_epf_list(struct pdi *pdi) {
-    struct epf_filter *epf;
-    int i;
-
-    if (list_empty(&pdi->epf_list)) {
-        return 0;
-    }
-
-    i = 0;
-    list_for_each_entry(epf, &pdi->epf_list, list) {
-            GTP5G_LOG(NULL, "epf_%d\n", i++);
-    }
 
     return 0;
 }
@@ -582,8 +568,6 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
                 err = parse_epf_filter(last, attr);
                 if (err)
                     return err;
-
-                dump_epf_list(pdi);
                 break;
             }
             default:
@@ -788,8 +772,6 @@ static int parse_epf_filter(struct list_head *last, struct nlattr *a)
     struct nlattr *attr;
     int rem;
 
-    GTP5G_LOG(NULL, "parse_epf_filter\n");
-
     epf= kzalloc(sizeof(struct epf_filter), GFP_ATOMIC);
     INIT_LIST_HEAD(&epf->mac_list);
 
@@ -855,13 +837,6 @@ static int parse_mac_addr_fields(struct list_head *last, struct nlattr *a)
                     return -ENOMEM;
 
                 nla_memcpy(macAddr->src, attr, ETH_ALEN);
-                printk(KERN_INFO "src %x:%x:%x:%x:%x:%x\n", 
-                macAddr->src[0],
-                macAddr->src[1],
-                macAddr->src[2],
-                macAddr->src[3],
-                macAddr->src[4],
-                macAddr->src[5]);
                 break;
             case GTP5G_MACADDRESS_DST:
                 macAddr->dst = kzalloc(ETH_ALEN, GFP_ATOMIC);
@@ -869,13 +844,6 @@ static int parse_mac_addr_fields(struct list_head *last, struct nlattr *a)
                     return -ENOMEM;
 
                 nla_memcpy(macAddr->dst, attr, ETH_ALEN);
-                printk(KERN_INFO "dst %x:%x:%x:%x:%x:%x\n", 
-                macAddr->dst[0],
-                macAddr->dst[1],
-                macAddr->dst[2],
-                macAddr->dst[3],
-                macAddr->dst[4],
-                macAddr->dst[5]);
                 break;
             case GTP5G_MACADDRESS_UPPER_SRC:
                 macAddr->upper_src = kzalloc(ETH_ALEN, GFP_ATOMIC);
@@ -1157,6 +1125,9 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         if (gtp5g_genl_fill_pdi(skb, pdr->pdi))
             goto genlmsg_fail;
     }
+
+    if (nla_put_u8(skb, GTP5G_PDR_PDN_TYPE, pdr->pdn_type))
+        goto genlmsg_fail;
 
     genlmsg_end(skb, genlh);
     return 0;

@@ -79,6 +79,15 @@ struct pdr_node {
     struct pdr *pdr;
 };
 
+// 29.244 Table 8.2.79-1
+enum pfcp_pdn_type {
+    GTP5G_PDN_TYPE_IPV4 = 1,
+    GTP5G_PDN_TYPE_IPV6 = 2,
+    GTP5G_PDN_TYPE_IPV4V6 = 3,
+    GTP5G_PDN_TYPE_NON_IP = 4,
+    GTP5G_PDN_TYPE_ETHERNET = 5,
+};
+
 struct pdr {
     struct hlist_node hlist_id;
     struct hlist_node hlist_i_teid;
@@ -98,6 +107,7 @@ struct pdr {
     struct qer __rcu *qer_with_rate;
     u32 *urr_ids;
     u32 urr_num;
+    u8 pdn_type;
     
     /* deprecated: AF_UNIX socket for buffer */
     struct sockaddr_un addr_unix;

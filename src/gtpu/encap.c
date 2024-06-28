@@ -897,9 +897,26 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         GTP5G_TRC(pdr->dev, "Drop red packet");
         return PKT_DROPPED;
     }
-    ret = netif_rx(skb);
-    if (ret != NET_RX_SUCCESS) {
-        GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
+    
+    if (GTP5G_PDN_TYPE_ETHERNET == pdr->pdn_type) {
+        struct gtp5g_dev *gtp = netdev_priv(dev);
+        if(!gtp->TSNdev){
+            GTP5G_ERR(dev, "TSN Device is not found\n");
+            return -ENODEV;
+        }
+        skb->dev = gtp->TSNdev;
+
+        skb_reset_mac_header(skb);
+        
+        ret = dev_queue_xmit(skb);
+        if (ret < 0) {
+            GTP5G_ERR(dev, "Uplink: xmit ethernet pkt err %d\n", ret);
+        }
+    } else {
+        ret = netif_rx(skb);
+        if (ret != NET_RX_SUCCESS) {
+            GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
+        }
     }
 
     return PKT_FORWARDED;
@@ -1077,7 +1094,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
 }
 
 
-// LeoHung TODO
+// LeoHung
 // same as gtp5g_fwd_skb_ipv4, encap origin pkt with gtp then forward
 static int gtp5g_fwd_skb_ethernet(struct sk_buff *skb,
     struct net_device *dev, struct gtp5g_pktinfo *pktinfo,
@@ -1093,8 +1110,6 @@ static int gtp5g_fwd_skb_ethernet(struct sk_buff *skb,
     TrafficPolicer* tp = NULL;
     Color color = Green;
     struct qer __rcu *qer_with_rate = NULL;
-
-    GTP5G_ERR(dev, "gtp5g_fwd_skb_ethernet\n");
 
     if (!far) {
         GTP5G_ERR(dev, "Unknown RAN address\n");
@@ -1178,7 +1193,7 @@ int gtp5g_handle_skb_ethernet(struct sk_buff *skb, struct net_device *dev,
     if (!pdr) {
         unsigned char *dst;
         dst = etherhdr->h_dest;
-        GTP5G_ERR(dev, "no PDR found for %x:%x:%x:%x:%x:%x, skip\n",
+        GTP5G_INF(dev, "no PDR found for %x:%x:%x:%x:%x:%x, skip\n",
             dst[0], dst[1], dst[2], dst[3], dst[4], dst[5]);
         return -ENOENT;
     }
