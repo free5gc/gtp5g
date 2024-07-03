@@ -21,7 +21,7 @@ enum gtp5g_urr_attrs {
 
     __GTP5G_URR_ATTR_MAX,
 };
-#define GTP5G_URR_ATTR_MAX (__GTP5G_URR_ATTR_MAX - 1)
+#define GTP5G_URR_ATTR_MAX 16
 
 /* Nest in GTP5G_URR_VOL_THRESHOLD */
 enum gtp5g_urr_volume_threshold_attrs {

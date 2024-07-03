@@ -22,7 +22,7 @@ enum gtp5g_qer_attrs {
     GTP5G_QER_SEID,
     __GTP5G_QER_ATTR_MAX,
 };
-#define GTP5G_QER_ATTR_MAX (__GTP5G_QER_ATTR_MAX - 1)
+#define GTP5G_QER_ATTR_MAX 16
 
 /* Nest in GTP5G_QER_MBR */
 enum gtp5g_mbr_attrs {

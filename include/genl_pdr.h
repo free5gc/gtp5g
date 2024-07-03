@@ -29,7 +29,7 @@ enum gtp5g_pdr_attrs {
 
     __GTP5G_PDR_ATTR_MAX,
 };
-#define GTP5G_PDR_ATTR_MAX (__GTP5G_PDR_ATTR_MAX - 1)
+#define GTP5G_PDR_ATTR_MAX 16
 
 /* Nest in GTP5G_PDR_PDI */
 enum gtp5g_pdi_attrs {
@@ -39,7 +39,7 @@ enum gtp5g_pdi_attrs {
     GTP5G_PDI_SDF_FILTER,
     __GTP5G_PDI_ATTR_MAX,
 };
-#define GTP5G_PDI_ATTR_MAX (__GTP5G_PDI_ATTR_MAX - 1)
+#define GTP5G_PDI_ATTR_MAX 16
 
 /* Nest in GTP5G_PDI_F_TEID */
 enum gtp5g_f_teid_attrs {
@@ -48,7 +48,7 @@ enum gtp5g_f_teid_attrs {
     GTP5G_F_TEID_GTPU_ADDR_IPV4,
     __GTP5G_F_TEID_ATTR_MAX,
 };
-#define GTP5G_F_TEID_ATTR_MAX (__GTP5G_F_TEID_ATTR_MAX - 1)
+#define GTP5G_F_TEID_ATTR_MAX 8
 
 /* Nest in GTP5G_PDI_SDF_FILTER */
 enum gtp5g_sdf_filter_attrs {
@@ -60,7 +60,7 @@ enum gtp5g_sdf_filter_attrs {
 
     __GTP5G_SDF_FILTER_ATTR_MAX,
 };
-#define GTP5G_SDF_FILTER_ATTR_MAX (__GTP5G_SDF_FILTER_ATTR_MAX - 1)
+#define GTP5G_SDF_FILTER_ATTR_MAX 16
 
 /* Nest in GTP5G_SDF_FILTER_FLOW_DESCRIPTION */
 enum gtp5g_flow_description_attrs {

@@ -32,7 +32,7 @@ enum gtp5g_usage_report_attrs {
 
     __GTP5G_UR_ATTR_MAX,
 };
-#define GTP5G_UR_ATTR_MAX (__GTP5G_UR_ATTR_MAX - 1)
+#define GTP5G_UR_ATTR_MAX 16
 
 enum gtp5g_multi_usage_report_attrs {
     GTP5G_UR = 5,
