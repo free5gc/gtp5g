@@ -12,7 +12,7 @@ enum gtp5g_bar_attrs {
 
     __GTP5G_BAR_ATTR_MAX,
 };
-#define GTP5G_BAR_ATTR_MAX (__GTP5G_BAR_ATTR_MAX - 1)
+#define GTP5G_BAR_ATTR_MAX 16
 
 struct buffer_action {
     u64 seid;
