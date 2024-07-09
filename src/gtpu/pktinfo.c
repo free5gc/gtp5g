@@ -239,12 +239,18 @@ void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
 
 void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
 {
+    u8 tos = 0;
+    if (pktinfo->hdr_creation == NULL) {
+        tos = pktinfo->iph->tos;
+    } else {
+        tos = pktinfo->hdr_creation->tosTc;
+    }
     udp_tunnel_xmit_skb(pktinfo->rt, 
         pktinfo->sk,
         skb,
         pktinfo->fl4.saddr,
         pktinfo->fl4.daddr,
-        pktinfo->iph->tos,
+        tos,
         ip4_dst_hoplimit(&pktinfo->rt->dst),
         0,
         pktinfo->gtph_port, 
