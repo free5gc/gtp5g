@@ -18,7 +18,7 @@
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *, struct VolumeMeasurement);
 static int parse_seid_urr(struct seid_urr *, struct nlattr *);
 
-static int gtp5g_genl_fill_ul_dl(struct gtp5g_dev *gtp_dev , struct sk_buff *skb, 
+static int gtp5g_genl_fill_usage_statistic(struct gtp5g_dev *gtp_dev , struct sk_buff *skb,
         u32 snd_portid, u32 snd_seq, u32 type)
 {
     void *genlh = NULL;
@@ -27,22 +27,22 @@ static int gtp5g_genl_fill_ul_dl(struct gtp5g_dev *gtp_dev , struct sk_buff *skb
     if (!genlh)
         goto genlmsg_fail;
 
-    if (nla_put_u64_64bit(skb, GTP5G_UPLINK_VOL_RX, (u64)atomic_read(&gtp_dev->rx.ul_byte), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_UL_VOL_RX, (u64)atomic_read(&gtp_dev->rx.ul_byte), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UPLINK_VOL_TX, (u64)atomic_read(&gtp_dev->tx.ul_byte), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_UL_VOL_TX, (u64)atomic_read(&gtp_dev->tx.ul_byte), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_DOWNLINK_VOL_RX, (u64)atomic_read(&gtp_dev->rx.dl_byte), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_DL_VOL_RX, (u64)atomic_read(&gtp_dev->rx.dl_byte), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_DOWNLINK_VOL_TX, (u64)atomic_read(&gtp_dev->tx.dl_byte), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_DL_VOL_TX, (u64)atomic_read(&gtp_dev->tx.dl_byte), 0))
         return -EMSGSIZE;
 
-    if (nla_put_u64_64bit(skb, GTP5G_UPLINK_PKT_RX, (u64)atomic_read(&gtp_dev->rx.ul_pkt), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_UL_PKT_RX, (u64)atomic_read(&gtp_dev->rx.ul_pkt), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UPLINK_PKT_TX, (u64)atomic_read(&gtp_dev->tx.ul_pkt), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_UL_PKT_TX, (u64)atomic_read(&gtp_dev->tx.ul_pkt), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_DOWNLINK_PKT_RX, (u64)atomic_read(&gtp_dev->rx.dl_pkt), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_DL_PKT_RX, (u64)atomic_read(&gtp_dev->rx.dl_pkt), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_DOWNLINK_PKT_TX, (u64)atomic_read(&gtp_dev->tx.dl_pkt), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_DL_PKT_TX, (u64)atomic_read(&gtp_dev->tx.dl_pkt), 0))
         return -EMSGSIZE;
 
     genlmsg_end(skb, genlh);
@@ -53,7 +53,7 @@ genlmsg_fail:
     return -EMSGSIZE;
 }
 
-int gtp5g_genl_get_ul_dl_report(struct sk_buff *skb, struct genl_info *info)
+int gtp5g_genl_get_usage_statistic(struct sk_buff *skb, struct genl_info *info)
 {
     struct sk_buff *skb_ack = NULL;
     int err = 0;
@@ -77,13 +77,13 @@ int gtp5g_genl_get_ul_dl_report(struct sk_buff *skb, struct genl_info *info)
         err = -ENODEV;
         goto fail;
     }
-    
+
     skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
     if (!skb_ack) {
         return -ENOMEM;
     }
 
-    err = gtp5g_genl_fill_ul_dl(gtp_dev, skb_ack,
+    err = gtp5g_genl_fill_usage_statistic(gtp_dev, skb_ack,
             NETLINK_CB(skb).portid,
             info->snd_seq,
             info->nlhdr->nlmsg_type);

@@ -42,7 +42,7 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
     return gtp;
 }
 
-void update_statistic(struct gtp5g_dev *gtp, u64 vol, int pkt_action, uint srcIntf) 
+void update_usage_statistic(struct gtp5g_dev *gtp, u64 vol, int pkt_action, uint srcIntf)
 {
     switch (srcIntf) {
     case SRC_INTF_ACCESS: // uplink
@@ -112,8 +112,7 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
     switch (proto) {
     case ETH_P_IP:
         ret = gtp5g_handle_skb_ipv4(skb, dev, &pktinfo);
-        // update downlink packet count
-        update_statistic(gtp, skb->len, ret, SRC_INTF_CORE);
+        update_usage_statistic(gtp, skb->len, ret, SRC_INTF_CORE); // DL
         break;
     default:
         ret = -EOPNOTSUPP;

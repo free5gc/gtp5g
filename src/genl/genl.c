@@ -164,8 +164,8 @@ static const struct genl_ops gtp5g_genl_ops[] = {
         .flags = GENL_ADMIN_PERM,
     },
     {
-        .cmd = GTP5G_CMD_GET_ULDL_REPORT,
-        .doit = gtp5g_genl_get_ul_dl_report,
+        .cmd = GTP5G_CMD_GET_USAGE_STATISTIC,
+        .doit = gtp5g_genl_get_usage_statistic,
         .flags = GENL_ADMIN_PERM,
     },
 };

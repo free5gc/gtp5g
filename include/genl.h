@@ -38,11 +38,11 @@ enum gtp5g_cmd {
 
     GTP5G_CMD_GET_MULTI_REPORTS,
 
-    GTP5G_CMD_GET_ULDL_REPORT,
+    GTP5G_CMD_GET_USAGE_STATISTIC,
 
     __GTP5G_CMD_MAX,
 };
-#define GTP5G_CMD_MAX (__GTP5G_CMD_MAX - 1)
+#define GTP5G_CMD_MAX 32
 
 /* This const value need to bigger than the Layer 1 attr size,
  * like GTP5G_MSG_TYPE_ATTR_MAX(2), 

@@ -246,7 +246,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     if (!pskb_may_pull(skb, pull_len)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
         rt = PKT_DROPPED;
-        goto not_forward;
+        goto end;
     }
 
     gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
@@ -254,7 +254,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         GTP5G_ERR(gtp->dev, "GTP version is not v1: %#x\n",
             gtpv1->flags);
         rt = PKT_TO_APP;
-        goto not_forward;
+        goto end;
     }
 
     gtp_type = gtpv1->type;
@@ -264,14 +264,14 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
             gtp_type);
 
         rt = gtp1c_handle_echo_req(skb, gtp);
-        goto not_forward;
+        goto end;
     }
 
     if (gtp_type != GTPV1_MSG_TYPE_TPDU && gtp_type != GTPV1_MSG_TYPE_EMARK) {
         GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU or End Marker: %#x\n",
             gtp_type);
         rt = PKT_TO_APP;
-        goto not_forward;
+        goto end;
     }
 
     /** TS 29.281 Chapter 5.1 and Figure 5.1-1
@@ -289,7 +289,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         if (!pskb_may_pull(skb, pull_len)) {
             GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
             rt = PKT_DROPPED;
-            goto not_forward;
+            goto end;
         }
 
         /** TS 29.281 Chapter 5.2 and Figure 5.2.1-1
@@ -303,20 +303,20 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
             if (!pskb_may_pull(skb, pull_len)) {
                 GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
                 rt = PKT_DROPPED;
-                goto not_forward;
+                goto end;
             }
             extlen = (*((u8 *)(skb->data + hdrlen))) * 4; // total length of extension hdr
             if (extlen == 0) {
                 GTP5G_ERR(gtp->dev, "Invalid extention header length\n");
                 rt = PKT_DROPPED;
-                goto not_forward;
+                goto end;
             }
             hdrlen += extlen;
             pull_len = hdrlen;
             if (!pskb_may_pull(skb, pull_len)) {
                 GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
                 rt = PKT_DROPPED;
-                goto not_forward;
+                goto end;
             }
             switch (ext_hdr_type) {
                 case GTPV1_NEXT_EXT_HDR_TYPE_85:
@@ -339,14 +339,14 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     if (!pdr) {
         GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%x]\n", ntohl(teid));
         rt = PKT_DROPPED;
-        goto not_forward;
+        goto end;
     }
 
     rt = gtp5g_rx(pdr, skb, hdrlen, gtp->role);
 
-not_forward:
+end:
     if (pdr->pdi) {
-        update_statistic(gtp, skb->len, rt, pdr->pdi->srcIntf);
+        update_usage_statistic(gtp, skb->len, rt, pdr->pdi->srcIntf);
     }
 
     return rt;
