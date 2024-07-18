@@ -41,7 +41,11 @@ struct sdf_filter {
     u32 *bi_id;
 };
 
+#define SRC_INTF_ACCESS 0
+#define SRC_INTF_CORE 1
+
 struct pdi {
+    u8 srcIntf;
     struct in_addr *ue_addr_ipv4;
     struct local_f_teid *f_teid;
     struct sdf_filter *sdf;

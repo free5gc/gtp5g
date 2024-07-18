@@ -37,6 +37,8 @@ enum gtp5g_pdi_attrs {
     GTP5G_PDI_UE_ADDR_IPV4,
     GTP5G_PDI_F_TEID,
     GTP5G_PDI_SDF_FILTER,
+    GTP5G_PDI_SRC_INTF,
+
     __GTP5G_PDI_ATTR_MAX,
 };
 #define GTP5G_PDI_ATTR_MAX 16
