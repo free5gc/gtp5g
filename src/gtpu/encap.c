@@ -345,7 +345,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     rt = gtp5g_rx(pdr, skb, hdrlen, gtp->role);
 
 end:
-    if (pdr->pdi) {
+    if (pdr && pdr->pdi) {
         update_usage_statistic(gtp, skb->len, rt, pdr->pdi->srcIntf);
     }
 
