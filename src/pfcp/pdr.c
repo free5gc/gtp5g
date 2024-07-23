@@ -78,7 +78,6 @@ static void pdr_context_free(struct rcu_head *head)
 
             kfree(sdf);
         }
-        kfree(pdi);
 
         // free epf_list
         if (!list_empty(&pdi->epf_list)) {
@@ -108,6 +107,8 @@ static void pdr_context_free(struct rcu_head *head)
                 kfree(epf);
             }
         }
+
+	kfree(pdi);
     }
 
     unix_sock_client_delete(pdr);

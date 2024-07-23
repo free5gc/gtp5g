@@ -45,9 +45,6 @@ static int unix_sock_send(struct pdr *, struct far *, void *, u32, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *,
     struct net_device *, struct gtp5g_pktinfo *,
     struct pdr *, struct far *);
-static int gtp5g_fwd_skb_ethernet(struct sk_buff *,
-    struct net_device *, struct gtp5g_pktinfo *,
-    struct pdr *, struct far *);
 
 /* When gtp5g newlink, establish the udp tunnel used in N3 interface */
 struct sock *gtp5g_encap_enable(int fd, int type, struct gtp5g_dev *gtp){
@@ -1033,7 +1030,7 @@ static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     return PKT_TO_APP;
 }
 
-int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
+int gtp5g_handle_skb_dl_pkt(struct sk_buff *skb, struct net_device *dev,
     struct gtp5g_pktinfo *pktinfo)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
@@ -1042,19 +1039,43 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     //struct gtp5g_qer *qer;
     struct iphdr *iph;
     struct qer __rcu *qer_with_rate = NULL;
+    struct ethhdr *etherhdr;
 
-    /* Read the IP destination address and resolve the PDR.
-     * Prepend PDR header with TEI/TID from PDR.
-     */
-    iph = ip_hdr(skb);
-    if (gtp->role == GTP5G_ROLE_UPF)
-        pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
-    else
-        pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
+    if (gtp->ether_n6_dev) {
+        // ethernet mode
+        etherhdr = eth_hdr(skb);
 
-    if (!pdr) {
-        GTP5G_INF(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
-        return -ENOENT;
+        if (gtp->role == GTP5G_ROLE_UPF) {
+            pdr = pdr_find_by_mac(gtp, skb, 0, etherhdr->h_dest);
+
+            if (!pdr) {
+                unsigned char *dst;
+                dst = etherhdr->h_dest;
+                GTP5G_INF(dev, "no PDR found for %x:%x:%x:%x:%x:%x, skip\n",
+                    dst[0], dst[1], dst[2], dst[3], dst[4], dst[5]);
+                return -ENOENT;
+            }
+        } else {
+            GTP5G_INF(dev, "ethernet mode only support GTP5G_ROLE_UPF\n");
+            return -ENOENT;
+        }
+    } else {
+        /*
+        * ipv4 mode
+        * Read the IP destination address and resolve the PDR.
+        * Prepend PDR header with TEI/TID from PDR.
+        */
+        iph = ip_hdr(skb);
+
+        if (gtp->role == GTP5G_ROLE_UPF)
+            pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
+        else
+            pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
+
+        if (!pdr) {
+            GTP5G_INF(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
+            return -ENOENT;
+        }
     }
 
     /* TODO: QoS rule have to apply before apply FAR
@@ -1088,135 +1109,6 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
             GTP5G_ERR(dev, "Unspec apply action(%u) in FAR(%u) and related to PDR(%u)",
                 far->action, far->id, pdr->id);
         }
-    }
-
-    return -ENOENT;
-}
-
-
-// Note. Same as gtp5g_fwd_skb_ipv4, encap origin pkt with gtp then forward
-static int gtp5g_fwd_skb_ethernet(struct sk_buff *skb,
-    struct net_device *dev, struct gtp5g_pktinfo *pktinfo,
-    struct pdr *pdr, struct far *far)
-{
-    struct rtable *rt;
-    struct flowi4 fl4;
-    struct iphdr *iph = ip_hdr(skb);
-    struct outer_header_creation *hdr_creation;
-    u64 volume, volume_mbqe = 0;
-    struct forwarding_parameter *fwd_param;
-
-    TrafficPolicer* tp = NULL;
-    Color color = Green;
-    struct qer __rcu *qer_with_rate = NULL;
-
-    if (!far) {
-        GTP5G_ERR(dev, "Unknown RAN address\n");
-        goto err;
-    }
-
-    fwd_param = rcu_dereference(far->fwd_param);
-    if (!(fwd_param &&
-        fwd_param->hdr_creation)) {
-        GTP5G_ERR(dev, "Unknown RAN address\n");
-        goto err;
-    }
-
-    hdr_creation = fwd_param->hdr_creation;
-    rt = ip4_find_route(skb,
-        iph,
-        pdr->sk,
-        dev,
-        pdr->role_addr_ipv4.s_addr,
-        hdr_creation->peer_addr_ipv4.s_addr,
-        &fl4);
-    if (IS_ERR(rt))
-        goto err;
-
-    gtp5g_set_pktinfo_ipv4(pktinfo,
-            pdr->sk,
-            iph,
-            hdr_creation,
-            pdr->qfi,
-            far->seq_number,
-            rt,
-            &fl4,
-            dev);
-
-    far->seq_number++;
-    pdr->dl_pkt_cnt++;
-    pdr->dl_byte_cnt += skb->len;
-    GTP5G_INF(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
-
-    volume_mbqe = ip4_rm_header(skb, 0);
-
-    qer_with_rate = rcu_dereference(pdr->qer_with_rate);
-    if (qer_with_rate != NULL)
-        tp = qer_with_rate->dl_policer;
-    if (get_qos_enable() && tp != NULL) {
-        color = policePacket(tp, volume_mbqe);
-    }
-    if (color == Red) {
-        volume = 0;
-    } else {
-        volume = volume_mbqe;
-    }
-
-    gtp5g_push_header(skb, pktinfo);
-
-    if (pdr->urr_num != 0) {
-        if (update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, false) < 0)
-            GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
-    }
-    if (color == Red) {
-        GTP5G_TRC(pdr->dev, "Drop red packet");
-        return PKT_DROPPED;
-    }
-    return FAR_ACTION_FORW;
-err:
-    return -EBADMSG;
-}
-
-int gtp5g_handle_skb_ethernet(struct sk_buff *skb, struct net_device *dev,
-    struct gtp5g_pktinfo *pktinfo)
-{
-    struct gtp5g_dev *gtp = netdev_priv(dev);
-    struct pdr *pdr;
-    struct far *far;
-    struct ethhdr *etherhdr;
-
-    etherhdr = eth_hdr(skb);
-    if (gtp->role == GTP5G_ROLE_UPF)
-        pdr = pdr_find_by_mac(gtp, skb, 0, etherhdr->h_dest);
-
-    if (!pdr) {
-        unsigned char *dst;
-        dst = etherhdr->h_dest;
-        GTP5G_INF(dev, "no PDR found for %x:%x:%x:%x:%x:%x, skip\n",
-            dst[0], dst[1], dst[2], dst[3], dst[4], dst[5]);
-        return -ENOENT;
-    }
-
-    far = rcu_dereference(pdr->far);
-    if (far) {
-        // One and only one of the DROP, FORW and BUFF flags shall be set to 1.
-        // The NOCP flag may only be set if the BUFF flag is set.
-        // The DUPL flag may be set with any of the DROP, FORW, BUFF and NOCP flags.
-        switch (far->action & FAR_ACTION_MASK) {
-        case FAR_ACTION_DROP:
-            dev_kfree_skb(skb);
-            return FAR_ACTION_DROP;
-        case FAR_ACTION_FORW:
-            return gtp5g_fwd_skb_ethernet(skb, dev, pktinfo, pdr, far);
-        case FAR_ACTION_BUFF:
-            // TODO
-            return FAR_ACTION_DROP;
-        default:
-            GTP5G_ERR(dev, "Unspec apply action(%u) in FAR(%u) and related to PDR(%u)",
-                far->action, far->id, pdr->id);
-        }
-    } else {
-        GTP5G_ERR(dev, "no FAR found\n");
     }
 
     return -ENOENT;

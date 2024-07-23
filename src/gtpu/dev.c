@@ -85,8 +85,6 @@ static void gtp5g_dev_uninit(struct net_device *dev)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
 
-    dev_put(gtp->ether_n6_dev);
-
     gtp5g_encap_disable(gtp->sk1u);
     free_percpu(dev->tstats);
 }
@@ -111,16 +109,11 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
     /* PDR lookups in gtp5g_build_skb_*() need rcu read-side lock. 
      * */
     rcu_read_lock();
-    switch (proto) {
-    case ETH_P_IP:
-        ret = gtp5g_handle_skb_ipv4(skb, dev, &pktinfo);
+    if (gtp->ether_n6_dev || proto == ETH_P_IP) {
+        ret = gtp5g_handle_skb_dl_pkt(skb, dev, &pktinfo);
         update_usage_statistic(gtp, skb->len, ret, SRC_INTF_CORE); // DL
-        break;
-    default:
-        // ethernet pkt
-        // IP pkts of ethernet pdu session is handled at case ETH_P_IP
-        // TBD: flag to seperate IP and Ethernet mode
-        ret = gtp5g_handle_skb_ethernet(skb, dev, &pktinfo);
+    } else {
+         ret = -EOPNOTSUPP;
     }
     rcu_read_unlock();
 
