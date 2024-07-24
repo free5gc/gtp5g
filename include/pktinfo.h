@@ -13,6 +13,7 @@ struct gtp5g_pktinfo {
     struct rtable                 *rt;
     struct outer_header_creation  *hdr_creation;
     u8                            qfi;
+    u8                            pdu_type;
     u16                           seq_number;
     struct net_device             *dev;
     __be16                        gtph_port;
@@ -43,7 +44,7 @@ void gtp5g_xmit_skb_ipv4(struct sk_buff *, struct gtp5g_pktinfo *);
 void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *,
         struct sock *, struct iphdr *,
         struct outer_header_creation *,
-        u8, u16, struct rtable *, struct flowi4 *,
+        u8, u8, u16, struct rtable *, struct flowi4 *,
         struct net_device *);
 void gtp5g_push_header(struct sk_buff *, struct gtp5g_pktinfo *);
 
