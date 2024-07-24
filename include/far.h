@@ -50,6 +50,7 @@ struct far {
     u32 id;
     u16 action;
     u16 seq_number;
+    u8 ul_or_dl;
     struct forwarding_parameter __rcu *fwd_param;
     u8 *bar_id;
     struct bar *bar;

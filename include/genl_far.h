@@ -12,6 +12,7 @@ enum gtp5g_far_attrs {
 
     /* Not IEs in 3GPP Spec, for other purpose */
     GTP5G_FAR_RELATED_TO_PDR,
+    GTP5G_FAR_UL_OR_DL,
 
     GTP5G_FAR_SEID,
     GTP5G_FAR_BAR_ID,
