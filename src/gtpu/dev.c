@@ -151,12 +151,6 @@ int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
     if (gtp->addr_hash == NULL)
         return -ENOMEM;
 
-    gtp->mac_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
-        GFP_KERNEL);
-    if (gtp->mac_hash == NULL)
-        return -ENOMEM;
-
-
     gtp->i_teid_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
     if (gtp->i_teid_hash == NULL)
@@ -207,11 +201,15 @@ int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
     if (!gtp->related_urr_hash)
         goto err10;
 
+    gtp->mac_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
+        GFP_KERNEL);
+    if (gtp->mac_hash == NULL)
+        goto err11;
+
     gtp->hash_size = hsize;
 
     for (i = 0; i < hsize; i++) {
         INIT_HLIST_HEAD(&gtp->addr_hash[i]);
-        INIT_HLIST_HEAD(&gtp->mac_hash[i]);
         INIT_HLIST_HEAD(&gtp->i_teid_hash[i]);
         INIT_HLIST_HEAD(&gtp->pdr_id_hash[i]);
         INIT_HLIST_HEAD(&gtp->far_id_hash[i]);
@@ -222,9 +220,12 @@ int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
         INIT_HLIST_HEAD(&gtp->related_qer_hash[i]);
         INIT_HLIST_HEAD(&gtp->related_bar_hash[i]);
         INIT_HLIST_HEAD(&gtp->related_urr_hash[i]);
+        INIT_HLIST_HEAD(&gtp->mac_hash[i]);
     }
 
     return 0;
+err11:
+    kfree(gtp->related_urr_hash);
 err10:
     kfree(gtp->related_bar_hash);
 err9:
@@ -245,7 +246,6 @@ err2:
     kfree(gtp->i_teid_hash);
 err1:
     kfree(gtp->addr_hash);
-    kfree(gtp->mac_hash);
     return -ENOMEM;
 }
 
