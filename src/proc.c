@@ -9,6 +9,7 @@
 #include "far.h"
 
 #include "util.h"
+#include "dev.h"
 
 struct list_head proc_gtp5g_dev;
 struct proc_gtp5g_pdr {
@@ -88,19 +89,6 @@ struct proc_gtp5g_seq
     bool seq_enable;
 };
 
-struct proc_gtp5g_statistic
-{
-    u64 tx_ul_byte;
-    u64 tx_dl_byte;
-    u64 tx_ul_pkt;
-    u64 tx_dl_pkt;
-
-    u64 rx_ul_byte;
-    u64 rx_dl_byte;
-    u64 rx_ul_pkt;
-    u64 rx_dl_pkt;
-};
-
 struct proc_dir_entry *proc_gtp5g = NULL;
 struct proc_dir_entry *proc_gtp5g_dbg = NULL;
 struct proc_dir_entry *proc_gtp5g_pdr = NULL;
@@ -116,7 +104,6 @@ struct proc_gtp5g_qer proc_qer;
 struct proc_gtp5g_urr proc_urr;
 struct proc_gtp5g_qos proc_qos;
 struct proc_gtp5g_seq proc_seq;
-struct proc_gtp5g_statistic proc_statistic;
 
 u64 proc_seid = 0;
 u16 proc_pdr_id = 0;
@@ -361,66 +348,35 @@ err:
 
 static int gtp5g_statistic_read(struct seq_file *s, void *v)
 {
-    GTP5G_TRC(NULL, "gtp5g_statistic_read");
-    seq_printf(s, "Statistic: \n");
-    seq_printf(s, "\t RX UL(bytes) : %llu\n", proc_statistic.rx_ul_byte);
-    seq_printf(s, "\t TX UL(bytes) : %llu\n", proc_statistic.tx_ul_byte);
-    seq_printf(s, "\t RX DL(bytes) : %llu\n", proc_statistic.rx_dl_byte);
-    seq_printf(s, "\t TX DL(bytes) : %llu\n", proc_statistic.tx_dl_byte);
-
-    seq_printf(s, "\t RX UL(packets) : %llu\n", proc_statistic.rx_ul_pkt);
-    seq_printf(s, "\t TX UL(packets) : %llu\n", proc_statistic.tx_ul_pkt);
-    seq_printf(s, "\t RX DL(packets) : %llu\n", proc_statistic.rx_dl_pkt);
-    seq_printf(s, "\t TX DL(packets) : %llu\n", proc_statistic.tx_dl_pkt);
-
-    return 0;
-}
-
-static ssize_t proc_statistic_write(struct file *filp, const char __user *buffer,
-    size_t len, loff_t *dptr)
-{
-    char buf[32], dev_name[32];
     u8 found = 0;
-    unsigned long buf_len = min(len, sizeof(buf)-1);
     struct gtp5g_dev *gtp;
 
-    if (copy_from_user(buf, buffer, buf_len)) {
-        GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buffer);
-        goto err;
-    }
-    
-    buf[buf_len] = 0;
-    if (sscanf(buf, "%s", dev_name) != 1) {
-        GTP5G_ERR(NULL, "device name is not valid: %s\n", buf);
-        goto err;
-    }
-     
-    
+
+    GTP5G_TRC(NULL, "gtp5g_statistic_read");
+
     list_for_each_entry_rcu(gtp, &proc_gtp5g_dev, proc_list) {
-        if (strcmp(dev_name, netdev_name(gtp->dev)) == 0) {
+        if (strcmp(get_dev_name(), netdev_name(gtp->dev)) == 0) {
             found = 1;
             break;
         }
     }
     if (!found) {
-        GTP5G_ERR(NULL, "Given dev: %s not exists\n", dev_name);
-        goto err;
+        GTP5G_ERR(NULL, "Given dev: %s not exists\n", get_dev_name());
+        return -1;
     }
 
-    memset(&proc_statistic, 0, sizeof(proc_statistic));
-    proc_statistic.rx_ul_byte = (u64)atomic_read(&gtp->rx.ul_byte);
-    proc_statistic.tx_ul_byte = (u64)atomic_read(&gtp->tx.ul_byte);
-    proc_statistic.rx_dl_byte = (u64)atomic_read(&gtp->rx.dl_byte);
-    proc_statistic.tx_dl_byte = (u64)atomic_read(&gtp->tx.dl_byte);
+    seq_printf(s, "Statistic: \n");
+    seq_printf(s, "\t RX UL(bytes) : %llu\n", (u64)atomic_read(&gtp->rx.ul_byte));
+    seq_printf(s, "\t TX UL(bytes) : %llu\n", (u64)atomic_read(&gtp->tx.ul_byte));
+    seq_printf(s, "\t RX DL(bytes) : %llu\n", (u64)atomic_read(&gtp->rx.dl_byte));
+    seq_printf(s, "\t TX DL(bytes) : %llu\n", (u64)atomic_read(&gtp->tx.dl_byte));
 
-    proc_statistic.rx_ul_pkt = (u64)atomic_read(&gtp->rx.ul_pkt);
-    proc_statistic.tx_ul_pkt = (u64)atomic_read(&gtp->tx.ul_pkt);
-    proc_statistic.rx_dl_pkt = (u64)atomic_read(&gtp->rx.dl_pkt);
-    proc_statistic.tx_dl_pkt = (u64)atomic_read(&gtp->tx.dl_pkt);
+    seq_printf(s, "\t RX UL(packets) : %llu\n", (u64)atomic_read(&gtp->rx.ul_pkt));
+    seq_printf(s, "\t TX UL(packets) : %llu\n", (u64)atomic_read(&gtp->tx.ul_pkt));
+    seq_printf(s, "\t RX DL(packets) : %llu\n", (u64)atomic_read(&gtp->rx.dl_pkt));
+    seq_printf(s, "\t TX DL(packets) : %llu\n", (u64)atomic_read(&gtp->tx.dl_pkt));
 
-    return strnlen(buf, buf_len);
-err:
-    return -1;
+    return 0;
 }
 
 static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
@@ -849,7 +805,6 @@ static const struct file_operations proc_gtp5g_seq_ops = {
 static const struct proc_ops proc_gtp5g_statistic_ops = {
     .proc_open = proc_statistic_read,
     .proc_read = seq_read,
-    .proc_write = proc_statistic_write,
     .proc_lseek = seq_lseek,
     .proc_release = single_release,
 };
@@ -858,7 +813,6 @@ static const struct file_operations proc_gtp5g_statistic_ops = {
     .owner      = THIS_MODULE,
     .open       = proc_statistic_read,
     .read       = seq_read,
-    .write      = proc_statistic_write,
     .llseek     = seq_lseek,
     .release    = single_release,
 };
