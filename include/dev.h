@@ -49,4 +49,7 @@ extern struct gtp5g_dev *gtp5g_find_dev(struct net *, int, int);
 extern int dev_hashtable_new(struct gtp5g_dev *, int);
 extern void gtp5g_hashtable_free(struct gtp5g_dev *);
 
+extern char *get_dev_name(void);
+extern void set_dev_name(char *);
+
 #endif // __GTP5G_DEV_H__
