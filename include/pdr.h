@@ -75,6 +75,7 @@ struct pdr {
     u32 qer_num;
     u8  qfi;
     struct qer __rcu *qer_with_rate;
+    uint8_t ul_dl_gate;
     u32 *urr_ids;
     u32 urr_num;
     
