@@ -120,6 +120,9 @@ void set_qos_enable(int);
 int get_seq_enable(void);
 void set_seq_enable(int);
 
+bool is_uplink(struct pdr *);
+bool is_downlink(struct pdr *);
+
 static inline bool pdr_addr_is_netlink(struct pdr *pdr)
 {
     return (pdr->addr_unix.sun_path[0] == '/' && pdr->addr_unix.sun_path[1] == 0);

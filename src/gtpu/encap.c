@@ -719,7 +719,6 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
 {
     int rt = -1;
     struct far *far = rcu_dereference(pdr->far);
-    struct qer __rcu *qer_with_rate = rcu_dereference(pdr->qer_with_rate);
 
     if (!far) {
         GTP5G_ERR(pdr->dev, "FAR not exists for PDR(%u)\n", pdr->id);
@@ -761,18 +760,6 @@ out:
     return rt;
 }
 
-bool isDownlink(struct pdr *pdr)
-{
-    if (!pdr || !pdr->pdi)
-        return false
-
-    if (pdr->pdi->srcIntf == SRC_INTF_CORE) {
-        return true
-    }
-
-    return false
-}
-
 static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     unsigned int hdrlen, struct pdr *pdr, struct far *far)
 {
@@ -800,11 +787,10 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
     qer_with_rate = rcu_dereference(pdr->qer_with_rate);
     if (qer_with_rate != NULL){
-        // Set the default traffic policer to be the uplink policer.
-        if (isDownlink(pdr)) {
-            tp = qer_with_rate->dl_policer;
-        } else {
+        if (is_uplink(pdr)) {
             tp = qer_with_rate->ul_policer;
+        } else if (is_downlink(pdr)) {
+            tp = qer_with_rate->dl_policer;
         }
     }
     if (get_qos_enable() && tp != NULL) {
