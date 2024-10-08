@@ -494,15 +494,14 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
         qer = find_qer_by_id(gtp, pdr->seid, pdr->qer_ids[i]);
         if (qer && qer->ul_policer!= NULL && qer->dl_policer!= NULL) {
             rcu_assign_pointer(pdr->qer_with_rate, qer);
-            break;
         }
         // close the uplink gate when one of the QERs referenced by this PDR closes the gate
-        if (qer->ul_dl_gate & QER_UL_GATE_CLOSE) {
-            pdr->ul_dl_gate = pdr->ul_dl_gate | QER_UL_GATE_CLOSE;
+        if (qer && qer->ul_dl_gate & QER_UL_GATE_CLOSE) {
+            pdr->ul_dl_gate |= QER_UL_GATE_CLOSE;
         }  
         // close the downlink gate when one of the QERs referenced by this PDR closes the gate
-        if (qer->ul_dl_gate & QER_DL_GATE_CLOSE) {
-            pdr->ul_dl_gate = pdr->ul_dl_gate | QER_DL_GATE_CLOSE;
+        if (qer && qer->ul_dl_gate & QER_DL_GATE_CLOSE) {
+            pdr->ul_dl_gate |= QER_DL_GATE_CLOSE;
         }
     }
 

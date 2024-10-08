@@ -761,6 +761,18 @@ out:
     return rt;
 }
 
+bool isDownlink(struct pdr *pdr)
+{
+    if (!pdr || !pdr->pdi)
+        return false
+
+    if (pdr->pdi->srcIntf == SRC_INTF_CORE) {
+        return true
+    }
+
+    return false
+}
+
 static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     unsigned int hdrlen, struct pdr *pdr, struct far *far)
 {
@@ -778,12 +790,23 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     Color color = Green;
     struct qer __rcu *qer_with_rate = NULL;
     
+    if (!pdr) {
+        GTP5G_ERR(dev, "PDR is NULL\n");
+        return PKT_DROPPED;
+    }
+
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
         volume_mbqe = ip4_rm_header(skb, hdrlen);
 
     qer_with_rate = rcu_dereference(pdr->qer_with_rate);
-    if (qer_with_rate != NULL)
-        tp = qer_with_rate->ul_policer;
+    if (qer_with_rate != NULL){
+        // Set the default traffic policer to be the uplink policer.
+        if (isDownlink(pdr)) {
+            tp = qer_with_rate->dl_policer;
+        } else {
+            tp = qer_with_rate->ul_policer;
+        }
+    }
     if (get_qos_enable() && tp != NULL) {
         color = policePacket(tp, volume_mbqe);
     }
