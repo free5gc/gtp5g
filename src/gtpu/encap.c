@@ -719,7 +719,6 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
 {
     int rt = -1;
     struct far *far = rcu_dereference(pdr->far);
-    struct qer __rcu *qer_with_rate = rcu_dereference(pdr->qer_with_rate);
 
     if (!far) {
         GTP5G_ERR(pdr->dev, "FAR not exists for PDR(%u)\n", pdr->id);
@@ -737,11 +736,9 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
             rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
         case FAR_ACTION_FORW:
-            if (qer_with_rate != NULL) {
-                if (qer_with_rate->ul_dl_gate & QER_UL_GATE_CLOSE) {
-                    GTP5G_TRC(pdr->dev, "QER UL gate is closed, drop the packet");
-                    return PKT_DROPPED;
-                }
+            if (pdr->ul_dl_gate & QER_UL_GATE_CLOSE) {
+                GTP5G_TRC(pdr->dev, "QER UL gate is closed, drop the packet");
+                return PKT_DROPPED;
             }
             rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, far);
             break;
@@ -780,12 +777,22 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     Color color = Green;
     struct qer __rcu *qer_with_rate = NULL;
     
+    if (!pdr) {
+        GTP5G_ERR(dev, "PDR is NULL\n");
+        return PKT_DROPPED;
+    }
+
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
         volume_mbqe = ip4_rm_header(skb, hdrlen);
 
     qer_with_rate = rcu_dereference(pdr->qer_with_rate);
-    if (qer_with_rate != NULL)
-        tp = qer_with_rate->ul_policer;
+    if (qer_with_rate != NULL){
+        if (is_uplink(pdr)) {
+            tp = qer_with_rate->ul_policer;
+        } else if (is_downlink(pdr)) {
+            tp = qer_with_rate->dl_policer;
+        }
+    }
     if (get_qos_enable() && tp != NULL) {
         color = policePacket(tp, volume_mbqe);
     }
@@ -1055,11 +1062,9 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         case FAR_ACTION_DROP:
             return gtp5g_drop_skb_ipv4(skb, dev, pdr);
         case FAR_ACTION_FORW:
-            if (qer_with_rate != NULL) {
-                if (qer_with_rate->ul_dl_gate & QER_DL_GATE_CLOSE) {
-                    GTP5G_TRC(pdr->dev, "QER DL gate is closed, drop the packet");
-                    return PKT_DROPPED;
-                }
+            if (pdr->ul_dl_gate & QER_DL_GATE_CLOSE) {
+                GTP5G_TRC(pdr->dev, "QER DL gate is closed, drop the packet");
+                return PKT_DROPPED;
             }
             return gtp5g_fwd_skb_ipv4(skb, dev, pktinfo, pdr, far);
         case FAR_ACTION_BUFF:

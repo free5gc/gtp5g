@@ -75,6 +75,7 @@ struct pdr {
     u32 qer_num;
     u8  qfi;
     struct qer __rcu *qer_with_rate;
+    uint8_t ul_dl_gate;
     u32 *urr_ids;
     u32 urr_num;
     
@@ -118,6 +119,9 @@ void set_qos_enable(int);
 
 int get_seq_enable(void);
 void set_seq_enable(int);
+
+bool is_uplink(struct pdr *);
+bool is_downlink(struct pdr *);
 
 static inline bool pdr_addr_is_netlink(struct pdr *pdr)
 {
