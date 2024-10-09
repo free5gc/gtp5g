@@ -52,9 +52,9 @@ struct seid_urr {
     u32 urrid;
 };
 
-extern int gtp5g_genl_add_urr(struct sk_buff *, struct genl_info *);
-extern int gtp5g_genl_del_urr(struct sk_buff *, struct genl_info *);
-extern int gtp5g_genl_get_urr(struct sk_buff *, struct genl_info *);
-extern int gtp5g_genl_dump_urr(struct sk_buff *, struct netlink_callback *);
+int gtp5g_genl_add_urr(struct sk_buff *, struct genl_info *);
+int gtp5g_genl_del_urr(struct sk_buff *, struct genl_info *);
+int gtp5g_genl_get_urr(struct sk_buff *, struct genl_info *);
+int gtp5g_genl_dump_urr(struct sk_buff *, struct netlink_callback *);
 
 #endif // __GENL_URR_H__

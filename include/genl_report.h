@@ -54,13 +54,13 @@ enum gtp5g_usage_statistic_attrs {
     __GTP5G_USTAT_ATTR_MAX,
 };
 
-extern int gtp5g_genl_get_usage_report(struct sk_buff *, struct genl_info *);
-extern int gtp5g_genl_get_multi_usage_reports(struct sk_buff *, struct genl_info *);
-extern int gtp5g_genl_get_usage_statistic(struct sk_buff *, struct genl_info *);
+int gtp5g_genl_get_usage_report(struct sk_buff *, struct genl_info *);
+int gtp5g_genl_get_multi_usage_reports(struct sk_buff *, struct genl_info *);
+int gtp5g_genl_get_usage_statistic(struct sk_buff *, struct genl_info *);
 
-extern int gtp5g_genl_fill_ur(struct sk_buff *, struct usage_report *);
-extern int gtp5g_genl_fill_usage_report(struct sk_buff *, u32, u32, u32, struct usage_report *);
-extern int gtp5g_genl_fill_multi_usage_reports(struct sk_buff *, u32, u32, u32, struct usage_report **, u32);
+int gtp5g_genl_fill_ur(struct sk_buff *, struct usage_report *);
+int gtp5g_genl_fill_usage_report(struct sk_buff *, u32, u32, u32, struct usage_report *);
+int gtp5g_genl_fill_multi_usage_reports(struct sk_buff *, u32, u32, u32, struct usage_report **, u32);
 
-extern void convert_urr_to_report(struct urr *, struct usage_report *);
+void convert_urr_to_report(struct urr *, struct usage_report *);
 #endif // __GENL_URR_H__

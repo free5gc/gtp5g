@@ -41,9 +41,9 @@ enum gtp5g_outer_header_creation_attrs {
 };
 #define GTP5G_OUTER_HEADER_CREATION_ATTR_MAX 16
 
-extern int gtp5g_genl_add_far(struct sk_buff *, struct genl_info *);
-extern int gtp5g_genl_del_far(struct sk_buff *, struct genl_info *);
-extern int gtp5g_genl_get_far(struct sk_buff *, struct genl_info *);
-extern int gtp5g_genl_dump_far(struct sk_buff *, struct netlink_callback *);
+int gtp5g_genl_add_far(struct sk_buff *, struct genl_info *);
+int gtp5g_genl_del_far(struct sk_buff *, struct genl_info *);
+int gtp5g_genl_get_far(struct sk_buff *, struct genl_info *);
+int gtp5g_genl_dump_far(struct sk_buff *, struct netlink_callback *);
 
 #endif // __GENL_FAR_H__
