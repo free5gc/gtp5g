@@ -242,7 +242,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     u8 gtp_type;
     u32 teid;
     int rt = 0;
-    u64 beforeVol = skb->len - sizeof(struct udphdr);
+    u64 rxVol = skb->len - sizeof(struct udphdr); // exclude UDP header of GTP packet
 
     if (!pskb_may_pull(skb, pull_len)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
@@ -347,9 +347,9 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 
 end:
     if (pdr && pdr->pdi) {
-        update_usage_statistic(gtp, beforeVol, skb->len, rt, pdr->pdi->srcIntf);
+        update_usage_statistic(gtp, rxVol, skb->len, rt, pdr->pdi->srcIntf);
     } else {
-        update_usage_statistic(gtp, beforeVol, skb->len, rt, SRC_INTF_ACCESS);
+        update_usage_statistic(gtp, rxVol, skb->len, rt, SRC_INTF_ACCESS);
     }
 
     return rt;
