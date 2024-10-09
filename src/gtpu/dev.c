@@ -43,7 +43,7 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
 }
 
 void update_usage_statistic(struct gtp5g_dev *gtp, u64 beforeVol, u64 afterVol,
- int pkt_action, uint srcIntf)
+    int pkt_action, uint srcIntf)
 {
     switch (srcIntf) {
     case SRC_INTF_ACCESS: // uplink
