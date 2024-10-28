@@ -6,10 +6,20 @@ For detailed information, please reference to 3GPP specification TS 29.281 and T
 Due to the evolution of Linux kernel, this module would not work with every kernel version.
 Please run this module with kernel version `5.0.0-23-generic`, upper than `5.4` (Ubuntu 20.04) or RHEL8.
 
+### The free5GC Go-UPF
+The go-upf is compatible with gtp5g version v0.8.6 ~ v0.8.10. 
+
 ## Usage
+### Clone
+```
+git clone https://github.com/free5gc/gtp5g.git
+# OR specific version (e.g v0.8.10)
+git clone -b v0.8.10 https://github.com/free5gc/gtp5g.git
+```
+
 ### Compile
 ```
-git clone https://github.com/free5gc/gtp5g.git && cd gtp5g
+cd gtp5g
 make clean && make
 ```
 
