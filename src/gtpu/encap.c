@@ -617,6 +617,8 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
 
     for (i = 0; i < pdr->urr_num; i++) {
         urr = find_urr_by_id(gtp, pdr->seid,  pdr->urr_ids[i]);
+        if (!urr)
+           continue;
 
         mnop = false;
         if (urr->info & URR_INFO_MNOP)
