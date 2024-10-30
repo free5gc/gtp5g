@@ -7,7 +7,7 @@ Due to the evolution of Linux kernel, this module would not work with every kern
 Please run this module with kernel version `5.0.0-23-generic`, upper than `5.4` (Ubuntu 20.04) or RHEL8.
 
 ### The free5GC Go-UPF
-The [go-upf](https://github.com/free5gc/go-upf) is compatible with gtp5g version v0.8.6 ~ v0.8.10. 
+The [go-upf](https://github.com/free5gc/go-upf) v1.2.3(free5GC v3.4.3) is compatible with gtp5g version v0.8.6 ~ v0.8.10. 
 
 ## Usage
 ### Clone
