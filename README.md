@@ -7,9 +7,20 @@ Due to the evolution of Linux kernel, this module would not work with every kern
 Please run this module with kernel version `5.0.0-23-generic`, upper than `5.4` (Ubuntu 20.04) or RHEL8.
 
 ## Usage
+### Clone
+#### The latest version
+```
+git clone https://github.com/free5gc/gtp5g.git
+```
+#### The specific version
+```
+# git clone -b {version} https://github.com/free5gc/gtp5g.git
+git clone -b v0.8.10 https://github.com/free5gc/gtp5g.git
+```
+
 ### Compile
 ```
-git clone https://github.com/free5gc/gtp5g.git && cd gtp5g
+cd gtp5g
 make clean && make
 ```
 
