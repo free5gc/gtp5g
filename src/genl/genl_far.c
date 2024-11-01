@@ -556,6 +556,7 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         if (nla_put_u64_64bit(skb, GTP5G_FAR_SEID, far->seid, 0))
             goto genlmsg_fail;
     }
+
     fwd_param = rcu_dereference(far->fwd_param);
     if (fwd_param) {
         nest_fwd_param = nla_nest_start(skb, GTP5G_FAR_FORWARDING_PARAMETER);

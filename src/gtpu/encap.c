@@ -931,6 +931,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct outer_header_creation *hdr_creation;
     u64 volume, volume_mbqe = 0;
     struct forwarding_parameter *fwd_param;
+    u8 pdu_type = PDU_SESSION_INFO_TYPE0;
 
     TrafficPolicer* tp = NULL;
     Color color = Green;
@@ -959,11 +960,16 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     if (IS_ERR(rt))
         goto err;
 
+    if (is_uplink(pdr)) {
+        pdu_type = PDU_SESSION_INFO_TYPE1;
+    }
+
     gtp5g_set_pktinfo_ipv4(pktinfo,
             pdr->sk, 
             iph, 
             hdr_creation,
-            pdr->qfi, 
+            pdr->qfi,
+            pdu_type,
             far->seq_number,
             rt, 
             &fl4, 

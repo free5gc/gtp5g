@@ -261,13 +261,14 @@ void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
 
 inline void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *pktinfo,
     struct sock *sk, struct iphdr *iph, struct outer_header_creation *hdr_creation,
-    u8 qfi, u16 seq_number, struct rtable *rt, struct flowi4 *fl4,
+    u8 qfi, u8 pdu_type, u16 seq_number, struct rtable *rt, struct flowi4 *fl4,
     struct net_device *dev)
 {
     pktinfo->sk = sk;
     pktinfo->iph = iph;
     pktinfo->hdr_creation = hdr_creation;
     pktinfo->qfi = qfi;
+    pktinfo->pdu_type = pdu_type;
     pktinfo->seq_number = seq_number;
     pktinfo->rt = rt;
     pktinfo->fl4 = *fl4;
@@ -302,8 +303,15 @@ void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
         dl_pdu_sess = skb_push(skb, sizeof(*dl_pdu_sess));
         /* Multiple of 4 (TODO include PPI) */
         dl_pdu_sess->length = 1;
-        dl_pdu_sess->pdu_sess_ctr.type_spare = 0; /* For DL */
-        dl_pdu_sess->pdu_sess_ctr.u.dl.ppp_rqi_qfi = pktinfo->qfi;
+        
+        if (pktinfo->pdu_type == PDU_SESSION_INFO_TYPE1) { // UL
+            dl_pdu_sess->pdu_sess_ctr.type_spare = PDU_SESSION_INFO_TYPE1; 
+            dl_pdu_sess->pdu_sess_ctr.u.ul.spare_qfi = pktinfo->qfi;
+        } else { // DL
+            dl_pdu_sess->pdu_sess_ctr.type_spare = PDU_SESSION_INFO_TYPE0; 
+            dl_pdu_sess->pdu_sess_ctr.u.dl.ppp_rqi_qfi = pktinfo->qfi;
+        }
+
         //TODO: PPI
         dl_pdu_sess->next_ehdr_type = 0; /* No more extension Header */
         
