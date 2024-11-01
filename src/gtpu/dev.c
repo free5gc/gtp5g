@@ -13,6 +13,18 @@
 #include "pktinfo.h"
 #include "log.h"
 
+char *device_name = NULL;
+
+char *get_dev_name()
+{
+    return device_name;
+}
+
+void set_dev_name(char *val)
+{
+    device_name = val;
+}
+
 struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
 {
     struct gtp5g_dev *gtp = NULL;
