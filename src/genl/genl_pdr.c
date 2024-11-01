@@ -473,7 +473,9 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
 
     pdr->af = AF_INET;
     far = find_far_by_id(gtp, pdr->seid, *pdr->far_id);
-    rcu_assign_pointer(pdr->far, far);
+    if (!far) {
+        return -EINVAL;
+    }
 
     err = far_set_pdr(pdr, gtp);
     if (err)
