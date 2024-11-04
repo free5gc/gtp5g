@@ -272,7 +272,6 @@ struct VolumeMeasurement *get_usage_report_counter(struct urr *urr, bool previou
        return &urr->bytes; 
     }
 
-    // A division error will occur if urr->period is zero.
     if ((now/urr->period)%2 == 1) {
         if (previous_counter) {
             return &urr->bytes;
