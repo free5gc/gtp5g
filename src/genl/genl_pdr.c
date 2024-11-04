@@ -476,6 +476,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     if (!far) {
         return -EINVAL;
     }
+    rcu_assign_pointer(pdr->far, far);
 
     err = far_set_pdr(pdr, gtp);
     if (err)
