@@ -97,4 +97,5 @@ uninstall:
 	rm -f $(DESTDIR)/lib/modules/$(KVER)/$(MOD_KERNEL_PATH)/$(MODULE_NAME).ko
 	$(DEPMOD)
 	rm -f /etc/modules-load.d/gtp5g.conf
+	rm -f /etc/modules-load.d/udp_tunnel.conf
 	rmmod -f  $(MODULE_NAME)
