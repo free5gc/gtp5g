@@ -267,6 +267,12 @@ struct VolumeMeasurement *get_usage_report_counter(struct urr *urr, bool previou
 {
     u32 now = ktime_get_real() / NSEC_PER_SEC;
 
+    // If the period is zero, always return the first counter.
+    if (urr->period == 0) {
+       return &urr->bytes; 
+    }
+
+    // A division error will occur if urr->period is zero.
     if ((now/urr->period)%2 == 1) {
         if (previous_counter) {
             return &urr->bytes;
