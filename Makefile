@@ -88,14 +88,13 @@ clean:
 install:
 	$(INSTALL)
 	modprobe udp_tunnel
-	echo "udp_tunnel" > /etc/modules-load.d/udp_tunnel.conf
 	$(DEPMOD)
 	modprobe $(MODULE_NAME)
-	echo "gtp5g" > /etc/modules-load.d/gtp5g.conf
+	echo "udp_tunnel" > /etc/modules-load.d/gtp5g.conf
+	echo "gtp5g" >> /etc/modules-load.d/gtp5g.conf
 
 uninstall:
 	rm -f $(DESTDIR)/lib/modules/$(KVER)/$(MOD_KERNEL_PATH)/$(MODULE_NAME).ko
 	$(DEPMOD)
 	rm -f /etc/modules-load.d/gtp5g.conf
-	rm -f /etc/modules-load.d/udp_tunnel.conf
 	rmmod -f  $(MODULE_NAME)
