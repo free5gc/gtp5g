@@ -88,6 +88,7 @@ clean:
 install:
 	$(INSTALL)
 	modprobe udp_tunnel
+	echo "udp_tunnel" > /etc/modules-load.d/udp_tunnel.conf
 	$(DEPMOD)
 	modprobe $(MODULE_NAME)
 	echo "gtp5g" > /etc/modules-load.d/gtp5g.conf
