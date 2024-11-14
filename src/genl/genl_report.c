@@ -27,22 +27,22 @@ static int gtp5g_genl_fill_usage_statistic(struct gtp5g_dev *gtp_dev , struct sk
     if (!genlh)
         goto genlmsg_fail;
 
-    if (nla_put_u64_64bit(skb, GTP5G_USTAT_UL_VOL_RX, (u64)atomic_read(&gtp_dev->rx.ul_byte), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_UL_VOL_RX, (u64)atomic64_read(&gtp_dev->rx.ul_byte), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_USTAT_UL_VOL_TX, (u64)atomic_read(&gtp_dev->tx.ul_byte), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_UL_VOL_TX, (u64)atomic64_read(&gtp_dev->tx.ul_byte), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_USTAT_DL_VOL_RX, (u64)atomic_read(&gtp_dev->rx.dl_byte), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_DL_VOL_RX, (u64)atomic64_read(&gtp_dev->rx.dl_byte), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_USTAT_DL_VOL_TX, (u64)atomic_read(&gtp_dev->tx.dl_byte), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_DL_VOL_TX, (u64)atomic64_read(&gtp_dev->tx.dl_byte), 0))
         return -EMSGSIZE;
 
-    if (nla_put_u64_64bit(skb, GTP5G_USTAT_UL_PKT_RX, (u64)atomic_read(&gtp_dev->rx.ul_pkt), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_UL_PKT_RX, (u64)atomic64_read(&gtp_dev->rx.ul_pkt), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_USTAT_UL_PKT_TX, (u64)atomic_read(&gtp_dev->tx.ul_pkt), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_UL_PKT_TX, (u64)atomic64_read(&gtp_dev->tx.ul_pkt), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_USTAT_DL_PKT_RX, (u64)atomic_read(&gtp_dev->rx.dl_pkt), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_DL_PKT_RX, (u64)atomic64_read(&gtp_dev->rx.dl_pkt), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_USTAT_DL_PKT_TX, (u64)atomic_read(&gtp_dev->tx.dl_pkt), 0))
+    if (nla_put_u64_64bit(skb, GTP5G_USTAT_DL_PKT_TX, (u64)atomic64_read(&gtp_dev->tx.dl_pkt), 0))
         return -EMSGSIZE;
 
     genlmsg_end(skb, genlh);

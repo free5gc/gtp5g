@@ -6,10 +6,10 @@
 #include <linux/socket.h>
 
 struct usage_statistic {
-    atomic_t ul_byte;
-    atomic_t dl_byte;
-    atomic_t ul_pkt;
-    atomic_t dl_pkt;
+    atomic64_t ul_byte;
+    atomic64_t dl_byte;
+    atomic64_t ul_pkt;
+    atomic64_t dl_pkt;
 };
 
 struct gtp5g_dev {
