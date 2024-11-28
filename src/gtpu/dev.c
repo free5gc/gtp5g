@@ -47,19 +47,19 @@ void update_usage_statistic(struct gtp5g_dev *gtp, u64 rxVol, u64 txVol,
 {
     switch (srcIntf) {
     case SRC_INTF_ACCESS: // uplink
-        atomic_add(rxVol, &gtp->rx.ul_byte);
-        atomic_inc(&gtp->rx.ul_pkt);
+        atomic64_add(rxVol, &gtp->rx.ul_byte);
+        atomic64_inc(&gtp->rx.ul_pkt);
         if (pkt_action != PKT_DROPPED) {
-            atomic_add(txVol, &gtp->tx.ul_byte);
-            atomic_inc(&gtp->tx.ul_pkt);
+            atomic64_add(txVol, &gtp->tx.ul_byte);
+            atomic64_inc(&gtp->tx.ul_pkt);
         }
         break;
     case SRC_INTF_CORE: // downlink
-        atomic_add(rxVol, &gtp->rx.dl_byte);
-        atomic_inc(&gtp->rx.dl_pkt);
+        atomic64_add(rxVol, &gtp->rx.dl_byte);
+        atomic64_inc(&gtp->rx.dl_pkt);
         if (pkt_action != PKT_DROPPED) {
-            atomic_add(txVol, &gtp->tx.dl_byte);
-            atomic_inc(&gtp->tx.dl_pkt);
+            atomic64_add(txVol, &gtp->tx.dl_byte);
+            atomic64_inc(&gtp->tx.dl_pkt);
         }
         break;
     default:
