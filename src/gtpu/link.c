@@ -66,6 +66,10 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     u32 fd1;
     int hashsize, err;
 
+    if (dev != NULL && dev->name != NULL) {
+        set_dev_name(dev->name);
+    }
+
     gtp = netdev_priv(dev);
 
     if (!data[IFLA_GTP5G_FD1]) {
