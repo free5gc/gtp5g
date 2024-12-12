@@ -917,7 +917,6 @@ static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
 {
     ++pdr->dl_drop_cnt;
     GTP5G_INF(NULL, "PDR (%u) DL_DROP_CNT (%llu)", pdr->id, pdr->dl_drop_cnt);
-    dev_kfree_skb(skb);
     return PKT_DROPPED;
 }
 
