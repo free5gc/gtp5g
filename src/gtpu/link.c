@@ -11,6 +11,10 @@
 #include "log.h"
 #include "proc.h"
 
+#ifndef NETIF_F_LLTX
+#define NETIF_F_LLTX 0
+#endif
+
 const struct nla_policy gtp5g_policy[IFLA_GTP5G_MAX + 1] = {
     [IFLA_GTP5G_FD1]             = { .type = NLA_U32 },
     [IFLA_GTP5G_PDR_HASHSIZE]    = { .type = NLA_U32 },
