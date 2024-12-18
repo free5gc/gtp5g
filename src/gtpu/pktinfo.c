@@ -331,7 +331,11 @@ void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
         gtp1opt->NPDU = 0;
         gtp1opt->next_ehdr_type = next_ehdr_type;
         // Increment the GTP-U payload length by size of optional headers length
-        payload_len += (sizeof(*gtp1opt) + sizeof(*ext_pdu_sess));
+        payload_len += sizeof(*gtp1opt);
+    }
+    // Increment the GTP-U payload length by size of extensions length
+    if (ext_flag) {
+        payload_len += sizeof(*ext_pdu_sess);
     }
 
     /* Bits 8  7  6  5  4  3  2  1
