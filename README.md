@@ -35,6 +35,35 @@ Remove the kernel module from the system
 ```
 sudo make uninstall
 ```
+
+### DKMS support
+When updating the kernel gtp5g needs to get rebuilt against the current kernel source.
+This can be automated using [DKMS](https://github.com/dell/dkms).
+
+To use the DKMS support the following steps are required:
+1. Copy the repository to `/usr/src/gtp5g-<VERSION>` (e.g., `/usr/src/gtp5g-0.9.5/`).
+1. Run the following command to add the DKMS module to the module tree:
+   ```
+   # sudo dkms add -m gtp5g -v <VERSION>
+   sudo dkms add -m gtp5g -v 0.9.5
+   ```
+1. Run this command to install the DKMS module:
+   ```
+   # sudo dkms install -m gtp5g -v <VERSION>
+   sudo dkms install -m gtp5g -v 0.9.5
+   ```
+
+After a reboot of the system everything should be set up.
+Whether the kernel module is loaded can be checked by running:
+```
+lsmod | grep gtp
+```
+Which should result in a similar output to:
+```
+gtp5g                 200704  0
+udp_tunnel             28672  2 gtp5g,sctp
+```
+
 ### Check Rules
 Get PDR/FAR/QER information by "/proc"
 ```
