@@ -43,10 +43,11 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
     u64 refillTokens = 0;
     u64 tc, te = 0;
     u64 elapsed = 0;
-    u64 now = ktime_get_ns();
+    u64 now = 0;
 
     spin_lock(&p->lock); 
 
+    now = ktime_get_ns();
     elapsed = now - p->lastUpdate;
     p->lastUpdate = now;
 
