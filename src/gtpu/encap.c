@@ -381,6 +381,8 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
             GTP5G_ERR(dev, "Failed to pull GTP-U and UDP headers\n");
             return PKT_DROPPED;
         }
+        // Increment the sequence number for the packet
+        far->seq_number++;
 
         if (pdr_addr_is_netlink(pdr)) {
             if (netlink_send(pdr, far, skb, dev_net(dev), NULL, 0) < 0) {
@@ -417,7 +419,8 @@ static int netlink_send(struct pdr *pdr, struct far *far, struct sk_buff *skb_in
             nla_total_size_64bit(8) +
                 nla_total_size(2) +
                 nla_total_size(2) +
-                nla_total_size(skb_in->len),
+                nla_total_size(skb_in->len) +
+                nla_total_size(2),
             GFP_ATOMIC);
     }
 
@@ -467,6 +470,12 @@ static int netlink_send(struct pdr *pdr, struct far *far, struct sk_buff *skb_in
             return -EINVAL;
         }
         skb_copy_bits(skb_in, 0, nla_data(attr), skb_in->len);
+
+        err = nla_put_u16(skb, GTP5G_BUFFER_SEQ_NUMBER, far->seq_number);
+        if (err != 0) {
+            nlmsg_free(skb);
+            return err;
+        }
 
         nla_nest_end(skb, nest_msg_type);
     }
@@ -1022,6 +1031,8 @@ err:
 static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct pdr *pdr, struct far *far)
 {
+    // Increment the sequence number for the packet
+    far->seq_number++;
     if (pdr_addr_is_netlink(pdr)) {
         if (netlink_send(pdr, far, skb, dev_net(dev), NULL, 0) < 0) {
             GTP5G_ERR(dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
