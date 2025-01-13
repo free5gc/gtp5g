@@ -588,7 +588,7 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
     return false;
 }
 
-int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool uplink) {
+int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe) {
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i;
     int ret = 1;
@@ -601,7 +601,18 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
     struct VolumeMeasurement *urr_counter = NULL;
     bool mnop;
     struct sk_buff *skb;
-    
+    bool uplink = false;
+
+    // Determine if the packet is uplink or downlink
+    if (is_uplink(pdr)) {
+        uplink = true;
+    } else if (is_downlink(pdr)) {
+        uplink = false;
+    } else {
+        GTP5G_ERR(pdr->dev, "PDR(%u) is not uplink or downlink", pdr->id);
+        return -1;
+    }
+
     // vol_mbqe(volume of measurement before QoS enforcement) is zero(payload is zero), 
     // no need to add volume and packet count
     if (vol_mbqe == 0) {
@@ -833,7 +844,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             uh->check = 0;
 
             if (pdr->urr_num != 0) {
-                ret = update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, true);
+                ret = update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe);
                 if (ret < 0) {
                     if (ret == DONT_SEND_UL_PACKET) {
                         GTP5G_INF(pdr->dev, "Should not foward the first uplink packet");
@@ -896,7 +907,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     GTP5G_INF(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);    
  
     if (pdr->urr_num != 0) {
-        if (update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, true) < 0)
+        if (update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
     
@@ -996,7 +1007,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     gtp5g_push_header(skb, pktinfo);
 
     if (pdr->urr_num != 0) {
-        if (update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, false) < 0)
+        if (update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
     if (color == Red) {
