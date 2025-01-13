@@ -416,11 +416,11 @@ static int netlink_send(struct pdr *pdr, struct far *far, struct sk_buff *skb_in
         skb = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
     } else {
         skb = genlmsg_new(
-            nla_total_size_64bit(8) +
-                nla_total_size(2) +
-                nla_total_size(2) +
-                nla_total_size(skb_in->len) +
-                nla_total_size(2),
+            nla_total_size_64bit(8) + // SEID
+                nla_total_size(2) + // PDR ID
+                nla_total_size(2) + // Action
+                nla_total_size(2) + // Sequence Num
+                nla_total_size(skb_in->len), // Buff Pkt Size
             GFP_ATOMIC);
     }
 
