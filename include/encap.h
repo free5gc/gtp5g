@@ -26,6 +26,7 @@ enum gtp5g_buffer_attrs {
     GTP5G_BUFFER_ID,
     GTP5G_BUFFER_SEID,
     GTP5G_BUFFER_ACTION,
+    GTP5G_BUFFER_SEQ_NUMBER,
 
     /* Add newly supported feature ON ABOVE
      * for compatability with older version of
