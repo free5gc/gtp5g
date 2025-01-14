@@ -464,18 +464,18 @@ static int netlink_send(struct pdr *pdr, struct far *far, struct sk_buff *skb_in
             return err;
         }
 
+        err = nla_put_u16(skb, GTP5G_BUFFER_SEQ_NUMBER, far->seq_number);
+        if (err != 0) {
+            nlmsg_free(skb);
+            return err;
+        }
+
         attr = nla_reserve(skb, GTP5G_BUFFER_PACKET, skb_in->len);
         if (!attr) {
             nlmsg_free(skb);
             return -EINVAL;
         }
         skb_copy_bits(skb_in, 0, nla_data(attr), skb_in->len);
-
-        err = nla_put_u16(skb, GTP5G_BUFFER_SEQ_NUMBER, far->seq_number);
-        if (err != 0) {
-            nlmsg_free(skb);
-            return err;
-        }
 
         nla_nest_end(skb, nest_msg_type);
     }
