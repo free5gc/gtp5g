@@ -879,7 +879,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
     if (gtp1->type != GTPV1_MSG_TYPE_TPDU) {
         GTP5G_WAR(dev, "Uplink: GTPv1 msg type is not TPDU\n");
-        return -1;
+        return PKT_DROPPED;
     }
 
     // Get rid of the GTP-U + UDP headers.
@@ -927,6 +927,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     ret = netif_rx(skb);
     if (ret != NET_RX_SUCCESS) {
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
+        return PKT_DROPPED;
     }
 
     return PKT_FORWARDED;
