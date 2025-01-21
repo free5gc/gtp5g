@@ -941,6 +941,20 @@ static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     return PKT_DROPPED;
 }
 
+static struct rtable *find_ip4_route(struct flowi4 *fl4,
+                        const struct sock *sk,
+                        __be32 daddr, __be32 saddr)
+{
+	memset(fl4, 0, sizeof(*fl4));
+	fl4->flowi4_oif		= sk->sk_bound_dev_if;
+	fl4->daddr		= daddr;
+	fl4->saddr		= saddr;
+	fl4->flowi4_tos		= RT_TOS(inet_sk(sk)->tos);
+	fl4->flowi4_proto	= sk->sk_protocol;
+
+	return ip_route_output_key(sock_net(sk), fl4);
+}
+
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb, 
     struct net_device *dev, struct gtp5g_pktinfo *pktinfo, 
     struct pdr *pdr, struct far *far)
@@ -970,13 +984,8 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     }
 
     hdr_creation = fwd_param->hdr_creation;
-    rt = ip4_find_route(skb, 
-        iph, 
-        pdr->sk,
-        dev, 
-        pdr->role_addr_ipv4.s_addr, 
-        hdr_creation->peer_addr_ipv4.s_addr, 
-        &fl4);
+    rt = find_ip4_route(&fl4, pdr->sk, hdr_creation->peer_addr_ipv4.s_addr,
+            pdr->role_addr_ipv4.s_addr);
     if (IS_ERR(rt))
         goto err;
 
