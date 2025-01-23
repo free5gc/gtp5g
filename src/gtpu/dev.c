@@ -42,6 +42,10 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
     return gtp;
 }
 
+static inline bool is_pkt_action_valid(int pkt_action) {
+    return pkt_action != PKT_DROPPED && pkt_action != PKT_DROPPED_AND_FREED;
+}
+
 void update_usage_statistic(struct gtp5g_dev *gtp, u64 rxVol, u64 txVol,
     int pkt_action, uint srcIntf)
 {
@@ -49,7 +53,7 @@ void update_usage_statistic(struct gtp5g_dev *gtp, u64 rxVol, u64 txVol,
     case SRC_INTF_ACCESS: // uplink
         atomic64_add(rxVol, &gtp->rx.ul_byte);
         atomic64_inc(&gtp->rx.ul_pkt);
-        if (pkt_action != PKT_DROPPED) {
+        if (is_pkt_action_valid(pkt_action)) {
             atomic64_add(txVol, &gtp->tx.ul_byte);
             atomic64_inc(&gtp->tx.ul_pkt);
         }
@@ -57,7 +61,7 @@ void update_usage_statistic(struct gtp5g_dev *gtp, u64 rxVol, u64 txVol,
     case SRC_INTF_CORE: // downlink
         atomic64_add(rxVol, &gtp->rx.dl_byte);
         atomic64_inc(&gtp->rx.dl_pkt);
-        if (pkt_action != PKT_DROPPED) {
+        if (is_pkt_action_valid(pkt_action)) {
             atomic64_add(txVol, &gtp->tx.dl_byte);
             atomic64_inc(&gtp->tx.dl_pkt);
         }
