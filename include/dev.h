@@ -47,4 +47,7 @@ int dev_hashtable_new(struct gtp5g_dev *, int);
 void gtp5g_hashtable_free(struct gtp5g_dev *);
 void update_usage_statistic(struct gtp5g_dev *, u64, u64, int, uint);
 
+extern char *get_dev_name(void);
+extern void set_dev_name(char *);
+
 #endif // __GTP5G_DEV_H__
