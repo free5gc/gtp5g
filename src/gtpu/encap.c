@@ -150,6 +150,10 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
         kfree_skb(skb);
         ret = 0;
         break;
+    case PKT_DROPPED_AND_FREED:
+        GTP5G_TRC(gtp->dev, "GTP packet has been dropped and already freed\n");
+        ret = 0;
+        break;
     default:
         GTP5G_ERR(gtp->dev, "Unhandled return value from gtp1u_udp_encap_recv\n");
     }
@@ -927,7 +931,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     ret = netif_rx(skb);
     if (ret != NET_RX_SUCCESS) {
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
-        return PKT_DROPPED;
+        return PKT_DROPPED_AND_FREED;
     }
 
     return PKT_FORWARDED;
