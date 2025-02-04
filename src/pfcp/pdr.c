@@ -262,6 +262,7 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
 #endif
     struct iphdr *iph;
     __be32 *target_addr = NULL;
+    __be32 *source_addr = NULL;
     struct hlist_head *head;
     struct pdr *pdr;
     struct pdi *pdi;
@@ -277,6 +278,7 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
             return NULL;
         iph = (struct iphdr *)(skb->data + hdrlen);
         target_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->saddr : &iph->daddr);
+        source_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->daddr : &iph->saddr);
     }
 
     head = &gtp->i_teid_hash[u32_hashfn(teid) % gtp->hash_size];
@@ -305,7 +307,9 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     #endif
 #endif
         if (pdi->ue_addr_ipv4)
-            if (!(pdr->af == AF_INET && target_addr && *target_addr == pdi->ue_addr_ipv4->s_addr))
+            if ((!(pdr->af == AF_INET)) || (
+                (!(target_addr && *target_addr == pdi->ue_addr_ipv4->s_addr)) &&
+                (!(source_addr && *source_addr == pdi->ue_addr_ipv4->s_addr))))
                 continue;
 
         if (pdi->sdf)
