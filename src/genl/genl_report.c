@@ -158,13 +158,17 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
         goto fail;
     }
 
+    // set the use_bytes2 flag to the opposite value
+    urr->use_bytes2 = !urr->use_bytes2;
+    // sleep for 1 millisecond to make sure the counter is updated
+    // before the report is converted
+    msleep(1);
     report = kzalloc(sizeof(struct usage_report), GFP_KERNEL);
     if (!report) {
         err = -ENOMEM;
         goto fail;
     }
-
-    convert_urr_to_report(urr, report);
+    convert_urr_to_report(urr, report, !urr->use_bytes2);
 
     err = gtp5g_genl_fill_usage_report(skb_ack,
             NETLINK_CB(skb).portid,
@@ -250,13 +254,17 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
             goto fail;
         }
 
+        // set the use_bytes2 flag to the opposite value
+        urr->use_bytes2 = !urr->use_bytes2;
+        // sleep for 1 millisecond to make sure the counter is updated
+        // before the report is converted
+        msleep(1);
         reports[i] = kzalloc(sizeof(struct usage_report), GFP_KERNEL);
         if (!reports[i]) {
             err =  -ENOMEM;
             goto fail;
         }
-
-        convert_urr_to_report(urr, reports[report_num++]);
+        convert_urr_to_report(urr, reports[report_num++], !urr->use_bytes2);
     }
 
     skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
@@ -423,10 +431,10 @@ genlmsg_fail:
     return -EMSGSIZE;
 }
 
-void convert_urr_to_report(struct urr *urr, struct usage_report *report)
+void convert_urr_to_report(struct urr *urr, struct usage_report *report, bool use_bytes2)
 {
     struct VolumeMeasurement *urr_counter 
-        = get_usage_report_counter(urr, true);
+        = get_usage_report_counter(urr, use_bytes2);
     
     urr->end_time = ktime_get_real();
     *report = (struct usage_report ) {

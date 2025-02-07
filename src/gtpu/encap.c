@@ -670,8 +670,9 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
                 } else {
                     volume = vol;
                 }
+
                 // Caculate Volume measurement for each trigger
-                urr_counter = get_usage_report_counter(urr, false);
+                urr_counter = get_usage_report_counter(urr, urr->use_bytes2);
                 if (urr->trigger & URR_RPT_TRIGGER_VOLTH) {
                     if (increment_and_check_counter(urr_counter, &urr->volumethreshold, volume, uplink, mnop)) {
                         triggers[report_num] = USAR_TRIGGER_VOLTH;
@@ -708,7 +709,7 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
             if (triggers[i] == USAR_TRIGGER_START){
                 ret = DONT_SEND_UL_PACKET;
             }                 
-            convert_urr_to_report(urrs[i], &report[i]);
+            convert_urr_to_report(urrs[i], &report[i], !urrs[i]->use_bytes2);
 
             report[i].trigger = triggers[i];
         }

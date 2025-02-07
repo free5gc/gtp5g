@@ -169,7 +169,8 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
         goto fail;
     }
 
-    convert_urr_to_report(urr, report);
+    // return current counter
+    convert_urr_to_report(urr, report, urr->use_bytes2);
 
     err = gtp5g_genl_fill_usage_report(skb_ack,
             NETLINK_CB(skb).portid,
