@@ -158,17 +158,17 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
         goto fail;
     }
 
-    // set the use_bytes2 flag to the opposite value
-    urr->use_bytes2 = !urr->use_bytes2;
+    // set the use_vol2 flag to the opposite value
+    urr->use_vol2 = !urr->use_vol2;
     // sleep for 1 millisecond to make sure the counter is updated
-    // before the report is converted
+    // before converting to the report
     msleep(1);
     report = kzalloc(sizeof(struct usage_report), GFP_KERNEL);
     if (!report) {
         err = -ENOMEM;
         goto fail;
     }
-    convert_urr_to_report(urr, report, !urr->use_bytes2);
+    convert_urr_to_report(urr, report, !urr->use_vol2);
 
     err = gtp5g_genl_fill_usage_report(skb_ack,
             NETLINK_CB(skb).portid,
@@ -254,17 +254,17 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
             goto fail;
         }
 
-        // set the use_bytes2 flag to the opposite value
-        urr->use_bytes2 = !urr->use_bytes2;
+        // set the use_vol2 flag to the opposite value
+        urr->use_vol2 = !urr->use_vol2;
         // sleep for 1 millisecond to make sure the counter is updated
-        // before the report is converted
+        // before converting to the report
         msleep(1);
         reports[i] = kzalloc(sizeof(struct usage_report), GFP_KERNEL);
         if (!reports[i]) {
             err =  -ENOMEM;
             goto fail;
         }
-        convert_urr_to_report(urr, reports[report_num++], !urr->use_bytes2);
+        convert_urr_to_report(urr, reports[report_num++], !urr->use_vol2);
     }
 
     skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
@@ -306,7 +306,7 @@ fail:
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 }
 
-static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct VolumeMeasurement bytes)
+static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct VolumeMeasurement vol)
 {
     struct nlattr *nest_volume_measurement;
 
@@ -314,22 +314,22 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct Volume
     if (!nest_volume_measurement)
         return -EMSGSIZE;
 
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOVOL, bytes.totalVolume , 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOVOL, vol.totalVolume , 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UVOL, bytes.uplinkVolume, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UVOL, vol.uplinkVolume, 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DVOL, bytes.downlinkVolume, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DVOL, vol.downlinkVolume, 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOPACKET, bytes.totalPktNum, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOPACKET, vol.totalPktNum, 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UPACKET, bytes.uplinkPktNum, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UPACKET, vol.uplinkPktNum, 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DPACKET, bytes.downlinkPktNum, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DPACKET, vol.downlinkPktNum, 0))
         return -EMSGSIZE;
 
     nla_nest_end(skb, nest_volume_measurement);
 
-    memset(&bytes, 0, sizeof(struct VolumeMeasurement));
+    memset(&vol, 0, sizeof(struct VolumeMeasurement));
 
     return 0;
 }
@@ -431,10 +431,10 @@ genlmsg_fail:
     return -EMSGSIZE;
 }
 
-void convert_urr_to_report(struct urr *urr, struct usage_report *report, bool use_bytes2)
+void convert_urr_to_report(struct urr *urr, struct usage_report *report, bool use_vol2)
 {
     struct VolumeMeasurement *urr_counter 
-        = get_usage_report_counter(urr, use_bytes2);
+        = get_usage_report_counter(urr, use_vol2);
     
     urr->end_time = ktime_get_real();
     *report = (struct usage_report ) {

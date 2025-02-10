@@ -79,9 +79,9 @@ struct urr {
     struct Volume volumequota;
 
     // For usage report volume measurement
-    bool use_bytes2;
-    struct VolumeMeasurement bytes;
-    struct VolumeMeasurement bytes2;
+    bool use_vol2;
+    struct VolumeMeasurement vol;
+    struct VolumeMeasurement vol2;
     struct VolumeMeasurement consumed;
 
     // for report time
