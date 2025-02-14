@@ -160,9 +160,7 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
 
     // set the use_vol2 flag to the opposite value
     urr->use_vol2 = !urr->use_vol2;
-    // sleep for 1 millisecond to make sure the counter is updated
-    // before converting to the report
-    msleep(1);
+
     report = kzalloc(sizeof(struct usage_report), GFP_KERNEL);
     if (!report) {
         err = -ENOMEM;
@@ -256,9 +254,7 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
 
         // set the use_vol2 flag to the opposite value
         urr->use_vol2 = !urr->use_vol2;
-        // sleep for 1 millisecond to make sure the counter is updated
-        // before converting to the report
-        msleep(1);
+
         reports[i] = kzalloc(sizeof(struct usage_report), GFP_KERNEL);
         if (!reports[i]) {
             err =  -ENOMEM;
