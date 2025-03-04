@@ -93,6 +93,7 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
         goto end;
     }
 
+    spin_lock_init(&urr->period_report_counter_lock);
     urr->dev = gtp->dev;
     urr->start_time = ktime_get_real();
 
@@ -121,7 +122,7 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
     struct sk_buff *skb_ack = NULL;
     int err = 0;
     struct usage_report *report = NULL;
-
+    struct VolumeMeasurement *urr_counter = NULL;
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -169,8 +170,9 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
         goto fail;
     }
 
+    urr_counter = get_period_report_counter(urr, urr->use_vol2);
     // return current counter
-    convert_urr_to_report(urr, report, urr->use_vol2);
+    convert_urr_to_report(urr, urr_counter, report);
 
     err = gtp5g_genl_fill_usage_report(skb_ack,
             NETLINK_CB(skb).portid,
@@ -335,7 +337,7 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
         if (urr->trigger == URR_RPT_TRIGGER_START) {
             // Clean vol to make sure the vol are counted after the start of service data flow
             // TODO: Should send the previous stroed vol to CP first
-            memset(&urr->vol, 0, sizeof(struct VolumeMeasurement));
+            memset(&urr->vol1, 0, sizeof(struct VolumeMeasurement));
             memset(&urr->vol2, 0, sizeof(struct VolumeMeasurement));
         }
     }

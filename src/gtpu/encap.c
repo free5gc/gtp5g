@@ -560,13 +560,13 @@ static int unix_sock_send(struct pdr *pdr, struct far *far, void *buf, u32 len, 
     return rt;
 }
 
-bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Volume *volume, u64 vol, bool uplink, bool mnop){
+void update_counter(struct VolumeMeasurement *volmeasure, u64 vol, bool uplink, bool mnop){
     if (!volmeasure) {
-        return false;
+        return;
     }
 
     if (vol == 0) {
-        return false;
+        return;
     }
 
     if (mnop) {
@@ -585,6 +585,12 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
     }
 
     volmeasure->totalVolume = volmeasure->uplinkVolume + volmeasure->downlinkVolume;
+}
+
+bool check_counter(struct VolumeMeasurement *volmeasure, struct Volume *volume){
+    if (!volmeasure) {
+        return false;
+    }
 
     if (!volume) {
         return false;
@@ -599,6 +605,18 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
     }
 
     return false;
+}
+
+static struct VolumeMeasurement *get_urr_counter_by_trigger(struct urr *urr, u32 trigger) {
+    if (!urr)
+        return NULL;
+
+    if (trigger == URR_RPT_TRIGGER_VOLTH)
+        return &urr->threshold;
+    else if (trigger == URR_RPT_TRIGGER_VOLQU)
+        return &urr->consumed;
+
+    return NULL;
 }
 
 int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe) {
@@ -671,19 +689,25 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
                     volume = vol;
                 }
 
-                // Caculate Volume measurement for each trigger
-                urr_counter = get_usage_report_counter(urr, urr->use_vol2);
+                // Calculate Volume measurement for each trigger
                 if (urr->trigger & URR_RPT_TRIGGER_VOLTH) {
-                    if (increment_and_check_counter(urr_counter, &urr->volumethreshold, volume, uplink, mnop)) {
+                    update_counter(&urr->threshold, volume, uplink, mnop);
+                    if (check_counter(&urr->threshold, &urr->volumethreshold)) {
                         triggers[report_num] = USAR_TRIGGER_VOLTH;
                         urrs[report_num++] = urr;
                     }
                 } else {
-                    // For other triggers, only increment vol
-                    increment_and_check_counter(urr_counter, NULL, volume, uplink, mnop);
+                    if (urr->period == 0) {
+                        continue;
+                    }
+                    spin_lock(&urr->period_report_counter_lock);
+                    urr_counter = get_period_report_counter(urr, urr->use_vol2);
+                    update_counter(urr_counter, volume, uplink, mnop);
+                    spin_unlock(&urr->period_report_counter_lock);
                 }
                 if (urr->trigger & URR_RPT_TRIGGER_VOLQU) {
-                    if (increment_and_check_counter(&urr->consumed, &urr->volumequota, volume, uplink, mnop)) {
+                    update_counter(&urr->consumed, volume, uplink, mnop);
+                    if (check_counter(&urr->consumed, &urr->volumequota)) {
                         triggers[report_num] = USAR_TRIGGER_VOLQU;
                         urrs[report_num++] = urr;
                         urr_quota_exhaust_action(urr, gtp);
@@ -708,8 +732,9 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
             // TODO: FAR ID for Quota Action IE for indicating the action while no quota is granted
             if (triggers[i] == USAR_TRIGGER_START){
                 ret = DONT_SEND_UL_PACKET;
-            }                 
-            convert_urr_to_report(urrs[i], &report[i], !urrs[i]->use_vol2);
+            } 
+            urr_counter = get_urr_counter_by_trigger(urrs[i], triggers[i]);                
+            convert_urr_to_report(urr, urr_counter, &report[i]);
 
             report[i].trigger = triggers[i];
         }
