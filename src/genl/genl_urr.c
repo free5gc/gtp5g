@@ -339,8 +339,11 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
         if (urr->trigger & URR_RPT_TRIGGER_START) {
             // Clean vol to make sure the vol are counted after the start of service data flow
             // TODO: Should send the previous stroed vol to CP first
+            // Clear periodic report counters vol1 and vol2.
             memset(&urr->vol1, 0, sizeof(struct VolumeMeasurement));
             memset(&urr->vol2, 0, sizeof(struct VolumeMeasurement));
+            // Clear the threshold report counter.
+            memset(&urr->threshold, 0, sizeof(struct VolumeMeasurement));
         }
     }
 
