@@ -17,7 +17,7 @@ git clone https://github.com/free5gc/gtp5g.git
 # git clone -b {version} https://github.com/free5gc/gtp5g.git
 git clone -b v0.8.10 https://github.com/free5gc/gtp5g.git
 ```
-### Install Supporting Packages
+### Install Required Packages
 ```
 sudo apt -y update
 sudo apt -y install gcc g++ cmake autoconf libtool pkg-config libmnl-dev libyaml-dev
