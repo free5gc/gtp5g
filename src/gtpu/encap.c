@@ -700,10 +700,10 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
                     if (urr->period == 0) {
                         continue;
                     }
-                    spin_lock(&urr->period_report_counter_lock);
-                    urr_counter = get_period_report_counter(urr, urr->use_vol2);
+                    spin_lock(&urr->period_vol_counter_lock);
+                    urr_counter = get_period_vol_counter(urr, urr->use_vol2);
                     update_counter(urr_counter, volume, uplink, mnop);
-                    spin_unlock(&urr->period_report_counter_lock);
+                    spin_unlock(&urr->period_vol_counter_lock);
                 }
                 if (urr->trigger & URR_RPT_TRIGGER_VOLQU) {
                     update_counter(&urr->consumed, volume, uplink, mnop);

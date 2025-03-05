@@ -255,7 +255,7 @@ int urr_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
 }
 
 /* 
- `get_usage_report_counter` will return one of the two counters.
+ `get_period_vol_counter` will return one of the two counters.
  
  To avoid sending incorrect reports, there are two counters (vol1, vol2) for each period.
  These counters will take turns recording the packet count.
@@ -263,18 +263,20 @@ int urr_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
  For usage report => counter of the previous period
  For packet counting => counter of the current period 
 */  
-struct VolumeMeasurement *get_period_report_counter(struct urr *urr, bool use_vol2)
+struct VolumeMeasurement *get_period_vol_counter(struct urr *urr, bool use_vol2)
 {
     if (use_vol2) {
         return &urr->vol2;
-    } else{
-        return &urr->vol1;
     } 
-
     return &urr->vol1;
 }
 
-void change_current_period_counter_for_writer(struct urr *urr)
+struct VolumeMeasurement *get_and_switch_period_vol_counter(struct urr *urr)
 {
+    bool vol_to_read = urr->use_vol2;
+    // switch vol counter for next period to write
+    spin_lock(&urr->period_vol_counter_lock);
     urr->use_vol2 = !urr->use_vol2;
+    spin_unlock(&urr->period_vol_counter_lock);
+    return get_period_vol_counter(urr, vol_to_read);
 }

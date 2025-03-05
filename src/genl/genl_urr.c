@@ -93,7 +93,7 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
         goto end;
     }
 
-    spin_lock_init(&urr->period_report_counter_lock);
+    spin_lock_init(&urr->period_vol_counter_lock);
     urr->dev = gtp->dev;
     urr->start_time = ktime_get_real();
 
@@ -170,8 +170,7 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
         goto fail;
     }
 
-    urr_counter = get_period_report_counter(urr, urr->use_vol2);
-    // return current counter
+    urr_counter = get_period_vol_counter(urr, urr->use_vol2);
     convert_urr_to_report(urr, urr_counter, report);
 
     err = gtp5g_genl_fill_usage_report(skb_ack,

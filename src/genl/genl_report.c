@@ -159,12 +159,7 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
         goto fail;
     }
 
-    urr_counter = get_period_report_counter(urr, urr->use_vol2);
-    // use the other one vol counter
-    spin_lock(&urr->period_report_counter_lock);
-    change_current_period_counter_for_writer(urr);
-    spin_unlock(&urr->period_report_counter_lock);
-
+    urr_counter = get_and_switch_period_vol_counter(urr);
     report = kzalloc(sizeof(struct usage_report), GFP_KERNEL);
     if (!report) {
         err = -ENOMEM;
@@ -257,12 +252,7 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
             goto fail;
         }
 
-        urr_counter = get_period_report_counter(urr, urr->use_vol2);
-        // use the other one vol counter
-        spin_lock(&urr->period_report_counter_lock);
-        change_current_period_counter_for_writer(urr);
-        spin_unlock(&urr->period_report_counter_lock);
-
+        urr_counter = get_and_switch_period_vol_counter(urr);
         reports[i] = kzalloc(sizeof(struct usage_report), GFP_KERNEL);
         if (!reports[i]) {
             err =  -ENOMEM;

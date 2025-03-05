@@ -80,7 +80,7 @@ struct urr {
 
     // For usage report volume measurement
     // TRIGGER_PERIO
-    spinlock_t period_report_counter_lock;
+    spinlock_t period_vol_counter_lock;
     bool use_vol2;
     struct VolumeMeasurement vol1;
     struct VolumeMeasurement vol2;
@@ -115,6 +115,6 @@ void urr_append(u64, u32, struct urr *, struct gtp5g_dev *);
 int urr_get_pdr_ids(u16 *, int, struct urr *, struct gtp5g_dev *);
 int urr_set_pdr(struct pdr *, struct gtp5g_dev *);
 void del_related_urr_hash(struct gtp5g_dev *, struct pdr *);
-struct VolumeMeasurement *get_period_report_counter(struct urr *, bool);
-void change_current_period_counter_for_writer(struct urr *);
+struct VolumeMeasurement *get_period_vol_counter(struct urr *, bool);
+struct VolumeMeasurement *get_and_switch_period_vol_counter(struct urr *);
 #endif // __URR_H__
