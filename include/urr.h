@@ -85,9 +85,9 @@ struct urr {
     struct VolumeMeasurement vol1;
     struct VolumeMeasurement vol2;
     // TRIGGER_VOLQU
-    struct VolumeMeasurement consumed;
+    struct VolumeMeasurement vol_qu;
     // TRIGGER_VOLTH
-    struct VolumeMeasurement threshold;
+    struct VolumeMeasurement vol_th;
 
     // for report time
     ktime_t start_time;

@@ -343,7 +343,7 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
             memset(&urr->vol1, 0, sizeof(struct VolumeMeasurement));
             memset(&urr->vol2, 0, sizeof(struct VolumeMeasurement));
             // Clear the threshold report counter.
-            memset(&urr->threshold, 0, sizeof(struct VolumeMeasurement));
+            memset(&urr->vol_th, 0, sizeof(struct VolumeMeasurement));
         }
     }
 
@@ -361,7 +361,7 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
 
     if (info->attrs[GTP5G_URR_VOLUME_QUOTA]) {
         parse_volumeqouta(urr, info->attrs[GTP5G_URR_VOLUME_QUOTA]);
-        memset(&urr->consumed, 0, sizeof(struct VolumeMeasurement));
+        memset(&urr->vol_qu, 0, sizeof(struct VolumeMeasurement));
 
         if (urr->volumequota.totalVolume == 0 && (urr->trigger & URR_RPT_TRIGGER_VOLQU)) {
             urr_quota_exhaust_action(urr, gtp);
