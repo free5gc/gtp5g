@@ -611,11 +611,12 @@ static struct VolumeMeasurement *get_urr_counter_by_trigger(struct urr *urr, u32
     if (!urr)
         return NULL;
 
-    if (trigger == URR_RPT_TRIGGER_VOLTH)
+    if (trigger & URR_RPT_TRIGGER_VOLTH) {
         return &urr->threshold;
-    else if (trigger == URR_RPT_TRIGGER_VOLQU)
+    }
+    else if (trigger & URR_RPT_TRIGGER_VOLQU) {
         return &urr->consumed;
-
+    }
     return NULL;
 }
 
@@ -675,7 +676,7 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
                     goto err1;
                 }
 
-                if (urr->trigger & URR_RPT_TRIGGER_START && uplink) {
+                if ((urr->trigger & URR_RPT_TRIGGER_START) && uplink) {
                     triggers[report_num] = USAR_TRIGGER_START;
                     urrs[report_num++] = urr;
                     urr_quota_exhaust_action(urr, gtp);
@@ -700,6 +701,7 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
                     if (urr->period == 0) {
                         continue;
                     }
+		    // update period vol counter
                     spin_lock(&urr->period_vol_counter_lock);
                     urr_counter = get_period_vol_counter(urr, urr->use_vol2);
                     update_counter(urr_counter, volume, uplink, mnop);

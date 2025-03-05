@@ -323,17 +323,20 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
 {
     urr->id = nla_get_u32(info->attrs[GTP5G_URR_ID]);
 
-    if (info->attrs[GTP5G_URR_SEID])
+    if (info->attrs[GTP5G_URR_SEID]) {
         urr->seid = nla_get_u64(info->attrs[GTP5G_URR_SEID]);
-    else
+    }
+    else {
         urr->seid = 0;
+    }
 
-    if (info->attrs[GTP5G_URR_MEASUREMENT_METHOD])
+    if (info->attrs[GTP5G_URR_MEASUREMENT_METHOD]) {
         urr->method = nla_get_u8(info->attrs[GTP5G_URR_MEASUREMENT_METHOD]);
+    }
 
     if (info->attrs[GTP5G_URR_REPORTING_TRIGGER]) {
         urr->trigger = nla_get_u32(info->attrs[GTP5G_URR_REPORTING_TRIGGER]);
-        if (urr->trigger == URR_RPT_TRIGGER_START) {
+        if (urr->trigger & URR_RPT_TRIGGER_START) {
             // Clean vol to make sure the vol are counted after the start of service data flow
             // TODO: Should send the previous stroed vol to CP first
             memset(&urr->vol1, 0, sizeof(struct VolumeMeasurement));
@@ -341,20 +344,23 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
         }
     }
 
-    if (info->attrs[GTP5G_URR_MEASUREMENT_PERIOD])
+    if (info->attrs[GTP5G_URR_MEASUREMENT_PERIOD]) {
         urr->period = nla_get_u32(info->attrs[GTP5G_URR_MEASUREMENT_PERIOD]);
+    }
 
-    if (info->attrs[GTP5G_URR_MEASUREMENT_INFO])
+    if (info->attrs[GTP5G_URR_MEASUREMENT_INFO]) {
         urr->info = nla_get_u8(info->attrs[GTP5G_URR_MEASUREMENT_INFO]);
+    }
 
-    if (info->attrs[GTP5G_URR_VOLUME_THRESHOLD])
+    if (info->attrs[GTP5G_URR_VOLUME_THRESHOLD]) {
         parse_volumethreshold(urr, info->attrs[GTP5G_URR_VOLUME_THRESHOLD]);
+    }
 
     if (info->attrs[GTP5G_URR_VOLUME_QUOTA]) {
         parse_volumeqouta(urr, info->attrs[GTP5G_URR_VOLUME_QUOTA]);
         memset(&urr->consumed, 0, sizeof(struct VolumeMeasurement));
 
-        if (urr->volumequota.totalVolume == 0 && urr->trigger == URR_RPT_TRIGGER_VOLQU) {
+        if (urr->volumequota.totalVolume == 0 && (urr->trigger & URR_RPT_TRIGGER_VOLQU)) {
             urr_quota_exhaust_action(urr, gtp);
             GTP5G_INF(NULL, "URR (%u) Receive zero quota, stop measure", urr->id);
         } else if (urr->quota_exhausted) {
