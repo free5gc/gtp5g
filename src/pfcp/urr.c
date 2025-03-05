@@ -267,7 +267,7 @@ struct VolumeMeasurement *get_period_vol_counter(struct urr *urr, bool use_vol2)
 {
     if (use_vol2) {
         return &urr->vol2;
-    } 
+    }
     return &urr->vol1;
 }
 

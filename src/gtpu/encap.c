@@ -738,8 +738,8 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
             // TODO: FAR ID for Quota Action IE for indicating the action while no quota is granted
             if (triggers[i] == USAR_TRIGGER_START){
                 ret = DONT_SEND_UL_PACKET;
-            } 
-            urr_counter = get_urr_counter_by_trigger(urrs[i], triggers[i]);                
+            }
+            urr_counter = get_urr_counter_by_trigger(urrs[i], triggers[i]);
             convert_urr_to_report(urr, urr_counter, &report[i]);
 
             report[i].trigger = triggers[i];
