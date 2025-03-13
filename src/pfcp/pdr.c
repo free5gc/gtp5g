@@ -254,6 +254,24 @@ mismatch:
     return 0;
 }
 
+// This function checks whether an IP matches.
+// It uses the PDR direction to decide matching UE address
+// with the src address or dst address of receving packet.
+// If it is matched, it returns True; otherwise, it returns False.
+bool ip_match(struct iphdr *iph, struct pdr *pdr)
+{
+    struct pdi *pdi = pdr->pdi;
+    if (!pdi)
+        return false;
+
+    if (is_uplink(pdr)) {
+        return pdi->ue_addr_ipv4->s_addr == iph->saddr;
+    } else {
+        return pdi->ue_addr_ipv4->s_addr == iph->daddr;
+    }
+    return false;
+}
+
 struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
         unsigned int hdrlen, u32 teid, u8 type)
 {
@@ -261,60 +279,66 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     struct iphdr *outer_iph;
 #endif
     struct iphdr *iph;
-    __be32 *target_addr = NULL;
-    __be32 *source_addr = NULL;
     struct hlist_head *head;
     struct pdr *pdr;
     struct pdi *pdi;
 
-    if (!gtp)
+    if (!gtp) {
         return NULL;
+    }
 
-    if (ntohs(skb->protocol) != ETH_P_IP)
+    if (ntohs(skb->protocol) != ETH_P_IP) {
         return NULL;
+    }
 
     if (type == GTPV1_MSG_TYPE_TPDU) {
-        if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr)))
+        if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr))) {
             return NULL;
-        iph = (struct iphdr *)(skb->data + hdrlen);
-        target_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->saddr : &iph->daddr);
-        source_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->daddr : &iph->saddr);
+        }
     }
 
     head = &gtp->i_teid_hash[u32_hashfn(teid) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_i_teid) {
         pdi = pdr->pdi;
-        if (!pdi)
+        if (!pdi) {
             continue;
+        }
 
         // GTP-U packet must check teid
-        if (!(pdi->f_teid && pdi->f_teid->teid == teid))
+        if (!(pdi->f_teid && pdi->f_teid->teid == teid)) {
             continue;
+        }
 
-        if (type != GTPV1_MSG_TYPE_TPDU)
+        if (type != GTPV1_MSG_TYPE_TPDU) {
             return pdr;
+        }
 
-        // check outer IP dest addr to distinguish between N3 and N9 packet whil e act as i-upf
+        // check outer IP dest addr to distinguish between N3 and N9 packet while act as i-upf
 #ifdef MATCH_IP
     #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
-            outer_iph = (struct iphdr *)(skb->head + skb->network_header);
-            if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr))
-                continue;
+        outer_iph = (struct iphdr *)(skb->head + skb->network_header);
+        if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr)) {
+            continue;
+        }
     #else
-            outer_iph = (struct iphdr *)(skb->network_header);
-            if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr))
-                continue;
+        outer_iph = (struct iphdr *)(skb->network_header);
+        if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr)) {
+            continue;
+        }
     #endif
 #endif
-        if (pdi->ue_addr_ipv4)
-            if ((!(pdr->af == AF_INET)) || (
-                (!(target_addr && *target_addr == pdi->ue_addr_ipv4->s_addr)) &&
-                (!(source_addr && *source_addr == pdi->ue_addr_ipv4->s_addr))))
+        if (pdi->ue_addr_ipv4) {
+            iph = (struct iphdr *)(skb->data + hdrlen); // inner IP header
+            if ((!(pdr->af == AF_INET)) || (!ip_match(iph, pdr))) {
                 continue;
+            }
+        }
 
-        if (pdi->sdf)
-            if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT))
+        if (pdi->sdf) {
+            if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT)) {
                 continue;
+            }
+        }
 
         GTP5G_INF(NULL, "Match PDR ID:%d\n", pdr->id);
 

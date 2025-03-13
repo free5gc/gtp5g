@@ -1111,6 +1111,8 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
      * Prepend PDR header with TEI/TID from PDR.
      */
     iph = ip_hdr(skb);
+    // Note: The role is used here to get the pdr hashtable key - ueIP.
+    // It will improve pdr lookup speed.
     if (gtp->role == GTP5G_ROLE_UPF)
         pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
     else
