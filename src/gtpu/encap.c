@@ -749,7 +749,7 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
                 ret = -1;
                 goto err1;
             }
-            convert_urr_to_report(urr, urr_counter, &report[i]);
+            convert_urr_to_report(urrs[i], urr_counter, &report[i]);
 
             report[i].trigger = triggers[i];
         }
