@@ -617,9 +617,6 @@ static struct VolumeMeasurement *get_urr_counter_by_trigger(struct urr *urr, u32
     else if (trigger & URR_RPT_TRIGGER_VOLQU) {
         return &urr->vol_qu;
     }
-    else if (trigger & URR_RPT_TRIGGER_START) {
-        return get_period_vol_counter(urr, urr->use_vol2);
-    }
     return NULL;
 }
 
@@ -739,16 +736,10 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
 
         for (i = 0; i < report_num; i++) {
             // TODO: FAR ID for Quota Action IE for indicating the action while no quota is granted
-            if (triggers[i] & URR_RPT_TRIGGER_START){
+            if (triggers[i] == USAR_TRIGGER_START){
                 ret = DONT_SEND_UL_PACKET;
             }
             urr_counter = get_urr_counter_by_trigger(urrs[i], triggers[i]);
-            if (!urr_counter) {
-                GTP5G_ERR(pdr->dev, "Failed to get URR counter by trigger(%u) in URR(%u) and related to PDR(%u)",
-                    triggers[i], urrs[i]->id, pdr->id);
-                ret = -1;
-                goto err1;
-            }
             convert_urr_to_report(urrs[i], urr_counter, &report[i]);
 
             report[i].trigger = triggers[i];
