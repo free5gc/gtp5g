@@ -740,7 +740,7 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
                 ret = DONT_SEND_UL_PACKET;
             }
             urr_counter = get_urr_counter_by_trigger(urrs[i], triggers[i]);
-            convert_urr_to_report(urr, urr_counter, &report[i]);
+            convert_urr_to_report(urrs[i], urr_counter, &report[i]);
 
             report[i].trigger = triggers[i];
         }

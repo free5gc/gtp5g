@@ -427,6 +427,11 @@ genlmsg_fail:
 
 void convert_urr_to_report(struct urr *urr, struct VolumeMeasurement *urr_counter, struct usage_report *report)
 {
+    struct VolumeMeasurement zeroVol;
+    if (urr_counter == NULL) {
+        urr_counter = &zeroVol;
+        memset(urr_counter, 0, sizeof(struct VolumeMeasurement));
+    }
     urr->end_time = ktime_get_real();
     *report = (struct usage_report ) {
                 urr->id,
@@ -438,7 +443,9 @@ void convert_urr_to_report(struct urr *urr, struct VolumeMeasurement *urr_counte
                 urr->seid
         };
 
-    memset(urr_counter, 0, sizeof(struct VolumeMeasurement));
+    if (urr_counter != &zeroVol) {
+        memset(urr_counter, 0, sizeof(struct VolumeMeasurement));
+    }
 
     urr->start_time = ktime_get_real();
 }
