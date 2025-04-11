@@ -20,13 +20,13 @@ TrafficPolicer* newTrafficPolicer(u64 kbitRate) {
     
     p->byteRate = kbitRate * 125 ; // Kbit/s to byte/s (*1000/8)
 
-    // 8ms as burst size
-    p->cbs = p->byteRate * 8 / MILLISECONDS_PER_SECOND; // bytes
+    // 1000ms as burst size
+    p->cbs = p->byteRate * 1000 / MILLISECONDS_PER_SECOND; // bytes
     if (p->cbs < MTU) {
         p->cbs = MTU;
     }
 
-    p->ebs = p->cbs * 2; // bytes, 2 times of cbs size
+    p->ebs = p->cbs * 1; // bytes, 1 times of cbs size
 
     // fill buckets at the begining
     p->tc = p->cbs; 
