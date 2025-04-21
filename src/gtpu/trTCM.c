@@ -9,7 +9,7 @@
 #define MILLISECONDS_PER_SECOND 1000
 #define NANOSECONDS_PER_SECOND 1000000000
 #define AVG_WINDOW 1000 // ms
-#define EBS_FACTOR 1 // CBS Multiplier
+#define BURST_DURATION 200 // ms
 
 TrafficPolicer* newTrafficPolicer(u64 kbitRate) {
     TrafficPolicer* p = (TrafficPolicer*)kmalloc(sizeof(TrafficPolicer), GFP_KERNEL);
@@ -22,13 +22,14 @@ TrafficPolicer* newTrafficPolicer(u64 kbitRate) {
     
     p->byteRate = kbitRate * 125 ; // Kbit/s to byte/s (*1000/8)
 
-    // Total tokens for AVG_WINDOW will be shared with CBS size + EBS size
-    p->cbs = p->byteRate * (AVG_WINDOW / MILLISECONDS_PER_SECOND) / (1 + EBS_FACTOR); // bytes
+    // CBS size = CIR * AVG_WINDOW
+    p->cbs = p->byteRate * (AVG_WINDOW / MILLISECONDS_PER_SECOND); // bytes
     if (p->cbs < MTU) {
         p->cbs = MTU;
     }
 
-    p->ebs = p->cbs * EBS_FACTOR; // bytes
+    // EBS size = CIR * BURST_DURATION
+    p->ebs = p->byteRate * (BURST_DURATION / MILLISECONDS_PER_SECOND); // bytes
 
     // fill buckets at the begining
     p->tc = p->cbs; 
