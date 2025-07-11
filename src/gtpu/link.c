@@ -1,3 +1,4 @@
+#include <linux/version.h>
 #include <net/rtnetlink.h>
 #include <net/ip.h>
 #include <net/udp.h>
@@ -59,10 +60,20 @@ static int gtp5g_validate(struct nlattr *tb[], struct nlattr *data[],
     return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,15,0)
+static int gtp5g_newlink(struct net_device *dev,
+    struct rtnl_newlink_params *params,
+    struct netlink_ext_ack *extack)
+#else
 static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     struct nlattr *tb[], struct nlattr *data[],
     struct netlink_ext_ack *extack)
+#endif
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,15,0)
+    struct nlattr **data;
+    data = params->data;
+#endif
     struct gtp5g_dev *gtp;
     struct gtp5g_net *gn;
     struct sock *sk;
