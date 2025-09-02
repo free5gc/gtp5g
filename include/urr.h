@@ -4,6 +4,7 @@
 #include <linux/kernel.h>
 #include <linux/rculist.h>
 #include <linux/net.h>
+#include <linux/u64_stats_sync.h>
 
 #include "dev.h"
 #include "report.h"
@@ -80,7 +81,7 @@ struct urr {
 
     // For usage report volume measurement
     // TRIGGER_PERIO
-    spinlock_t period_vol_counter_lock;
+    struct u64_stats_sync period_vol_counter_sync;
     bool use_vol2;
     struct VolumeMeasurement vol1;
     struct VolumeMeasurement vol2;
