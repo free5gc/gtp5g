@@ -212,6 +212,8 @@ void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
     gtp1->flags = GTPV1; /* v1, GTP-non-prime. */
     gtp1->type = GTPV1_MSG_TYPE_EMARK;
     gtp1->tid = epkt_info->teid;
+    gtp1->length = 0;
+
 
     rt = ip4_find_route_simple(skb, epkt_info->sk, dev, 
         epkt_info->role_addr /* Src Addr */ ,
