@@ -93,7 +93,7 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
         goto end;
     }
 
-    spin_lock_init(&urr->period_vol_counter_lock);
+    u64_stats_init(&urr->period_vol_counter_sync);
     urr->dev = gtp->dev;
     urr->start_time = ktime_get_real();
 
