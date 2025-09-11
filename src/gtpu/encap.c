@@ -1049,8 +1049,13 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     volume_mbqe = ip4_rm_header(skb, 0);
 
     qer_with_rate = rcu_dereference(pdr->qer_with_rate);
-    if (qer_with_rate != NULL)
-        tp = qer_with_rate->dl_policer;
+    if (qer_with_rate != NULL){
+        if (is_uplink(pdr)) {
+            tp = qer_with_rate->ul_policer;
+        } else if (is_downlink(pdr)) {
+            tp = qer_with_rate->dl_policer;
+        }
+    }
     if (get_qos_enable() && tp != NULL) {
         color = policePacket(tp, volume_mbqe);
     }
