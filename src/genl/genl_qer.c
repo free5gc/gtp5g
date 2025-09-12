@@ -318,24 +318,34 @@ static int qer_fill(struct qer *qer, struct gtp5g_dev *gtp, struct genl_info *in
     /* MBR */
     if (info->attrs[GTP5G_QER_MBR] &&
         !nla_parse_nested(mbr_param_attrs, GTP5G_QER_MBR_ATTR_MAX, info->attrs[GTP5G_QER_MBR], NULL, NULL)) {
-        qer->mbr.ul_high = nla_get_u32(mbr_param_attrs[GTP5G_QER_MBR_UL_HIGH32]);
-        qer->mbr.ul_low  = nla_get_u8(mbr_param_attrs[GTP5G_QER_MBR_UL_LOW8]);
-        qer->mbr.dl_high = nla_get_u32(mbr_param_attrs[GTP5G_QER_MBR_DL_HIGH32]);
-        qer->mbr.dl_low  = nla_get_u8(mbr_param_attrs[GTP5G_QER_MBR_DL_LOW8]);
+        if (mbr_param_attrs[GTP5G_QER_MBR_UL_HIGH32] &&
+            mbr_param_attrs[GTP5G_QER_MBR_UL_LOW8] &&
+            mbr_param_attrs[GTP5G_QER_MBR_DL_HIGH32] &&
+            mbr_param_attrs[GTP5G_QER_MBR_DL_LOW8]) {
+            qer->mbr.ul_high = nla_get_u32(mbr_param_attrs[GTP5G_QER_MBR_UL_HIGH32]);
+            qer->mbr.ul_low  = nla_get_u8(mbr_param_attrs[GTP5G_QER_MBR_UL_LOW8]);
+            qer->mbr.dl_high = nla_get_u32(mbr_param_attrs[GTP5G_QER_MBR_DL_HIGH32]);
+            qer->mbr.dl_low  = nla_get_u8(mbr_param_attrs[GTP5G_QER_MBR_DL_LOW8]);
 
-        qer->ul_mbr = concat_bit_rate(qer->mbr.ul_high, qer->mbr.ul_low);
-        qer->dl_mbr = concat_bit_rate(qer->mbr.dl_high, qer->mbr.dl_low);
-        qer->ul_policer = newTrafficPolicer(qer->ul_mbr);
-        qer->dl_policer = newTrafficPolicer(qer->dl_mbr);
+            qer->ul_mbr = concat_bit_rate(qer->mbr.ul_high, qer->mbr.ul_low);
+            qer->dl_mbr = concat_bit_rate(qer->mbr.dl_high, qer->mbr.dl_low);
+            qer->ul_policer = newTrafficPolicer(qer->ul_mbr);
+            qer->dl_policer = newTrafficPolicer(qer->dl_mbr);
+        }
     }
 
     /* GBR */
     if (info->attrs[GTP5G_QER_GBR] &&
         !nla_parse_nested(gbr_param_attrs, GTP5G_QER_GBR_ATTR_MAX, info->attrs[GTP5G_QER_GBR], NULL, NULL)) {
-        qer->gbr.ul_high = nla_get_u32(gbr_param_attrs[GTP5G_QER_GBR_UL_HIGH32]);
-        qer->gbr.ul_low  = nla_get_u8(gbr_param_attrs[GTP5G_QER_GBR_UL_LOW8]);
-        qer->gbr.dl_high = nla_get_u32(gbr_param_attrs[GTP5G_QER_GBR_DL_HIGH32]);
-        qer->gbr.dl_low  = nla_get_u8(gbr_param_attrs[GTP5G_QER_GBR_DL_LOW8]);
+        if (gbr_param_attrs[GTP5G_QER_GBR_UL_HIGH32] &&
+            gbr_param_attrs[GTP5G_QER_GBR_UL_LOW8] &&
+            gbr_param_attrs[GTP5G_QER_GBR_DL_HIGH32] &&
+            gbr_param_attrs[GTP5G_QER_GBR_DL_LOW8]) {
+            qer->gbr.ul_high = nla_get_u32(gbr_param_attrs[GTP5G_QER_GBR_UL_HIGH32]);
+            qer->gbr.ul_low  = nla_get_u8(gbr_param_attrs[GTP5G_QER_GBR_UL_LOW8]);
+            qer->gbr.dl_high = nla_get_u32(gbr_param_attrs[GTP5G_QER_GBR_DL_HIGH32]);
+            qer->gbr.dl_low  = nla_get_u8(gbr_param_attrs[GTP5G_QER_GBR_DL_LOW8]);
+        }
     }
 
     if (info->attrs[GTP5G_QER_CORR_ID])
