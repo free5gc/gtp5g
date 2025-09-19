@@ -889,6 +889,10 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             uh = udp_hdr(skb);
             uh->check = 0;
 
+            // Reset checksum state after modifying headers
+            skb->ip_summed = CHECKSUM_NONE;
+            skb->csum_valid = 0;
+
             if (pdr->urr_num != 0) {
                 ret = update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe);
                 if (ret < 0) {
