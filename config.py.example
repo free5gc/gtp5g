@@ -1,0 +1,10 @@
+# 這是一個範本檔案。請複製此檔案並重新命名為 `config.py`，
+# 然後填入您自己的敏感資訊。
+# `config.py` 已被 `.gitignore` 忽略，不會被提交到版本控制中。
+
+# 閃電貓 (@lightning_empire_bot) 的 Token
+TELEGRAM_BOT_TOKEN = "在這裡填入你的TelegramBotToken"
+
+# 你的 Telegram 使用者或頻道的 CHAT_ID
+# 你可以透過 @userinfobot 等機器人獲取你的 CHAT_ID
+CHAT_ID = "在這裡填入你的CHAT_ID"

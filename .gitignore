@@ -1,15 +1,9 @@
-# Compile output
-*.o
-*.ko
-*.cmd
-*.mod
-*.mod.c
-Module.symvers
-modules.order
+# 忽略本地設定檔
+config.py
 
-# Ctags
-tags
+# Python 快取
+__pycache__/
+*.pyc
 
-# VSCode
-.vscode
-
+# 環境變數檔案
+.env
