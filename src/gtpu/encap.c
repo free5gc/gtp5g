@@ -232,7 +232,12 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
                     udph->dest, udph->source,
                     !net_eq(sock_net(gtp->sk1u),
                         dev_net(gtp->dev)),
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,17,0)
+                    false,
+                    0);
+#else
                     false);
+#endif
 
     return PKT_FORWARDED;
 }
