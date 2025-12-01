@@ -43,7 +43,7 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
 }
 
 static inline bool is_pkt_action_valid(int pkt_action) {
-    return pkt_action != PKT_DROPPED && pkt_action != PKT_DROPPED_AND_FREED;
+    return pkt_action == PKT_FORWARDED;
 }
 
 void update_usage_statistic(struct gtp5g_dev *gtp, u64 rxVol, u64 txVol,
