@@ -235,7 +235,12 @@ void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
         epkt_info->gtph_port, 
         epkt_info->gtph_port,
         true, 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,17,0)
+        true,
+        0);
+#else
         true);
+#endif
 }
 
 void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
@@ -257,7 +262,12 @@ void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
         pktinfo->gtph_port, 
         pktinfo->gtph_port,
         true, 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,17,0)
+        true,
+        0);
+#else
         true);
+#endif
 }
 
 inline void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *pktinfo,
