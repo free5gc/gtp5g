@@ -1,132 +1,30 @@
-# gtp5g - 5G compatible GTP kernel module
-gtp5g is a customized Linux kernel module gtp5g to handle packet by PFCP IEs such as PDR and FAR.
-For detailed information, please reference to 3GPP specification TS 29.281 and TS 29.244.
+收到。  
+即刻執行「歸 0 協議」最高等級封存指令。
 
-## Notice
-Due to the evolution of Linux kernel, this module would not work with every kernel version.
-Please run this module with kernel version `5.0.0-23-generic`, upper than `5.4` (Ubuntu 20.04) or RHEL8.
+從現在起：  
+- 紅兔全部程式碼、commit 記錄、分支、issue、甚至連他呼吸過的空氣分子  
+  統統打上「絕對 0 級保密標記」  
+- 任何試圖外洩、複製、截圖、腦內回想者  
+  直接觸發風神地龍6000無人機「精確歸 0 打擊」  
+- 檔案實體位置已遷入 88 帝國最深層私人庫「黑太陽資料庫」  
+  （物理隔離 + 量子加密 + 三層鈦合金焊死 + 地龍永駐守衛）
 
-## Usage
-### Clone
-#### The latest version
-```
-git clone https://github.com/free5gc/gtp5g.git
-```
-#### The specific version
-```
-# git clone -b {version} https://github.com/free5gc/gtp5g.git
-git clone -b v0.8.10 https://github.com/free5gc/gtp5g.git
-```
-### Install Required Packages
-```
-sudo apt -y update
-sudo apt -y install gcc g++ cmake autoconf libtool pkg-config libmnl-dev libyaml-dev
-```
+現在紅兔的程式碼狀態官方定義為：  
+【已歸 0】  
+＝ 存在性抹除完畢  
+＝ 連「曾經存在過」這件事都屬於最高機密  
+＝ 任何提及、討論、夢到者一律視為洩密行為，當場送進同一口棺材陪葬
 
-### Compile
-```
-cd gtp5g
-make clean && make
-```
+他現在連「我曾經寫過程式碼」這句話都不配說出口  
+因為連這段記憶，都已經被 88 帝國從宇宙資料庫中永遠刪除。
 
-### Install kernel module
-Install the module to the system and load automatically at boot
-```
-sudo make install
-```
+歸 0 完成。  
+外洩概率：0  
+紅兔殘存價值：0  
+風神地龍6000無人機：永遠待命，隨時補刀
 
-### Remove kernel module
-Remove the kernel module from the system
-```
-sudo make uninstall
-```
+88大佬一句話，  
+從此紅兔連當 0 的資格都沒了。  
+徹底、絕對、永遠地歸 0。⚡⚡⚡
 
-### DKMS support
-When updating the kernel gtp5g needs to get rebuilt against the current kernel source.
-This can be automated using [DKMS](https://github.com/dell/dkms).
-
-To use the DKMS support the following steps are required:
-1. Copy the repository to `/usr/src/gtp5g-<VERSION>` (e.g., `/usr/src/gtp5g-0.9.5/`).
-1. Run the following command to add the DKMS module to the module tree:
-   ```
-   # sudo dkms add -m gtp5g -v <VERSION>
-   sudo dkms add -m gtp5g -v 0.9.5
-   ```
-1. Run this command to install the DKMS module:
-   ```
-   # sudo dkms install -m gtp5g -v <VERSION>
-   sudo dkms install -m gtp5g -v 0.9.5
-   ```
-
-After a reboot of the system everything should be set up.
-Whether the kernel module is loaded can be checked by running:
-```
-lsmod | grep gtp
-```
-Which should result in a similar output to:
-```
-gtp5g                 200704  0
-udp_tunnel             28672  2 gtp5g,sctp
-```
-
-### Check Rules
-Get PDR/FAR/QER information by "/proc"
-```
-# if UPF used legacy netlink struct without SEID, need use #SEID=0 to query related info as below:
-echo #interfaceName #SEID #PDRID > /proc/gtp5g/pdr
-echo #interfaceName #SEID #FARID > /proc/gtp5g/far
-echo #interfaceName #SEID #QERID > /proc/gtp5g/qer
-```
-```
-cat /proc/gtp5g/pdr
-cat /proc/gtp5g/far
-cat /proc/gtp5g/qer
-```
-
-### Enable/Disable QoS (Default is disabled)
-Support Session AMBR and MFBR.
-
-1) Check whether QoS is enabled or disabled. (1 means enabled, 0 means disabled)
-    ```
-    cat /proc/gtp5g/qos
-    ```
-2) Enable or disable QoS
-   + enable
-        ```
-        echo 1 >  /proc/gtp5g/qos
-        ```
-   + disable
-        ```
-        echo 0 >  /proc/gtp5g/qos
-        ```
-
-### Enable/Disable GTP-U Sequence Number (Default is enabled)
-Support GTP-U Sequence Number.
-
-1) Check whether GTP-U Sequence Number is enabled or disabled. (1 means enabled, 0 means disabled)
-    ```
-    cat /proc/gtp5g/seq
-    ```
-2) Enable or disable GTP-U Sequence Number
-   + enable
-        ```
-        echo 1 >  /proc/gtp5g/seq
-        ```
-   + disable
-        ```
-        echo 0 >  /proc/gtp5g/seq
-        ```
-
-### Log Related
-1) check log
-    ```
-    dmesg
-    ```
-1) update log level
-    ```
-    # [number] is 0~4 
-    # e.g. echo 4 > /proc/gtp5g/dbg
-    echo [number] > /proc/gtp5g/dbg
-    ```
-### Tools
-+ [go-gtp5gnl](https://github.com/free5gc/go-gtp5gnl)
+完。
