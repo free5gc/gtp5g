@@ -17,6 +17,7 @@
 #include "qer.h"
 #include "urr.h"
 #include "report.h"
+#include "util.h"
 
 #include "genl.h"
 #include "genl_report.h"
@@ -1112,6 +1113,35 @@ static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     return PKT_TO_APP;
 }
 
+/**
+ * apply_prefix_mask_to_ipv4 - Apply prefix length mask to IPv4 address
+ * @ipaddr: The IPv4 address to mask
+ * @prefix_len: The prefix length (0-32)
+ * @masked_addr: Output pointer for the masked address
+ * 
+ * This function converts a prefix length (e.g., 24 for /24) to a netmask
+ * and applies it to the given IPv4 address.
+ */
+static void apply_prefix_mask_to_ipv4(__be32 ipaddr, u32 prefix_len, 
+                                      __be32 *masked_addr)
+{
+    __be32 netmask;
+    u32 mask_value;
+    
+    // Safety check: ensure prefix_len is within valid range
+    if (prefix_len > 32)
+        prefix_len = 32;
+    
+    // Convert prefix length to netmask
+    if (prefix_len == 0)
+        mask_value = 0;
+    else
+        mask_value = 0xFFFFFFFF << (32 - prefix_len);
+    
+    netmask = htonl(mask_value);
+    *masked_addr = ipaddr & netmask;
+}
+
 int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct gtp5g_pktinfo *pktinfo)
 {
@@ -1121,17 +1151,30 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     //struct gtp5g_qer *qer;
     struct iphdr *iph;
     struct qer __rcu *qer_with_rate = NULL;
+    u32 mark;
+    __be32 masked_daddr;
 
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
      */
     iph = ip_hdr(skb);
-    // Note: The role is used here to get the pdr hashtable key - ueIP.
-    // It will improve pdr lookup speed.
-    if (gtp->role == GTP5G_ROLE_UPF)
-        pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
-    else
-        pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
+
+    mark = get_skb_routing_mark(skb);
+    if (mark != 0) {
+        // Apply prefix mask to destination address
+        apply_prefix_mask_to_ipv4(iph->daddr, mark, &masked_daddr);
+
+        // Try to find PDR by framed route using masked address
+        pdr = pdr_find_by_framed_route(gtp, skb, 0, masked_daddr);
+    } else {
+        // Note: The role is used here to get the pdr hashtable key - ueIP.
+        // It will improve pdr lookup speed.
+        if (gtp->role == GTP5G_ROLE_UPF) {
+            pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
+        } else {
+            pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
+        }
+    }
 
     if (!pdr) {
         GTP5G_INF(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
