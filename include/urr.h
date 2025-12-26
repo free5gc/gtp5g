@@ -97,6 +97,7 @@ struct urr {
     // for quota exhausted
     bool quota_exhausted;
     u16 *pdrids;
+    u32 *farids;
     u16 *actions;
     u32 pdr_num;
 
