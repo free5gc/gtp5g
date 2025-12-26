@@ -321,6 +321,10 @@ out:
 
 static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *info)
 {
+    bool has_volume_quota = info->attrs[GTP5G_URR_VOLUME_QUOTA] != NULL;
+    
+    GTP5G_INF(NULL, "URR (%u) urr_fill: quota_exhausted=%d, has_volume_quota=%d", urr->id, urr->quota_exhausted, has_volume_quota);
+    
     urr->id = nla_get_u32(info->attrs[GTP5G_URR_ID]);
 
     if (info->attrs[GTP5G_URR_SEID]) {
@@ -363,13 +367,17 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
         parse_volumeqouta(urr, info->attrs[GTP5G_URR_VOLUME_QUOTA]);
         memset(&urr->vol_qu, 0, sizeof(struct VolumeMeasurement));
 
+        GTP5G_INF(NULL, "URR (%u) Receive Volume Quota update: totalVol=%llu, quota_exhausted=%d", urr->id, urr->volumequota.totalVolume, urr->quota_exhausted);
+
         if (urr->volumequota.totalVolume == 0 && (urr->trigger & URR_RPT_TRIGGER_VOLQU)) {
             urr_quota_exhaust_action(urr, gtp);
             GTP5G_INF(NULL, "URR (%u) Receive zero quota, stop measure", urr->id);
         } else if (urr->quota_exhausted) {
             urr_reverse_quota_exhaust_action(urr, gtp);
-            GTP5G_INF(NULL, "URR (%u) Receive New quota, continue measure", urr->id);
+            GTP5G_INF(NULL, "URR (%u) Receive New quota (totalVol=%llu), continue measure", urr->id, urr->volumequota.totalVolume);
         }
+    } else if (urr->quota_exhausted) {
+        GTP5G_ERR(NULL, "URR (%u) quota_exhausted but NO Volume Quota in update", urr->id);
     }
 
     /* Update PDRs which has not linked to this URR */
