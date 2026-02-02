@@ -573,29 +573,10 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
     return 0;
 }
 
-static void free_pdi_framed_route_nodes(struct pdi *pdi)
-{
-    int j;
-
-    if (!pdi || !pdi->framed_route_nodes)
-        return;
-
-    for (j = 0; j < pdi->framed_route_num; j++) {
-        struct framed_route_node *node = pdi->framed_route_nodes[j];
-
-        if (!node)
-            continue;
-
-        if (!hlist_unhashed(&node->hlist))
-            hlist_del_rcu(&node->hlist);
-
-        kfree_rcu(node, rcu);
-    }
-
-    kfree(pdi->framed_route_nodes);
-    pdi->framed_route_nodes = NULL;
-    pdi->framed_route_num = 0;
-}
+/*
+ * Note: free_pdi_framed_route_nodes functionality is now provided by
+ * framed_route_cleanup_pdi() in framed_route.c (Refactoring #1, #2)
+ */
 
 static int parse_framed_routes(struct pdr *pdr, struct pdi *pdi, struct nlattr *a)
 {
@@ -608,7 +589,8 @@ static int parse_framed_routes(struct pdr *pdr, struct pdi *pdi, struct nlattr *
     int err = 0;
     char route_buf[64];  /* Stack buffer for route string */
 
-    free_pdi_framed_route_nodes(pdi);
+    /* Clean up existing framed routes using unified cleanup (use_rcu=true) */
+    framed_route_cleanup_pdi(pdi, true);
 
     nodes = kzalloc(capacity * sizeof(struct framed_route_node *), GFP_ATOMIC);
     if (!nodes)
@@ -640,7 +622,8 @@ static int parse_framed_routes(struct pdr *pdr, struct pdi *pdi, struct nlattr *
         memcpy(route_buf, nla_data(route_attr), str_len);
         route_buf[str_len] = '\0';
 
-        node = kzalloc(sizeof(*node), GFP_ATOMIC);
+        /* Use unified allocation function (Refactoring #1) */
+        node = framed_route_node_alloc();
         if (!node) {
             err = -ENOMEM;
             goto err_out;
@@ -648,13 +631,12 @@ static int parse_framed_routes(struct pdr *pdr, struct pdi *pdi, struct nlattr *
 
         if (parse_framed_route_cidr(route_buf, &node->network_addr,
                                     &node->netmask) < 0) {
-            kfree(node);
+            framed_route_node_free(node);
             err = -EINVAL;
             goto err_out;
         }
 
         node->pdr = pdr;
-        INIT_HLIST_NODE(&node->hlist);
         nodes[count++] = node;
     }
 
@@ -668,12 +650,11 @@ static int parse_framed_routes(struct pdr *pdr, struct pdi *pdi, struct nlattr *
     return 0;
 
 err_out:
-    /* Clean up locally allocated nodes on error */
+    /* Clean up locally allocated nodes on error (Refactoring #1) */
     if (nodes) {
         int j;
-        for (j = 0; j < count; j++) {
-            kfree(nodes[j]);
-        }
+        for (j = 0; j < count; j++)
+            framed_route_node_free(nodes[j]);
         kfree(nodes);
     }
     return err;

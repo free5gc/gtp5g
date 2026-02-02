@@ -68,7 +68,8 @@ ccflags-y += -I $(MAKEFILE_DIR)/include
 			src/pfcp/qer.o \
 			src/pfcp/urr.o \
 			src/pfcp/bar.o \
-			src/pfcp/seid.o
+			src/pfcp/seid.o \
+			src/pfcp/framed_route.o
 
 5G_PROC := src/proc.o
 

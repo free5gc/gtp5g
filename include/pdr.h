@@ -13,6 +13,7 @@
 
 #include "urr.h"
 #include "trTCM.h"
+#include "framed_route.h"
 
 #define SEID_U32ID_HEX_STR_LEN 24
 
@@ -46,21 +47,15 @@ struct sdf_filter {
 #define SRC_INTF_ACCESS 0
 #define SRC_INTF_CORE 1
 
-struct framed_route_node {
-    struct hlist_node hlist;
-    struct rcu_head rcu;
-    struct pdr *pdr;
-    __be32 network_addr;            // Network address (after masking)
-    __be32 netmask;                 // Netmask for the framed route
-};
+/* Note: struct framed_route_node is defined in framed_route.h */
 
 struct pdi {
     u8 srcIntf;
     struct in_addr *ue_addr_ipv4;
     struct local_f_teid *f_teid;
     struct sdf_filter *sdf;
-    u32 framed_route_num;           // Number of routes
-    struct framed_route_node **framed_route_nodes; // Hash nodes for each route
+    u32 framed_route_num;           /* Number of framed routes */
+    struct framed_route_node **framed_route_nodes; /* Hash nodes for each route */
 };
 
 #define QER_ID_SIZE sizeof(u32)
@@ -136,17 +131,8 @@ void set_seq_enable(int);
 
 bool is_uplink(struct pdr *);
 bool is_downlink(struct pdr *);
-int parse_framed_route_cidr(const char *route_str, __be32 *network_addr,
-                            __be32 *netmask);
 
-/*
- * Convert IPv4 netmask (network byte order) to CIDR prefix length.
- * e.g., 255.255.255.0 -> 24
- */
-static inline u8 netmask_to_prefix(__be32 netmask)
-{
-    return hweight32(ntohl(netmask));
-}
+/* Note: parse_framed_route_cidr and netmask_to_prefix are in framed_route.h */
 
 static inline bool pdr_addr_is_netlink(struct pdr *pdr)
 {

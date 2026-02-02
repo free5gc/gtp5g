@@ -61,16 +61,9 @@ static void pdr_context_free(struct rcu_head *head)
         if (pdr->urr_ids)
             kfree(pdr->urr_ids);
         
-        // Clean up framed route nodes
-        if (pdi->framed_route_nodes) {
-            int j;
-            for (j = 0; j < pdi->framed_route_num; j++) {
-                if (pdi->framed_route_nodes[j])
-                    kfree(pdi->framed_route_nodes[j]);
-            }
-            kfree(pdi->framed_route_nodes);
-        }
-        
+        /* Clean up framed route nodes (use_rcu=false since we're in RCU callback) */
+        framed_route_cleanup_pdi(pdi, false);
+
         sdf = pdi->sdf;
         if (sdf) {
             if (sdf->rule) {
@@ -115,14 +108,11 @@ void pdr_context_delete(struct pdr *pdr)
     if (!hlist_unhashed(&pdr->hlist_addr))
         hlist_del_rcu(&pdr->hlist_addr);
 
-    // Delete all framed route nodes from hash table
+    /* Remove all framed route nodes from hash table (don't free yet) */
     pdi = pdr->pdi;
     if (pdi && pdi->framed_route_nodes) {
         for (j = 0; j < pdi->framed_route_num; j++) {
-            if (pdi->framed_route_nodes[j] && 
-                !hlist_unhashed(&pdi->framed_route_nodes[j]->hlist)) {
-                hlist_del_rcu(&pdi->framed_route_nodes[j]->hlist);
-            }
+            framed_route_hash_del(pdi->framed_route_nodes[j]);
         }
     }
 
@@ -201,12 +191,9 @@ struct pdr *find_pdr_by_id(struct gtp5g_dev *gtp, u64 seid, u16 pdr_id)
     return NULL;
 }
 
-static int ipv4_match(__be32 target_addr, __be32 ifa_addr, __be32 ifa_mask)
-{
-    return !((target_addr ^ ifa_addr) & ifa_mask);
-}
+/* Note: ipv4_match is now an inline function in framed_route.h */
 
-static bool ports_match(struct range *match_list, int list_len, __be16 port)
+static bool ports_match(const struct range *match_list, int list_len, __be16 port)
 {
     int i;
 
@@ -220,31 +207,7 @@ static bool ports_match(struct range *match_list, int list_len, __be16 port)
     return false;
 }
 
-// Helper function to check if IP matches rule or framed routes
-static bool ip_match_with_framed_routes(__be32 ip_addr, __be32 rule_addr, __be32 rule_mask, struct pdi *pdi)
-{
-    struct framed_route_node *node;
-    int j;
-
-    // First try exact match with rule
-    if (ipv4_match(ip_addr, rule_addr, rule_mask)) {
-        return true;
-    }
-
-    // If no exact match, check framed routes
-    if (!pdi || !pdi->framed_route_nodes || pdi->framed_route_num == 0) {
-        return false;
-    }
-
-    for (j = 0; j < pdi->framed_route_num; j++) {
-        node = pdi->framed_route_nodes[j];
-        if (node && ipv4_match(ip_addr, node->network_addr, node->netmask)) {
-            return true;
-        }
-    }
-
-    return false;
-}
+/* Note: ip_match_with_framed_routes is now in framed_route.c */
 
 static int sdf_filter_match(struct pdr *pdr, struct sk_buff *skb, 
     unsigned int hdrlen, u8 direction)
@@ -470,54 +433,7 @@ struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *gtp, struct sk_buff *skb,
     return NULL;
 }
 
-/* Parse CIDR format string (e.g., "192.168.1.0/24") to get network address and mask */
-int parse_framed_route_cidr(const char *route_str, __be32 *network_addr,
-        __be32 *netmask)
-{
-    const char *slash_pos;
-    const char *end;
-    int prefix_len;
-    u8 ip[4];
-    u32 mask;
-    int ret;
-    int len;
-
-    if (!route_str || !network_addr || !netmask)
-        return -EINVAL;
-
-    /* Find the slash separator */
-    slash_pos = strchr(route_str, '/');
-    if (!slash_pos)
-        return -EINVAL;
-
-    len = slash_pos - route_str;
-    if (len <= 0 || len > 15)  /* Max IPv4 string: "255.255.255.255" = 15 chars */
-        return -EINVAL;
-
-    /* Parse IP address using kernel's in4_pton */
-    if (!in4_pton(route_str, len, ip, '/', &end) || end != slash_pos)
-        return -EINVAL;
-
-    /* Parse prefix length */
-    ret = kstrtoint(slash_pos + 1, 10, &prefix_len);
-    if (ret < 0 || prefix_len < 0 || prefix_len > 32)
-        return -EINVAL;
-
-    /* Build network address in network byte order */
-    memcpy(network_addr, ip, sizeof(*network_addr));
-
-    /* Calculate netmask */
-    if (prefix_len == 0)
-        mask = 0;
-    else
-        mask = htonl(0xFFFFFFFF << (32 - prefix_len));
-    *netmask = mask;
-
-    /* Apply mask to get network address */
-    *network_addr &= *netmask;
-
-    return 0;
-}
+/* Note: parse_framed_route_cidr is now in framed_route.c */
 
 struct pdr *pdr_find_by_framed_route(struct gtp5g_dev *gtp, struct sk_buff *skb,
         unsigned int hdrlen, __be32 addr, u32 prefix_len)
@@ -529,7 +445,7 @@ struct pdr *pdr_find_by_framed_route(struct gtp5g_dev *gtp, struct sk_buff *skb,
     __be32 masked_addr;
     u32 mask_value;
 
-    if (!gtp)
+    if (!gtp || !gtp->framed_route_hash)
         return NULL;
 
     if (prefix_len > 32)
@@ -590,8 +506,6 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
     struct pdr *last_ppdr;
     struct pdi *pdi;
     struct local_f_teid *f_teid;
-    struct framed_route_node *node;
-    struct framed_route_node *last_node;
     int j;
 
     if (!hlist_unhashed(&pdr->hlist_i_teid))
@@ -604,14 +518,10 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
     if (!pdi)
         return;
 
-    // Delete old framed route nodes
+    /* Remove old framed route nodes from hash (Refactoring #4) */
     if (pdi->framed_route_nodes) {
-        for (j = 0; j < pdi->framed_route_num; j++) {
-            if (pdi->framed_route_nodes[j] && 
-                !hlist_unhashed(&pdi->framed_route_nodes[j]->hlist)) {
-                hlist_del_rcu(&pdi->framed_route_nodes[j]->hlist);
-            }
-        }
+        for (j = 0; j < pdi->framed_route_num; j++)
+            framed_route_hash_del(pdi->framed_route_nodes[j]);
     }
 
     f_teid = pdi->f_teid;
@@ -642,10 +552,11 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
         else
             hlist_add_behind_rcu(&pdr->hlist_addr, &last_ppdr->hlist_addr);
     }
-    
-    /* Only add downlink PDR's framed routes to hash table.
+
+    /*
+     * Add downlink PDR's framed routes to hash table (Refactoring #4).
      * Uplink PDRs don't need framed route hash lookup since they use
-     * i_teid_hash for matching. This reduces hash table size and collisions.
+     * i_teid_hash for matching.
      */
     if (is_downlink(pdr) && pdi->framed_route_nodes && pdi->framed_route_num > 0) {
         for (j = 0; j < pdi->framed_route_num; j++) {
@@ -655,27 +566,7 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
                 continue;
 
             fr_node->pdr = pdr;
-
-            if (!hlist_unhashed(&fr_node->hlist))
-                hlist_del_rcu(&fr_node->hlist);
-
-            head = &gtp->framed_route_hash[ipv4_hashfn(fr_node->network_addr) % gtp->hash_size];
-            last_node = NULL;
-
-            /* Find the correct position based on precedence */
-            hlist_for_each_entry_rcu(node, head, hlist) {
-                if (!node->pdr)
-                    continue;
-                if (pdr->precedence > node->pdr->precedence)
-                    last_node = node;
-                else
-                    break;
-            }
-
-            if (!last_node)
-                hlist_add_head_rcu(&fr_node->hlist, head);
-            else
-                hlist_add_behind_rcu(&fr_node->hlist, &last_node->hlist);
+            framed_route_hash_add(gtp, fr_node, pdr->precedence);
         }
     }
 }
