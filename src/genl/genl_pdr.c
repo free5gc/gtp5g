@@ -589,7 +589,7 @@ static void free_pdi_framed_route_nodes(struct pdi *pdi)
         if (!hlist_unhashed(&node->hlist))
             hlist_del_rcu(&node->hlist);
 
-        kfree(node);
+        kfree_rcu(node, rcu);
     }
 
     kfree(pdi->framed_route_nodes);

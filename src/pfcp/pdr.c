@@ -1,6 +1,7 @@
 #include <linux/version.h>
 #include <linux/types.h>
 #include <linux/inet.h>
+#include <linux/string.h>
 
 #include "dev.h"
 #include "link.h"
@@ -451,6 +452,8 @@ struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *gtp, struct sk_buff *skb,
 
     hlist_for_each_entry_rcu(pdr, head, hlist_addr) {
         pdi = pdr->pdi;
+        if (!pdi || !pdi->ue_addr_ipv4)
+            continue;
 
         // TODO: Move the value we check into first level
         if (!(pdr->af == AF_INET && pdi->ue_addr_ipv4->s_addr == addr))
@@ -501,7 +504,7 @@ int parse_framed_route_cidr(const char *route_str, __be32 *network_addr,
         return -EINVAL;
 
     /* Build network address in network byte order */
-    *network_addr = *(__be32 *)ip;
+    memcpy(network_addr, ip, sizeof(*network_addr));
 
     /* Calculate netmask */
     if (prefix_len == 0)
@@ -517,14 +520,28 @@ int parse_framed_route_cidr(const char *route_str, __be32 *network_addr,
 }
 
 struct pdr *pdr_find_by_framed_route(struct gtp5g_dev *gtp, struct sk_buff *skb,
-        unsigned int hdrlen, __be32 masked_addr)
+        unsigned int hdrlen, __be32 addr, u32 prefix_len)
 {
     struct hlist_head *head;
     struct pdr *pdr;
     struct framed_route_node *node;
+    __be32 netmask;
+    __be32 masked_addr;
+    u32 mask_value;
 
     if (!gtp)
         return NULL;
+
+    if (prefix_len > 32)
+        prefix_len = 32;
+
+    if (prefix_len == 0)
+        mask_value = 0;
+    else
+        mask_value = 0xFFFFFFFF << (32 - prefix_len);
+
+    netmask = htonl(mask_value);
+    masked_addr = addr & netmask;
 
     head = &gtp->framed_route_hash[ipv4_hashfn(masked_addr) % gtp->hash_size];
 
@@ -537,6 +554,9 @@ struct pdr *pdr_find_by_framed_route(struct gtp5g_dev *gtp, struct sk_buff *skb,
         }
 
         pdr = node->pdr;
+
+        if (node->netmask != netmask)
+            continue;
 
         /* Match by network address */
         if (node->network_addr != masked_addr) {
