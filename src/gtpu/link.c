@@ -105,8 +105,14 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     
     if (!data[IFLA_GTP5G_PDR_HASHSIZE])
         hashsize = 1024;
-    else
+    else {
         hashsize = nla_get_u32(data[IFLA_GTP5G_PDR_HASHSIZE]);
+        if (!hashsize) {
+            if (sk)
+                gtp5g_encap_disable(sk);
+            return -EINVAL;
+        }
+    }
 
     err = dev_hashtable_new(gtp, hashsize);
     if (err < 0) {
