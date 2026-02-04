@@ -177,7 +177,13 @@ void framed_route_cleanup_pdi(struct pdi *pdi, bool use_rcu)
         if (!node)
             continue;
 
-        framed_route_hash_del(node);
+        /*
+         * Only remove from hash when use_rcu=true (called from genl_pdr.c).
+         * When use_rcu=false, we're in RCU callback (pdr_context_free) and
+         * nodes were already removed from hash in pdr_context_delete.
+         */
+        if (use_rcu)
+            framed_route_hash_del(node);
 
         if (use_rcu)
             framed_route_node_free_rcu(node);
