@@ -1130,9 +1130,10 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     iph = ip_hdr(skb);
 
     mark = get_skb_routing_mark(skb);
-    if (mark != 0) {
-        // Try to find PDR by framed route using prefix length mark
-        pdr = pdr_find_by_framed_route(gtp, skb, 0, iph->daddr, mark);
+    if (is_framed_route_mark(mark)) {
+        /* Try to find PDR by framed route using prefix length from mark */
+        pdr = pdr_find_by_framed_route(gtp, skb, 0, iph->daddr,
+                                       get_framed_route_prefix(mark));
     } else {
         // Note: The role is used here to get the pdr hashtable key - ueIP.
         // It will improve pdr lookup speed.
