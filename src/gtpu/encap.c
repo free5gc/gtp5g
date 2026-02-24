@@ -17,6 +17,7 @@
 #include "qer.h"
 #include "urr.h"
 #include "report.h"
+#include "util.h"
 
 #include "genl.h"
 #include "genl_report.h"
@@ -1121,17 +1122,27 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     //struct gtp5g_qer *qer;
     struct iphdr *iph;
     struct qer __rcu *qer_with_rate = NULL;
+    u32 mark;
 
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
      */
     iph = ip_hdr(skb);
-    // Note: The role is used here to get the pdr hashtable key - ueIP.
-    // It will improve pdr lookup speed.
-    if (gtp->role == GTP5G_ROLE_UPF)
-        pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
-    else
-        pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
+
+    mark = get_skb_routing_mark(skb);
+    if (is_framed_route_mark(mark)) {
+        /* Try to find PDR by framed route using prefix length from mark */
+        pdr = pdr_find_by_framed_route(gtp, skb, 0, iph->daddr,
+                                       get_framed_route_prefix(mark));
+    } else {
+        // Note: The role is used here to get the pdr hashtable key - ueIP.
+        // It will improve pdr lookup speed.
+        if (gtp->role == GTP5G_ROLE_UPF) {
+            pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
+        } else {
+            pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
+        }
+    }
 
     if (!pdr) {
         GTP5G_INF(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
