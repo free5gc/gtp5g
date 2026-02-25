@@ -383,10 +383,11 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
         }
     #endif
 #endif
-        // Check UE IP address or framed routes
+        // Check UE IP/framed routes only when either is configured on this PDR.
         iph = (struct iphdr *)(skb->data + hdrlen); // inner IP header
-        if (pdr->af == AF_INET) {
-            // ip_match now handles both ue_addr_ipv4 and framed routes
+        if (pdr->af == AF_INET &&
+            (pdi->ue_addr_ipv4 || (pdi->framed_route_nodes && pdi->framed_route_num > 0))) {
+            // ip_match handles both ue_addr_ipv4 and framed routes.
             if (!ip_match(iph, pdr)) {
                 continue;
             }
