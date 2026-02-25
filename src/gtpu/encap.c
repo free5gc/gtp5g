@@ -348,7 +348,8 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 
     pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, teid, gtp_type);
     if (!pdr) {
-        GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%x]\n", ntohl(teid));
+        printk(KERN_ERR "[gtp5g] No PDR match this skb: teid[%x] gtp_type[%u] hdrlen[%u] skb_len[%u]\n",
+            ntohl(teid), gtp_type, hdrlen, skb->len);
         rt = PKT_DROPPED;
         goto end;
     }

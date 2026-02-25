@@ -226,47 +226,78 @@ static int sdf_filter_match(struct pdr *pdr, struct sk_buff *skb,
     pdi = pdr->pdi;
     sdf = pdi->sdf;
 
-    if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr)))
+    if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr))) {
+        printk(KERN_INFO "[gtp5g] PDR(%u) SDF mismatch: inner IPv4 header not available (hdrlen=%u)\n",
+                pdr->id, hdrlen);
         goto mismatch;
+    }
 
     iph = (struct iphdr *)(skb->data + hdrlen);
 
     if (sdf->rule) {
         rule = sdf->rule;
-        if (rule->direction != direction)
+        if (rule->direction != direction) {
+            printk(KERN_INFO "[gtp5g] PDR(%u) SDF mismatch: direction rule=%u packet=%u\n",
+                    pdr->id, rule->direction, direction);
             goto mismatch;
+        }
 
-        if (rule->proto != IP_PROTO_RESERVED && rule->proto != iph->protocol)
+        if (rule->proto != IP_PROTO_RESERVED && rule->proto != iph->protocol) {
+            printk(KERN_INFO "[gtp5g] PDR(%u) SDF mismatch: proto rule=%u packet=%u\n",
+                    pdr->id, rule->proto, iph->protocol);
             goto mismatch;
+        }
 
         // Check source and destination IP (with framed route support)
         if (is_uplink(pdr)) { // Uplink
             // Source: match rule OR framed routes
-            if (!ip_match_with_framed_routes(iph->saddr, rule->src.s_addr, rule->smask.s_addr, pdi))
+            if (!ip_match_with_framed_routes(iph->saddr, rule->src.s_addr, rule->smask.s_addr, pdi)) {
+                printk(KERN_INFO
+                    "[gtp5g] PDR(%u) SDF mismatch: UL src ip packet=%pI4 rule=%pI4/%pI4 (or framed-route)\n",
+                    pdr->id, &iph->saddr, &rule->src.s_addr, &rule->smask.s_addr);
                 goto mismatch;
+            }
 
             // Destination: exactly match rule
-            if (!ipv4_match(iph->daddr, rule->dest.s_addr, rule->dmask.s_addr))
+            if (!ipv4_match(iph->daddr, rule->dest.s_addr, rule->dmask.s_addr)) {
+                printk(KERN_INFO "[gtp5g] PDR(%u) SDF mismatch: UL dst ip packet=%pI4 rule=%pI4/%pI4\n",
+                        pdr->id, &iph->daddr, &rule->dest.s_addr, &rule->dmask.s_addr);
                 goto mismatch;
+            }
         } else { // Downlink
             // Source: exactly match rule
-            if (!ipv4_match(iph->saddr, rule->src.s_addr, rule->smask.s_addr))
+            if (!ipv4_match(iph->saddr, rule->src.s_addr, rule->smask.s_addr)) {
+                printk(KERN_INFO "[gtp5g] PDR(%u) SDF mismatch: DL src ip packet=%pI4 rule=%pI4/%pI4\n",
+                        pdr->id, &iph->saddr, &rule->src.s_addr, &rule->smask.s_addr);
                 goto mismatch;
+            }
 
             // Destination: match rule OR framed routes
-            if (!ip_match_with_framed_routes(iph->daddr, rule->dest.s_addr, rule->dmask.s_addr, pdi))
+            if (!ip_match_with_framed_routes(iph->daddr, rule->dest.s_addr, rule->dmask.s_addr, pdi)) {
+                printk(KERN_INFO
+                    "[gtp5g] PDR(%u) SDF mismatch: DL dst ip packet=%pI4 rule=%pI4/%pI4 (or framed-route)\n",
+                    pdr->id, &iph->daddr, &rule->dest.s_addr, &rule->dmask.s_addr);
                 goto mismatch;
+            }
         } 
 
         if (rule->sport_num + rule->dport_num > 0) {
-            if (!(pptr = skb_header_pointer(skb, hdrlen + sizeof(struct iphdr), sizeof(_ports), _ports)))
+            if (!(pptr = skb_header_pointer(skb, hdrlen + sizeof(struct iphdr), sizeof(_ports), _ports))) {
+                printk(KERN_INFO "[gtp5g] PDR(%u) SDF mismatch: cannot read L4 ports\n", pdr->id);
                 goto mismatch;
+            }
 
-            if (!ports_match(rule->sport, rule->sport_num, ntohs(pptr[0])))
+            if (!ports_match(rule->sport, rule->sport_num, ntohs(pptr[0]))) {
+                printk(KERN_INFO "[gtp5g] PDR(%u) SDF mismatch: sport packet=%u\n",
+                        pdr->id, ntohs(pptr[0]));
                 goto mismatch;
+            }
 
-            if (!ports_match(rule->dport, rule->dport_num, ntohs(pptr[1])))
+            if (!ports_match(rule->dport, rule->dport_num, ntohs(pptr[1]))) {
+                printk(KERN_INFO "[gtp5g] PDR(%u) SDF mismatch: dport packet=%u\n",
+                        pdr->id, ntohs(pptr[1]));
                 goto mismatch;
+            }
         }
     }
 
@@ -338,6 +369,8 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     struct hlist_head *head;
     struct pdr *pdr;
     struct pdi *pdi;
+    u32 hash_idx;
+    u32 checked = 0;
 
     if (!gtp) {
         return NULL;
@@ -353,15 +386,21 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
         }
     }
 
-    head = &gtp->i_teid_hash[u32_hashfn(teid) % gtp->hash_size];
+    hash_idx = u32_hashfn(teid) % gtp->hash_size;
+    head = &gtp->i_teid_hash[hash_idx];
     hlist_for_each_entry_rcu(pdr, head, hlist_i_teid) {
+        checked++;
         pdi = pdr->pdi;
         if (!pdi) {
+            printk(KERN_INFO "[gtp5g] PDR(%u) skip: no PDI\n", pdr->id);
             continue;
         }
 
         // GTP-U packet must check teid
         if (!(pdi->f_teid && pdi->f_teid->teid == teid)) {
+            printk(KERN_INFO "[gtp5g] PDR(%u) skip: TEID mismatch packet=%x pdr=%x\n",
+                    pdr->id, ntohl(teid),
+                    pdi->f_teid ? ntohl(pdi->f_teid->teid) : 0);
             continue;
         }
 
@@ -374,25 +413,36 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
         outer_iph = (struct iphdr *)(skb->head + skb->network_header);
         if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr)) {
+            printk(KERN_INFO "[gtp5g] PDR(%u) skip: outer dst mismatch packet=%pI4 pdr_gtpu_addr=%pI4\n",
+                    pdr->id, &outer_iph->daddr,
+                    pdi->f_teid ? &pdi->f_teid->gtpu_addr_ipv4.s_addr : &outer_iph->daddr);
             continue;
         }
     #else
         outer_iph = (struct iphdr *)(skb->network_header);
         if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr)) {
+            printk(KERN_INFO "[gtp5g] PDR(%u) skip: outer dst mismatch packet=%pI4 pdr_gtpu_addr=%pI4\n",
+                    pdr->id, &outer_iph->daddr,
+                    pdi->f_teid ? &pdi->f_teid->gtpu_addr_ipv4.s_addr : &outer_iph->daddr);
             continue;
         }
     #endif
 #endif
-        // Check UE IP address or framed routes
+        // Check UE IP/framed routes only when either is configured on this PDR.
         iph = (struct iphdr *)(skb->data + hdrlen); // inner IP header
-        if (pdr->af == AF_INET) {
-            // ip_match now handles both ue_addr_ipv4 and framed routes
+        if (pdr->af == AF_INET &&
+            (pdi->ue_addr_ipv4 || (pdi->framed_route_nodes && pdi->framed_route_num > 0))) {
+            // ip_match handles both ue_addr_ipv4 and framed routes.
             if (!ip_match(iph, pdr)) {
+                printk(KERN_INFO
+                    "[gtp5g] PDR(%u) skip: UE/framed-route mismatch src=%pI4 dst=%pI4 srcIntf=%u\n",
+                    pdr->id, &iph->saddr, &iph->daddr, pdi->srcIntf);
                 continue;
             }
         }
 
         if (!sdf_filter_match(pdr, skb, hdrlen, GTP5G_SDF_FILTER_OUT)) {
+            printk(KERN_INFO "[gtp5g] PDR(%u) skip: SDF rule mismatch\n", pdr->id);
             continue;
         }
 
@@ -400,6 +450,10 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
 
         return pdr;
     }
+
+    printk(KERN_INFO
+        "[gtp5g] No PDR in i_teid_hash bucket=%u match packet teid=%x type=%u checked=%u\n",
+        hash_idx, ntohl(teid), type, checked);
 
     return NULL;
 }
