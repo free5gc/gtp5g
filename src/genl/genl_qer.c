@@ -73,9 +73,13 @@ int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
         }
         err = qer_fill(qer, gtp, info);
         if (err) {
+            rcu_read_unlock();
+            rtnl_unlock();
             qer_context_delete(qer);
             return err;
         }
+        rcu_read_unlock();
+        rtnl_unlock();
         return 0;
     }
 
