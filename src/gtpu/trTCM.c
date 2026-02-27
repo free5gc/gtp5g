@@ -29,7 +29,7 @@ TrafficPolicer* newTrafficPolicer(u64 kbitRate) {
     }
 
     // EBS size = CIR * BURST_DURATION
-    p->ebs = p->byteRate * (BURST_DURATION / MILLISECONDS_PER_SECOND); // bytes
+    p->ebs = p->byteRate * BURST_DURATION / MILLISECONDS_PER_SECOND; // bytes
 
     // fill buckets at the begining
     p->tc = p->cbs; 
@@ -75,17 +75,17 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
         tc = p->cbs; 
     }
    
-    if (p->tc >= pktLen) {
+    if (tc >= pktLen) {
         p->tc = tc - pktLen;
         p->te = te;
-        spin_unlock(&p->lock); 
+        spin_unlock(&p->lock);
         return Green;
     }
 
-    if (p->te >= pktLen) {
+    if (te >= pktLen) {
         p->tc = tc;
         p->te = te - pktLen;
-        spin_unlock(&p->lock); 
+        spin_unlock(&p->lock);
         return Yellow;
     }
 
