@@ -40,7 +40,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
     int netnsfd;
     u64 seid = 0;
     u16 pdr_id;
-    int err;
+    int err = 0;
 
     if (info->attrs[GTP5G_LINK]) {
         ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -59,9 +59,8 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 
     gtp = gtp5g_find_dev(sock_net(skb->sk), ifindex, netnsfd);
     if (!gtp) {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -ENODEV;
+        err = -ENODEV;
+        goto out;
     }
 
     if (info->attrs[GTP5G_PDR_SEID]) {
@@ -71,59 +70,50 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
     if (info->attrs[GTP5G_PDR_ID]) {
         pdr_id = nla_get_u32(info->attrs[GTP5G_PDR_ID]);
     } else {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -ENODEV;
+        err = -ENODEV;
+        goto out;
     }
 
     pdr = find_pdr_by_id(gtp, seid, pdr_id);
     if (pdr) {
         if (info->nlhdr->nlmsg_flags & NLM_F_EXCL) {
-            rcu_read_unlock();
-            rtnl_unlock();
-            return -EEXIST;
+            err = -EEXIST;
+            goto out;
         }
         if (!(info->nlhdr->nlmsg_flags & NLM_F_REPLACE)) {
-            rcu_read_unlock();
-            rtnl_unlock();
-            return -EOPNOTSUPP;
+            err = -EOPNOTSUPP;
+            goto out;
         }
 
         err = pdr_fill(pdr, gtp, info);
         if (err) {
             pdr_context_delete(pdr);
-            return err;
+            goto out;
         }
 
-        rcu_read_unlock();
-        rtnl_unlock();
-        return 0;
+        goto out;
     }
 
     if (info->nlhdr->nlmsg_flags & NLM_F_REPLACE) {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -ENOENT;
+        err = -ENOENT;
+        goto out;
     }
 
     if (info->nlhdr->nlmsg_flags & NLM_F_APPEND) {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -EOPNOTSUPP;
+        err = -EOPNOTSUPP;
+        goto out;
     }
 
     // Check only at the creation part
     if (!info->attrs[GTP5G_PDR_PRECEDENCE]) {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -EINVAL;
+        err = -EINVAL;
+        goto out;
     }
 
     pdr = kzalloc(sizeof(*pdr), GFP_ATOMIC);
     if (!pdr) {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -ENOMEM;
+        err = -ENOMEM;
+        goto out;
     }
 
     sock_hold(gtp->sk1u);
@@ -133,17 +123,16 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
     err = pdr_fill(pdr, gtp, info);
     if (err) {
         pdr_context_delete(pdr);
-        rcu_read_unlock();
-        rtnl_unlock();
-        return err;
+        goto out;
     }
 
     pdr_append(seid, pdr_id, pdr, gtp);
 
+out:
     rcu_read_unlock();
     rtnl_unlock();
 
-    return 0;
+    return err;
 }
 
 int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)

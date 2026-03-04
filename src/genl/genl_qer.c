@@ -24,7 +24,7 @@ int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
     int netnsfd;
     u64 seid;
     u32 qer_id;
-    int err;
+    int err = 0;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -40,9 +40,8 @@ int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
 
     gtp = gtp5g_find_dev(sock_net(skb->sk), ifindex, netnsfd);
     if (!gtp) {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -ENODEV;
+        err = -ENODEV;
+        goto out;
     }
 
     if (info->attrs[GTP5G_QER_SEID]) {
@@ -54,52 +53,42 @@ int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
     if (info->attrs[GTP5G_QER_ID]) {
         qer_id = nla_get_u32(info->attrs[GTP5G_QER_ID]);
     } else {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -ENODEV;
+        err = -ENODEV;
+        goto out;
     }
 
     qer = find_qer_by_id(gtp, seid, qer_id);
     if (qer) {
         if (info->nlhdr->nlmsg_flags & NLM_F_EXCL) {
-            rcu_read_unlock();
-            rtnl_unlock();
-            return -EEXIST;
+            err = -EEXIST;
+            goto out;
         }
         if (!(info->nlhdr->nlmsg_flags & NLM_F_REPLACE)) {
-            rcu_read_unlock();
-            rtnl_unlock();
-            return -EOPNOTSUPP;
+            err = -EOPNOTSUPP;
+            goto out;
         }
         err = qer_fill(qer, gtp, info);
         if (err) {
-            rcu_read_unlock();
-            rtnl_unlock();
             qer_context_delete(qer);
-            return err;
+            goto out;
         }
-        rcu_read_unlock();
-        rtnl_unlock();
-        return 0;
+        goto out;
     }
 
     if (info->nlhdr->nlmsg_flags & NLM_F_REPLACE) {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -ENOENT;
+        err = -ENOENT;
+        goto out;
     }
 
     if (info->nlhdr->nlmsg_flags & NLM_F_APPEND) {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -EOPNOTSUPP;
+        err = -EOPNOTSUPP;
+        goto out;
     }
 
     qer = kzalloc(sizeof(*qer), GFP_ATOMIC);
     if (!qer) {
-        rcu_read_unlock();
-        rtnl_unlock();
-        return -ENOMEM;
+        err = -ENOMEM;
+        goto out;
     }
 
     qer->dev = gtp->dev;
@@ -107,16 +96,15 @@ int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
     err = qer_fill(qer, gtp, info);
     if (err) {
         qer_context_delete(qer);
-        rcu_read_unlock();
-        rtnl_unlock();
-        return err;
+        goto out;
     }
 
     qer_append(seid, qer_id, qer, gtp);
 
+out:
     rcu_read_unlock();
     rtnl_unlock();
-    return 0;
+    return err;
 }
 
 int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
