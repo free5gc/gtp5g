@@ -4,7 +4,20 @@ For detailed information, please reference to 3GPP specification TS 29.281 and T
 
 ## Notice
 Due to the evolution of Linux kernel, this module would not work with every kernel version.
-Please run this module with kernel version `5.0.0-23-generic`, upper than `5.4` (Ubuntu 20.04) or RHEL8.
+It is known to build and run on kernels from `5.4` (Ubuntu 20.04) or RHEL8 up to and including the `7.0.x` series. Kernels older than that baseline are not supported.
+
+### Kernel 6.18 and 7.0 support
+Two networking API changes are handled behind `LINUX_VERSION_CODE` guards, so older
+kernels keep building unchanged:
+
+- **`struct flowi4` DSCP field** (kernel 6.18): the `flowi4_tos` member was replaced by
+  `flowi4_dscp` (typed `dscp_t`). Route lookups now set it via `inet_sk_dscp()` and
+  express the on-link flag through `flowi4_scope`, matching upstream `drivers/net/gtp.c`.
+- **`proto_ops->connect` address type** (kernel 7.0): the address argument changed from
+  `struct sockaddr *` to `struct sockaddr_unsized *`. The AF_UNIX buffering client casts
+  to the matching type per kernel version.
+
+Kernels `7.1` and newer have not been tested.
 
 ## Usage
 ### Clone

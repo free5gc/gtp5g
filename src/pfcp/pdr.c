@@ -151,8 +151,13 @@ int unix_sock_client_new(struct pdr *pdr)
         return err;
     }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
+    err = (*psock)->ops->connect(*psock, (struct sockaddr_unsized *)addr,
+            sizeof(addr->sun_family) + strlen(addr->sun_path), 0);
+#else
     err = (*psock)->ops->connect(*psock, (struct sockaddr *)addr,
             sizeof(addr->sun_family) + strlen(addr->sun_path), 0);
+#endif
     if (err) {
         unix_sock_client_delete(pdr);
         return err;
