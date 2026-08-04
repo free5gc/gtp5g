@@ -118,7 +118,13 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
     switch (proto) {
     case ETH_P_IP:
         ret = gtp5g_handle_skb_ipv4(skb, dev, &pktinfo);
-        update_usage_statistic(gtp, rxVol, skb->len, ret, SRC_INTF_CORE); // DL
+        /* The skb is only still ours on the PKT_FORWARDED path (it is
+         * transmitted by the caller below). Every other outcome may already
+         * have released it -- e.g. gtp5g_buf_skb_ipv4() frees the skb -- so
+         * skb->len must not be touched there.
+         * */
+        update_usage_statistic(gtp, rxVol,
+            (ret == PKT_FORWARDED) ? skb->len : 0, ret, SRC_INTF_CORE); // DL
         break;
     default:
         ret = -EOPNOTSUPP;

@@ -38,9 +38,9 @@ enum msg_type {
 static void gtp5g_encap_disable_locked(struct sock *);
 static int gtp5g_encap_recv(struct sock *, struct sk_buff *);
 static int gtp1u_udp_encap_recv(struct gtp5g_dev *, struct sk_buff *);
-static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, unsigned int);
+static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, unsigned int, u64 *);
 static int gtp5g_fwd_skb_encap(struct sk_buff *, struct net_device *,
-        unsigned int, struct pdr *, struct far *);
+        unsigned int, struct pdr *, struct far *, u64 *);
 static int netlink_send(struct pdr *, struct far *, struct sk_buff *, struct net *, struct usage_report *, u32);
 static int unix_sock_send(struct pdr *, struct far *, void *, u32, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
@@ -253,6 +253,12 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     u32 teid;
     int rt = 0;
     u64 rxVol = skb->len - sizeof(struct udphdr); // exclude UDP header of GTP packet
+    /* Captured by the forwarding path while the skb is still owned by us.
+     * skb->len must NOT be read after gtp5g_rx() returns: the skb has by then
+     * been handed to ip_xmit()/netif_rx() or freed, so reading it is a
+     * use-after-free that corrupts the tx byte counters.
+     * */
+    u64 txVol = 0;
 
     if (!pskb_may_pull(skb, pull_len)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
@@ -353,13 +359,13 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         goto end;
     }
 
-    rt = gtp5g_rx(pdr, skb, hdrlen, gtp->role);
+    rt = gtp5g_rx(pdr, skb, hdrlen, gtp->role, &txVol);
 
 end:
     if (pdr && pdr->pdi) {
-        update_usage_statistic(gtp, rxVol, skb->len, rt, pdr->pdi->srcIntf);
+        update_usage_statistic(gtp, rxVol, txVol, rt, pdr->pdi->srcIntf);
     } else {
-        update_usage_statistic(gtp, rxVol, skb->len, rt, SRC_INTF_ACCESS);
+        update_usage_statistic(gtp, rxVol, txVol, rt, SRC_INTF_ACCESS);
     }
 
     return rt;
@@ -378,8 +384,8 @@ static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev,
     return PKT_DROPPED;
 }
 
-static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev, 
-    unsigned int hdrlen, struct pdr *pdr, struct far *far)
+static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
+    unsigned int hdrlen, struct pdr *pdr, struct far *far, u64 *txVol)
 {
     struct gtpv1_hdr *gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU) {
@@ -406,6 +412,12 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
             }
         }
     }
+    /* Last point at which the skb is still valid: neither netlink_send() nor
+     * unix_sock_send() takes ownership, they only copy out of it. This matches
+     * what the caller used to read at its end label, for both the TPDU case
+     * (headers already pulled) and the non-TPDU case (untouched).
+     * */
+    *txVol = skb->len;
     dev_kfree_skb(skb);
     return PKT_FORWARDED;
 }
@@ -781,7 +793,7 @@ err1:
 }
 
 static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
-    unsigned int hdrlen, unsigned int role)
+    unsigned int hdrlen, unsigned int role, u64 *txVol)
 {
     int rt = -1;
     struct far *far = rcu_dereference(pdr->far);
@@ -806,10 +818,10 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
                 GTP5G_TRC(pdr->dev, "QER UL gate is closed, drop the packet");
                 return PKT_DROPPED;
             }
-            rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, far);
+            rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, far, txVol);
             break;
         case FAR_ACTION_BUFF:
-            rt = gtp5g_buf_skb_encap(skb, pdr->dev, hdrlen, pdr, far);
+            rt = gtp5g_buf_skb_encap(skb, pdr->dev, hdrlen, pdr, far, txVol);
             break;
         default:
             GTP5G_ERR(pdr->dev, "Unhandled apply action(%u) in FAR(%u) and related to PDR(%u)\n",
@@ -827,7 +839,7 @@ out:
 }
 
 static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
-    unsigned int hdrlen, struct pdr *pdr, struct far *far)
+    unsigned int hdrlen, struct pdr *pdr, struct far *far, u64 *txVol)
 {
     struct forwarding_parameter *fwd_param = rcu_dereference(far->fwd_param);
     struct outer_header_creation *hdr_creation;
@@ -915,8 +927,13 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                 GTP5G_TRC(pdr->dev, "Drop red packet");
                 return PKT_DROPPED;
             }
+            /* Record the on-the-wire length while we still own the skb;
+             * ip_xmit() consumes it.
+             * */
+            *txVol = skb->len;
             if (ip_xmit(skb, pdr->sk, dev) < 0) {
                 GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
+                *txVol = 0;
                 return PKT_DROPPED;
             }
 
@@ -971,16 +988,19 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         GTP5G_TRC(pdr->dev, "Drop red packet");
         return PKT_DROPPED;
     }
+    /* Record the length while we still own the skb; netif_rx() consumes it. */
+    *txVol = skb->len;
     ret = netif_rx(skb);
     if (ret != NET_RX_SUCCESS) {
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
+        *txVol = 0;
         return PKT_DROPPED_AND_FREED;
     }
 
     return PKT_FORWARDED;
 }
 
-static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev, 
+static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct pdr *pdr)
 {
     ++pdr->dl_drop_cnt;
