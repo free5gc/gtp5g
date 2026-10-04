@@ -45,7 +45,12 @@ static void gtp5g_link_setup(struct net_device *dev)
     dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
 
     dev->priv_flags |= IFF_NO_QUEUE;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+    /* NETIF_F_LLTX became dev->lltx in 6.12 */
+    dev->lltx = true;
+#else
     dev->features |= NETIF_F_LLTX;
+#endif
     netif_keep_dst(dev);
 
     /* TODO: Modify the headroom size based on
