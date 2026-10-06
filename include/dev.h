@@ -4,6 +4,14 @@
 #include <linux/netdevice.h>
 #include <linux/rculist.h>
 #include <linux/socket.h>
+#include <linux/version.h>
+
+/* Since 6.7 the core allocates and frees dev->tstats when
+ * dev->pcpu_stat_type is NETDEV_PCPU_STAT_TSTATS.
+ */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0)
+#define GTP5G_CORE_TSTATS
+#endif
 
 struct usage_statistic {
     atomic64_t ul_byte;

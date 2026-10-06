@@ -12,10 +12,6 @@
 #include "log.h"
 #include "proc.h"
 
-#ifndef NETIF_F_LLTX
-#define NETIF_F_LLTX 0
-#endif
-
 const struct nla_policy gtp5g_policy[IFLA_GTP5G_MAX + 1] = {
     [IFLA_GTP5G_FD1]             = { .type = NLA_U32 },
     [IFLA_GTP5G_PDR_HASHSIZE]    = { .type = NLA_U32 },
@@ -26,6 +22,12 @@ static void gtp5g_link_setup(struct net_device *dev)
 {
     dev->netdev_ops = &gtp5g_netdev_ops;
     dev->needs_free_netdev = true;
+#ifdef GTP5G_CORE_TSTATS
+    /* The core allocates and frees dev->tstats; iptunnel_xmit_stats() only
+     * counts TX (and does not WARN) when the stats type is declared.
+     */
+    dev->pcpu_stat_type = NETDEV_PCPU_STAT_TSTATS;
+#endif
 
     dev->hard_header_len = 0;
     dev->addr_len = 0;
@@ -40,7 +42,12 @@ static void gtp5g_link_setup(struct net_device *dev)
     dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
 
     dev->priv_flags |= IFF_NO_QUEUE;
+#ifdef NETIF_F_LLTX
     dev->features |= NETIF_F_LLTX;
+#else
+    /* NETIF_F_LLTX became dev->lltx in 6.12 */
+    dev->lltx = true;
+#endif
     netif_keep_dst(dev);
 
     /* Match the maximum encapsulation overhead used for the default MTU. */
@@ -120,8 +127,6 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     err = register_netdevice(dev);
     if (err < 0) {
         netdev_dbg(dev, "failed to register new netdev %d\n", err);
-        gtp5g_hashtable_free(gtp);
-        gtp5g_encap_disable(gtp->sk1u);
         goto out_hashtable;
     }
 
