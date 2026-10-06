@@ -242,7 +242,7 @@ void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
      * expects BH to be disabled. This runs from a genetlink handler: a
      * migration between its inc and dec leaves one CPU dropping every
      * packet ("Dead loop on virtual device").
-     * */
+     */
     local_bh_disable();
     udp_tunnel_xmit_skb(rt, 
         epkt_info->sk, 
