@@ -13,6 +13,7 @@
 #include <linux/rculist.h>
 #include <net/netns/generic.h>
 #include "net.h"
+#include "log.h"
 
 static int header_creation_fill(struct forwarding_parameter *,
                 struct nlattr **, u8 *,
@@ -92,12 +93,17 @@ int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
             /* SKB size GTPU(8) + UDP(8) + IP(20) + Eth(14)
              * + 2-Bytes align the IP header
              * */
-            struct sk_buff *skb = __netdev_alloc_skb(gtp->dev, 52, GFP_KERNEL);
+            /* GFP_ATOMIC: still inside the rcu_read_lock() section */
+            struct sk_buff *skb = __netdev_alloc_skb(gtp->dev, 52, GFP_ATOMIC);
             if (!skb) {
+                GTP5G_ERR(gtp->dev, "Failed to allocate GTP-U end-marker skb\n");
                 goto out;
             }
             skb_reserve(skb, 2);
-            skb->protocol = eth_type_trans(skb, gtp->dev);
+            /* The skb is empty, so eth_type_trans() would only parse
+             * uninitialised headroom. The End Marker is sent over IPv4.
+             */
+            skb->protocol = htons(ETH_P_IP);
             gtp5g_fwd_emark_skb_ipv4(skb, gtp->dev, &epkt_info);
         }
         goto out;
