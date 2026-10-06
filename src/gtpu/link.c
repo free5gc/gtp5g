@@ -29,16 +29,11 @@ static void gtp5g_link_setup(struct net_device *dev)
 
     dev->hard_header_len = 0;
     dev->addr_len = 0;
-    /* Reserve the largest GTP-U header emitted by gtp5g_push_header():
-     * the mandatory header, optional fields and a PDU Session Container.
-     * QFI traffic therefore fits an ETH_DATA_LEN IPv4 underlay MTU.
+    /* Reserve the maximum encapsulation overhead (see GTP5G_MAX_ENCAP_HLEN)
+     * so QFI traffic fits an ETH_DATA_LEN IPv4 underlay MTU. An MTU set
+     * explicitly by userspace is not capped and may exceed this budget.
      */
-    dev->mtu = ETH_DATA_LEN -
-        (sizeof(struct iphdr) +
-         sizeof(struct udphdr) +
-         sizeof(struct gtpv1_hdr) +
-         sizeof(gtpv1_hdr_opt_t) +
-         sizeof(ext_pdu_sess_ctr_t));
+    dev->mtu = ETH_DATA_LEN - GTP5G_MAX_ENCAP_HLEN;
 
     /* Zero header length. */
     dev->type = ARPHRD_NONE;
@@ -49,12 +44,7 @@ static void gtp5g_link_setup(struct net_device *dev)
     netif_keep_dst(dev);
 
     /* Match the maximum encapsulation overhead used for the default MTU. */
-    dev->needed_headroom = LL_MAX_HEADER +
-        sizeof(struct iphdr) +
-        sizeof(struct udphdr) +
-        sizeof(struct gtpv1_hdr) +
-        sizeof(gtpv1_hdr_opt_t) +
-        sizeof(ext_pdu_sess_ctr_t);
+    dev->needed_headroom = LL_MAX_HEADER + GTP5G_MAX_ENCAP_HLEN;
 }
 
 static int gtp5g_validate(struct nlattr *tb[], struct nlattr *data[],

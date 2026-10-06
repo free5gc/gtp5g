@@ -2,6 +2,8 @@
 #define __GTP5G_GTP_H__
 
 #include <linux/skbuff.h>
+#include <linux/ip.h>
+#include <linux/udp.h>
 
 #define GTPV1 0x30
 
@@ -88,5 +90,15 @@ typedef struct gtp1_hdr_ext_pdu_sess_ctr {
     pdu_sess_ctr_t  pdu_sess_ctr;
     __u8            next_ehdr_type;
 } __attribute__((packed)) ext_pdu_sess_ctr_t;
+
+/* Maximum IPv4 encapsulation overhead added by gtp5g_push_header(): the
+ * mandatory GTP-U header, optional fields and a 4-byte PDU Session
+ * Container. Update this if the container grows (e.g. when PPI is added).
+ */
+#define GTP5G_MAX_ENCAP_HLEN (sizeof(struct iphdr) + \
+                              sizeof(struct udphdr) + \
+                              sizeof(struct gtpv1_hdr) + \
+                              sizeof(gtpv1_hdr_opt_t) + \
+                              sizeof(ext_pdu_sess_ctr_t))
 
 #endif // __GTP5G_GTP_H__
