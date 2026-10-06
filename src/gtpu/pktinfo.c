@@ -105,9 +105,7 @@ struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
     df = iph->frag_off;
     if (df) {
         mtu = dst_mtu(&rt->dst) - gtp_dev->hard_header_len -
-            sizeof(struct iphdr) - sizeof(struct udphdr);
-        // GTPv1
-        mtu -= sizeof(struct gtpv1_hdr);
+            GTP5G_MAX_ENCAP_HLEN;
     }
     else {
         mtu = dst_mtu(&rt->dst);
