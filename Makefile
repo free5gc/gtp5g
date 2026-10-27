@@ -39,6 +39,19 @@ CC += ${MY_CFLAGS}
 
 ccflags-y += -I $(MAKEFILE_DIR)/include
 
+# Detect setup_udp_tunnel_sock() argument type from kernel headers
+ifneq ($(srctree),)
+UDP_TUNNEL_H := $(srctree)/include/net/udp_tunnel.h
+
+ifeq ($(wildcard $(UDP_TUNNEL_H)),)
+$(error Cannot find kernel header: $(UDP_TUNNEL_H))
+endif
+
+ifneq ($(shell grep -A 2 'setup_udp_tunnel_sock' $(UDP_TUNNEL_H) | grep -Ec 'struct sock[[:space:]]*\*'),0)
+ccflags-y += -DGTP5G_UDP_TUNNEL_SOCK_SK
+endif
+endif
+
 5G_MOD := src/gtp5g.o
 
 5G_LOG	:= src/log.o

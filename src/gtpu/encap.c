@@ -87,7 +87,11 @@ struct sock *gtp5g_encap_enable(int fd, int type, struct gtp5g_dev *gtp){
     tuncfg.encap_rcv = gtp5g_encap_recv;
     tuncfg.encap_destroy = gtp5g_encap_disable_locked;
 
+#ifdef GTP5G_UDP_TUNNEL_SOCK_SK
+    setup_udp_tunnel_sock(sock_net(sock->sk), sock->sk, &tuncfg);
+#else
     setup_udp_tunnel_sock(sock_net(sock->sk), sock, &tuncfg);
+#endif
 
 out_sock:
     release_sock(sock->sk);
