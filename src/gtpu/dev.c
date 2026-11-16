@@ -267,6 +267,21 @@ err1:
     return -ENOMEM;
 }
 
+static void related_hash_drain(struct hlist_head *hash, int size)
+{
+    struct pdr_node *pdr_node;
+    struct hlist_node *tmp;
+    int i;
+
+    /* Every PDR is gone by now; anything left here is an orphan. */
+    for (i = 0; i < size; i++) {
+        hlist_for_each_entry_safe(pdr_node, tmp, &hash[i], hlist) {
+            hlist_del(&pdr_node->hlist);
+            kfree(pdr_node);
+        }
+    }
+}
+
 void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
 {
     struct pdr *pdr;
@@ -274,22 +289,44 @@ void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
     struct qer *qer;
     struct bar *bar;
     struct urr *urr;
+    struct hlist_node *tmp;
     int i;
 
+    /*
+     * Called from newlink's error path and from priv_destructor; on some
+     * kernels both run for a failed register_netdevice(). hash_size is
+     * only set once every table is allocated, and cleared below.
+     */
+    if (!gtp->hash_size)
+        return;
+
+    /*
+     * Free the PDRs first. pdr_context_delete() takes each PDR out of the
+     * related_*_hash, so the FAR/QER/URR teardown below never walks into a
+     * PDR. The _safe walkers read the next entry before the current one is
+     * queued for freeing; we are not inside an RCU read-side section here,
+     * so a grace period may end in the middle of the loop.
+     */
     for (i = 0; i < gtp->hash_size; i++) {
-        hlist_for_each_entry_rcu(far, &gtp->far_id_hash[i], hlist_id)
-            far_context_delete(far);
-        hlist_for_each_entry_rcu(qer, &gtp->qer_id_hash[i], hlist_id)
-            qer_context_delete(qer);
-        hlist_for_each_entry_rcu(pdr, &gtp->pdr_id_hash[i], hlist_id)
+        hlist_for_each_entry_safe(pdr, tmp, &gtp->pdr_id_hash[i], hlist_id)
             pdr_context_delete(pdr);
-        hlist_for_each_entry_rcu(bar, &gtp->bar_id_hash[i], hlist_id)
+    }
+
+    for (i = 0; i < gtp->hash_size; i++) {
+        hlist_for_each_entry_safe(far, tmp, &gtp->far_id_hash[i], hlist_id)
+            far_context_delete(far);
+        hlist_for_each_entry_safe(qer, tmp, &gtp->qer_id_hash[i], hlist_id)
+            qer_context_delete(qer);
+        hlist_for_each_entry_safe(bar, tmp, &gtp->bar_id_hash[i], hlist_id)
             bar_context_delete(bar);
-        hlist_for_each_entry_rcu(urr, &gtp->urr_id_hash[i], hlist_id)
+        hlist_for_each_entry_safe(urr, tmp, &gtp->urr_id_hash[i], hlist_id)
             urr_context_delete(urr);
     }
 
     synchronize_rcu();
+    related_hash_drain(gtp->related_far_hash, gtp->hash_size);
+    related_hash_drain(gtp->related_qer_hash, gtp->hash_size);
+    related_hash_drain(gtp->related_urr_hash, gtp->hash_size);
     kvfree(gtp->addr_hash);
     kvfree(gtp->i_teid_hash);
     kvfree(gtp->framed_route_hash);
@@ -302,4 +339,18 @@ void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
     kvfree(gtp->related_qer_hash);
     kvfree(gtp->related_bar_hash);
     kvfree(gtp->related_urr_hash);
+
+    gtp->hash_size = 0;
+    gtp->addr_hash = NULL;
+    gtp->i_teid_hash = NULL;
+    gtp->framed_route_hash = NULL;
+    gtp->pdr_id_hash = NULL;
+    gtp->far_id_hash = NULL;
+    gtp->qer_id_hash = NULL;
+    gtp->bar_id_hash = NULL;
+    gtp->urr_id_hash = NULL;
+    gtp->related_far_hash = NULL;
+    gtp->related_qer_hash = NULL;
+    gtp->related_bar_hash = NULL;
+    gtp->related_urr_hash = NULL;
 }

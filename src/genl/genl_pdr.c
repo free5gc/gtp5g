@@ -116,6 +116,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
         goto out;
     }
 
+    pdr_init(pdr);
     sock_hold(gtp->sk1u);
     pdr->sk = gtp->sk1u;
     pdr->dev = gtp->dev;
@@ -178,9 +179,7 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
         return -ENOENT;
     }
 
-    del_related_urr_hash(gtp, pdr);
-    del_related_qer_hash(gtp, pdr);
-    del_related_far_hash(gtp, pdr);
+    /* pdr_context_delete() also takes the PDR out of the related_*_hash. */
     pdr_context_delete(pdr);
     rcu_read_unlock();
 
@@ -310,6 +309,10 @@ out:
 int find_qer_id_in_pdr(struct pdr *pdr, u32 qer_id)
 {
     int i = 0;
+
+    if (!pdr)
+        return 0;
+
     for (i = 0; i < pdr->qer_num; i++) {
         if (pdr->qer_ids[i] == qer_id)
             return 1;

@@ -18,10 +18,24 @@ const struct nla_policy gtp5g_policy[IFLA_GTP5G_MAX + 1] = {
     [IFLA_GTP5G_ROLE]            = { .type = NLA_U32 },
 };
 
+/*
+ * Free the PDR/FAR/QER/URR/BAR tables only once nothing can reach them.
+ * The core calls priv_destructor after unregister_netdevice_many() has
+ * taken the device off the lists and waited for an RCU grace period
+ * (synchronize_net()), and after ndo_uninit has detached the UDP encap
+ * socket. By then no genl handler that found the device through
+ * gtp5g_find_dev(), and no datapath reader, can still be using the tables.
+ */
+static void gtp5g_dev_destructor(struct net_device *dev)
+{
+    gtp5g_hashtable_free(netdev_priv(dev));
+}
+
 static void gtp5g_link_setup(struct net_device *dev)
 {
     dev->netdev_ops = &gtp5g_netdev_ops;
     dev->needs_free_netdev = true;
+    dev->priv_destructor = gtp5g_dev_destructor;
 #ifdef GTP5G_CORE_TSTATS
     /* The core allocates and frees dev->tstats; iptunnel_xmit_stats() only
      * counts TX (and does not WARN) when the stats type is declared.
@@ -147,7 +161,14 @@ static void gtp5g_dellink(struct net_device *dev, struct list_head *head)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
 
-    gtp5g_hashtable_free(gtp);
+    /*
+     * Do not free the hash tables here. The device stays reachable through
+     * dev_get_by_index_rcu() until unregister_netdevice_many() unlists it
+     * after we return, so a genl request (e.g. del_far from the UPF) could
+     * look it up and index into tables that were already kvfree'd. That
+     * read hits an unmapped vmalloc page and oopses. The tables are freed
+     * in gtp5g_dev_destructor() instead.
+     */
     list_del_rcu(&gtp->list);
     list_del_rcu(&gtp->proc_list);
     unregister_netdevice_queue(dev, head);

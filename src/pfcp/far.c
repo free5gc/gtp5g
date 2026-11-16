@@ -136,33 +136,20 @@ int far_get_pdr_ids(u16 *ids, int n, struct far *far, struct gtp5g_dev *gtp)
     return i;
 }
 
+/*
+ * Drop the PDR's entry in related_far_hash. The entry is found through the
+ * PDR's own list, not by re-hashing *pdr->far_id: on update pdr_fill() has
+ * already overwritten far_id with the new FAR, so the old bucket would be
+ * missed and the stale entry would outlive the PDR.
+ */
 void del_related_far_hash(struct gtp5g_dev *gtp, struct pdr *pdr)
 {
-    u32 i;
-    struct pdr_node *pdr_node = NULL ;
-    struct pdr_node *to_be_del = NULL ;
-    char seid_far_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-
-    seid_far_id_to_hex_str(pdr->seid, *pdr->far_id, seid_far_id_hexstr);
-    i = str_hashfn(seid_far_id_hexstr) % gtp->hash_size;
-    hlist_for_each_entry_rcu(pdr_node, &gtp->related_far_hash[i], hlist) {
-        if (pdr_node->pdr != NULL &&
-            pdr_node->pdr->seid == pdr->seid &&
-            pdr_node->pdr->id == pdr->id) {
-            to_be_del = pdr_node;
-            break;
-        }
-    }
-    if (to_be_del){
-        hlist_del(&to_be_del->hlist);
-        kfree(to_be_del);
-    }
+    pdr_unlink_related(pdr, PDR_NODE_FAR);
 }
 
 int far_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
 {
     char seid_far_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    struct pdr_node *pdr_node = NULL;
     u32 i;
 
     if (!pdr)
@@ -173,12 +160,5 @@ int far_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
     seid_far_id_to_hex_str(pdr->seid, *pdr->far_id, seid_far_id_hexstr);
     i = str_hashfn(seid_far_id_hexstr) % gtp->hash_size;
 
-    pdr_node = kzalloc(sizeof(*pdr_node), GFP_ATOMIC);
-    if (!pdr_node) {
-        return -ENOMEM;
-    }
-    pdr_node->pdr = pdr;
-    hlist_add_head_rcu(&pdr_node->hlist, &gtp->related_far_hash[i]);
-
-    return 0;
+    return pdr_link_related(pdr, &gtp->related_far_hash[i], PDR_NODE_FAR);
 }

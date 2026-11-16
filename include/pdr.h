@@ -61,9 +61,28 @@ struct pdi {
 #define QER_ID_SIZE sizeof(u32)
 #define URR_ID_SIZE sizeof(u32)
 
+enum pdr_node_type {
+    PDR_NODE_FAR,
+    PDR_NODE_QER,
+    PDR_NODE_URR,
+    PDR_NODE_ALL,
+};
+
+/*
+ * A pdr_node puts a PDR into one bucket of related_{far,qer,urr}_hash.
+ * Each node is also linked on its owner's pdr->related_nodes, so the PDR
+ * can always find and remove every node it inserted. Looking the nodes up
+ * again by the PDR's current FAR/QER/URR IDs is not reliable: the IDs can
+ * change on update, and a PDR that fails pdr_fill() is freed without going
+ * through gtp5g_genl_del_pdr(). Either case used to leave a node pointing
+ * at a freed PDR, which find_{qer,urr}_id_in_pdr() later dereferenced.
+ */
 struct pdr_node {
     struct hlist_node hlist;
+    struct list_head owner;
     struct pdr *pdr;
+    u8 type;
+    struct rcu_head rcu_head;
 };
 
 struct pdr {
@@ -85,6 +104,9 @@ struct pdr {
     uint8_t ul_dl_gate;
     u32 *urr_ids;
     u32 urr_num;
+
+    /* pdr_node entries this PDR owns in the related_*_hash tables */
+    struct list_head related_nodes;
     
     /* deprecated: AF_UNIX socket for buffer */
     struct sockaddr_un addr_unix;
@@ -108,6 +130,9 @@ struct pdr {
 };
 
 void pdr_context_delete(struct pdr *);
+void pdr_init(struct pdr *);
+int pdr_link_related(struct pdr *, struct hlist_head *, u8);
+void pdr_unlink_related(struct pdr *, u8);
 struct pdr *find_pdr_by_id(struct gtp5g_dev *, u64, u16);
 struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *, struct sk_buff *, unsigned int, u32, u8);
 struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *, struct sk_buff *, unsigned int, __be32);

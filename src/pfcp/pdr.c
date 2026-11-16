@@ -91,6 +91,47 @@ static void pdr_context_free(struct rcu_head *head)
     kfree(pdr);
 }
 
+void pdr_init(struct pdr *pdr)
+{
+    INIT_LIST_HEAD(&pdr->related_nodes);
+}
+
+/* Insert pdr into a related_*_hash bucket and remember the node on the PDR. */
+int pdr_link_related(struct pdr *pdr, struct hlist_head *head, u8 type)
+{
+    struct pdr_node *pdr_node;
+
+    pdr_node = kzalloc(sizeof(*pdr_node), GFP_ATOMIC);
+    if (!pdr_node)
+        return -ENOMEM;
+
+    pdr_node->pdr = pdr;
+    pdr_node->type = type;
+    list_add(&pdr_node->owner, &pdr->related_nodes);
+    hlist_add_head_rcu(&pdr_node->hlist, head);
+
+    return 0;
+}
+
+/*
+ * Remove the nodes of the given type (or all of them with PDR_NODE_ALL) that
+ * pdr inserted into the related_*_hash tables. Readers walk those buckets
+ * under RCU, the datapath included, so the nodes are freed after a grace
+ * period.
+ */
+void pdr_unlink_related(struct pdr *pdr, u8 type)
+{
+    struct pdr_node *pdr_node, *tmp;
+
+    list_for_each_entry_safe(pdr_node, tmp, &pdr->related_nodes, owner) {
+        if (type != PDR_NODE_ALL && pdr_node->type != type)
+            continue;
+        list_del(&pdr_node->owner);
+        hlist_del_rcu(&pdr_node->hlist);
+        kfree_rcu(pdr_node, rcu_head);
+    }
+}
+
 void pdr_context_delete(struct pdr *pdr)
 {
     struct pdi *pdi;
@@ -98,6 +139,9 @@ void pdr_context_delete(struct pdr *pdr)
 
     if (!pdr)
         return;
+
+    /* No related_*_hash entry may outlive the PDR it points to. */
+    pdr_unlink_related(pdr, PDR_NODE_ALL);
 
     if (!hlist_unhashed(&pdr->hlist_id))
         hlist_del_rcu(&pdr->hlist_id);

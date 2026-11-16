@@ -202,37 +202,17 @@ int urr_get_pdr_ids(u16 *ids, int n, struct urr *urr, struct gtp5g_dev *gtp)
     return i;
 }
 
+/* Drop every related_urr_hash entry this PDR owns. */
 void del_related_urr_hash(struct gtp5g_dev *gtp, struct pdr *pdr)
 {
-    u32 i, j;
-    struct pdr_node *pdr_node = NULL ;
-    struct pdr_node *to_be_del = NULL ;
-    char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-
-    for (j = 0; j < pdr->urr_num; j++) {
-        to_be_del = NULL;
-        seid_urr_id_to_hex_str(pdr->seid, pdr->urr_ids[j], seid_urr_id_hexstr);
-        i = str_hashfn(seid_urr_id_hexstr) % gtp->hash_size;
-        hlist_for_each_entry_rcu(pdr_node, &gtp->related_urr_hash[i], hlist) {
-            if (pdr_node->pdr != NULL &&
-                pdr_node->pdr->seid == pdr->seid &&
-                pdr_node->pdr->id == pdr->id) {
-                to_be_del = pdr_node;
-                break;
-            }
-        }
-        if (to_be_del){
-            hlist_del(&to_be_del->hlist);
-            kfree(to_be_del);
-        }
-    }
+    pdr_unlink_related(pdr, PDR_NODE_URR);
 }
 
 int urr_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
 {
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     u32 i, j;
-    struct pdr_node *pdr_node = NULL;
+    int err;
 
     if (!pdr)
         return -1;
@@ -244,12 +224,9 @@ int urr_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
         seid_urr_id_to_hex_str(pdr->seid, pdr->urr_ids[j], seid_urr_id_hexstr);
         i = str_hashfn(seid_urr_id_hexstr) % gtp->hash_size;
 
-        pdr_node = kzalloc(sizeof(*pdr_node), GFP_ATOMIC);
-        if (!pdr_node) {
-            return -ENOMEM;
-        }
-        pdr_node->pdr = pdr;
-        hlist_add_head_rcu(&pdr_node->hlist, &gtp->related_urr_hash[i]);
+        err = pdr_link_related(pdr, &gtp->related_urr_hash[i], PDR_NODE_URR);
+        if (err)
+            return err;
     }
     return 0;
 }
