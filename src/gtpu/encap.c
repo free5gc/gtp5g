@@ -666,8 +666,12 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
         return ret;
     }
 
-    urrs = kzalloc(sizeof(struct urr *) * pdr->urr_num , GFP_ATOMIC);
-    triggers = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);
+    /* START takes the early continue below. Otherwise each URR can emit
+     * both a volume-threshold and a volume-quota report for one packet.
+     * Reserve two entries per URR and use kcalloc for overflow checking.
+     */
+    urrs = kcalloc(pdr->urr_num, 2 * sizeof(*urrs), GFP_ATOMIC);
+    triggers = kcalloc(pdr->urr_num, 2 * sizeof(*triggers), GFP_ATOMIC);
     if (!urrs || !triggers) {
         ret = -1;
         goto err1;
@@ -735,7 +739,7 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
     if (report_num > 0) {
         len = sizeof(*report) * report_num;
 
-        report = kzalloc(len, GFP_ATOMIC);
+        report = kcalloc(report_num, sizeof(*report), GFP_ATOMIC);
         if (!report) {
             ret = -1;
             goto err1;
