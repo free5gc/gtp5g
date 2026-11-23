@@ -39,6 +39,14 @@ CC += ${MY_CFLAGS}
 
 ccflags-y += -I $(MAKEFILE_DIR)/include
 
+# setup_udp_tunnel_sock() takes struct sock * instead of struct socket * on
+# newer kernels; the change was also backported to stable (e.g. Ubuntu 7.0.x),
+# so detect it from the headers rather than by LINUX_VERSION_CODE.
+UDP_TUNNEL_SK_PROTO := $(shell grep -Es 'setup_udp_tunnel_sock.struct net .net, struct sock .sk' $(srctree)/include/net/udp_tunnel.h $(KDIR)/include/net/udp_tunnel.h 2>/dev/null)
+ifneq ($(UDP_TUNNEL_SK_PROTO),)
+	ccflags-y += -DGTP5G_UDP_TUNNEL_SOCK_TAKES_SK
+endif
+
 5G_MOD := src/gtp5g.o
 
 5G_LOG	:= src/log.o
