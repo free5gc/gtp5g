@@ -20,6 +20,8 @@ static void urr_context_free(struct rcu_head *head)
     if (!urr)
         return;
 
+    kfree(urr->pdrids);
+    kfree(urr->actions);
     kfree(urr);
 }
 
@@ -96,8 +98,9 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     // urr stop measurement
     urr->pdr_num = 0;
 
-    pdrids = kzalloc(MAX_PDR_PER_SESSION * sizeof(u16), GFP_KERNEL);
-    actions = kzalloc(MAX_PDR_PER_SESSION * sizeof(u16), GFP_KERNEL);
+    // This runs on the packet path (softirq) as well, so it must not sleep.
+    pdrids = kcalloc(MAX_PDR_PER_SESSION, sizeof(u16), GFP_ATOMIC);
+    actions = kcalloc(MAX_PDR_PER_SESSION, sizeof(u16), GFP_ATOMIC);
     if (!pdrids || !actions)
         goto fail;
 
@@ -105,10 +108,12 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
     //each pdr that associate with the urr drop pkt
     hlist_for_each_entry_rcu(pdr_node, head, hlist) {
+        if (urr->pdr_num >= MAX_PDR_PER_SESSION)
+            break;
         if (find_urr_id_in_pdr(pdr_node->pdr, urr->id)) {
-            pdrids[urr->pdr_num] = pdr_node->pdr->id;
             far = rcu_dereference(pdr_node->pdr->far);
             if (far != NULL) {
+                pdrids[urr->pdr_num] = pdr_node->pdr->id;
                 actions[urr->pdr_num++] = far->action;
 
                 far->action = FAR_ACTION_DROP;
@@ -116,22 +121,19 @@ void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
         }
     }
 
-    if (urr->pdr_num > 0) {
-        urr->pdrids = kzalloc(urr->pdr_num * sizeof(u16), GFP_KERNEL);
-        urr->actions = kzalloc(urr->pdr_num * sizeof(u16), GFP_KERNEL);
-
-        memcpy(urr->pdrids, pdrids, urr->pdr_num * sizeof(u16));
-        memcpy(urr->actions, actions, urr->pdr_num * sizeof(u16));
-    }
+    // Keep the saved actions until the quota comes back; no second
+    // allocation, so there is nothing left to fail after the FARs changed.
+    urr->pdrids = pdrids;
+    urr->actions = actions;
+    pdrids = NULL;
+    actions = NULL;
 
     urr->info |= URR_INFO_INAM;
     urr->quota_exhausted = true;
 
 fail:
-    if (pdrids)
-        kfree(pdrids);
-    if (actions)
-        kfree(actions);
+    kfree(pdrids);
+    kfree(actions);
 }
 
 void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
@@ -152,6 +154,8 @@ void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
 
     //each pdr that associate with the urr resume it's normal action
     hlist_for_each_entry_rcu(pdr_node, head, hlist) {
+        if (!urr->pdrids || !urr->actions)
+            break;
         if (find_urr_id_in_pdr(pdr_node->pdr, urr->id)) {
             for (i = 0; i < urr->pdr_num; i++) {
                 if (urr->pdrids[i] == pdr_node->pdr->id) {
@@ -166,10 +170,13 @@ void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
 
     urr->quota_exhausted = false;
 
-    if (urr->pdrids)
-        kfree(urr->pdrids);
-    if (urr->actions)
-        kfree(urr->actions);
+    // Clear the pointers: the next exhaust may find no PDR to save, and
+    // urr_context_free() frees whatever is still attached.
+    kfree(urr->pdrids);
+    kfree(urr->actions);
+    urr->pdrids = NULL;
+    urr->actions = NULL;
+    urr->pdr_num = 0;
 }
 
 void urr_append(u64 seid, u32 urr_id, struct urr *urr, struct gtp5g_dev *gtp)
