@@ -984,8 +984,9 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     if (pdr->urr_num != 0) {
         ret = update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe);
         if (ret == DONT_SEND_UL_PACKET) {
-            // START trigger: not a failure to send the report
-            GTP5G_INF(pdr->dev, "First uplink packet of the flow, START reported");
+            // START trigger: same as the outer-header-creation branch above
+            GTP5G_INF(pdr->dev, "Should not foward the first uplink packet");
+            return PKT_DROPPED;
         } else if (ret < 0) {
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
         }
