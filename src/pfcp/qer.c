@@ -171,7 +171,10 @@ void set_pdr_qer_with_rate_null(struct qer *qer_with_rate, struct gtp5g_dev *gtp
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr_node, head, hlist) {
         pdr = pdr_node->pdr;
-        if (pdr != NULL) {
+        // The bucket also holds PDRs of other QERs (and other sessions)
+        // that hash to the same index; only drop the pointer to this QER.
+        if (pdr != NULL &&
+            rcu_access_pointer(pdr->qer_with_rate) == qer_with_rate) {
             rcu_assign_pointer(pdr->qer_with_rate, NULL);
         }
     }
