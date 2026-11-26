@@ -982,8 +982,14 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     GTP5G_INF(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);    
  
     if (pdr->urr_num != 0) {
-        if (update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe) < 0)
+        ret = update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe);
+        if (ret == DONT_SEND_UL_PACKET) {
+            // START trigger: same as the outer-header-creation branch above
+            GTP5G_INF(pdr->dev, "Should not foward the first uplink packet");
+            return PKT_DROPPED;
+        } else if (ret < 0) {
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
+        }
     }
     
     if (color == Red) {
